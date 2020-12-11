@@ -39,44 +39,28 @@ pub fn lint(cx: &LateContext<'_>, expr: &hir::Expr<'_>, args: &[&[hir::Expr<'_>]
             // "mul" is omitted because lhs can be negative.
             _ => return,
         }
-
-        let mut applicability = Applicability::MachineApplicable;
-        span_lint_and_sugg(
-            cx,
-            super::MANUAL_SATURATING_ARITHMETIC,
-            expr.span,
-            "manual saturating arithmetic",
-            &format!("try using `saturating_{}`", arith),
-            format!(
-                "{}.saturating_{}({})",
-                snippet_with_applicability(cx, arith_lhs.span, "..", &mut applicability),
-                arith,
-                snippet_with_applicability(cx, arith_rhs.span, "..", &mut applicability),
-            ),
-            applicability,
-        );
     } else {
         match (mm, arith) {
             (MinMax::Max, "add" | "mul") | (MinMax::Min, "sub") => (),
             _ => return,
         }
-
-        let mut applicability = Applicability::MachineApplicable;
-        span_lint_and_sugg(
-            cx,
-            super::MANUAL_SATURATING_ARITHMETIC,
-            expr.span,
-            "manual saturating arithmetic",
-            &format!("try using `saturating_{}`", arith),
-            format!(
-                "{}.saturating_{}({})",
-                snippet_with_applicability(cx, arith_lhs.span, "..", &mut applicability),
-                arith,
-                snippet_with_applicability(cx, arith_rhs.span, "..", &mut applicability),
-            ),
-            applicability,
-        );
     }
+
+    let mut applicability = Applicability::MachineApplicable;
+    span_lint_and_sugg(
+        cx,
+        super::MANUAL_SATURATING_ARITHMETIC,
+        expr.span,
+        "manual saturating arithmetic",
+        &format!("try using `saturating_{}`", arith),
+        format!(
+            "{}.saturating_{}({})",
+            snippet_with_applicability(cx, arith_lhs.span, "..", &mut applicability),
+            arith,
+            snippet_with_applicability(cx, arith_rhs.span, "..", &mut applicability),
+        ),
+        applicability,
+    );
 }
 
 #[derive(PartialEq, Eq)]
