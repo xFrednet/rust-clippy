@@ -4,7 +4,7 @@
 #![allow(unused_extern_crates)]
 extern crate proc_macro;
 
-use proc_macro::{quote, TokenStream};
+use proc_macro::{TokenStream, quote};
 
 #[proc_macro_derive(ClippyMiniMacroTest)]
 pub fn mini_macro(_: TokenStream) -> TokenStream {
@@ -23,4 +23,21 @@ pub fn mini_macro(_: TokenStream) -> TokenStream {
             println!("{}", line!());
         }
     )
+}
+
+extern crate quote;
+#[proc_macro]
+pub fn spans_are_fun(input: TokenStream) -> TokenStream {
+    let pm_span: proc_macro::Span = input.into_iter().next().unwrap().span();
+    let q_span : quote::__private::Span = pm_span.into();
+
+    quote::quote_spanned!(
+        q_span=>
+        if false {
+
+        }
+        if false {
+            
+        }
+    ).into()
 }

@@ -18,3 +18,4 @@ name = "clippy_mini_macro_test"
 proc-macro = true
 
 [dependencies]
+quote = "1.0"
