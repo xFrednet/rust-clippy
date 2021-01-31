@@ -1,7 +1,7 @@
 pub mod author;
 pub mod conf;
 pub mod inspector;
-#[cfg(feature = "internal-lints")]
+#[cfg(any(feature = "internal-lints", feature = "metadata-collector-lint"))]
 pub mod internal_lints;
 
 pub use clippy_utils::*;

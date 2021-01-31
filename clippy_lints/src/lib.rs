@@ -558,6 +558,9 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         &utils::internal_lints::PRODUCE_ICE,
         #[cfg(feature = "internal-lints")]
         &utils::internal_lints::UNNECESSARY_SYMBOL_STR,
+        // TODO xFrednet 2021-02-13: Update `cargo dev update_lints` to support this vvvv
+        #[cfg(feature = "metadata-collector-lint")]
+        &utils::internal_lints::metadata_collector::INTERNAL_METADATA_COLLECTOR,
         &approx_const::APPROX_CONSTANT,
         &arithmetic::FLOAT_ARITHMETIC,
         &arithmetic::INTEGER_ARITHMETIC,
@@ -1024,6 +1027,9 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         store.register_late_pass(|| box utils::internal_lints::MatchTypeOnDiagItem);
         store.register_late_pass(|| box utils::internal_lints::OuterExpnDataPass);
     }
+    #[cfg(feature = "metadata-collector-lint")]
+    store.register_late_pass(|| box utils::internal_lints::metadata_collector::MetadataCollector::default());
+
     store.register_late_pass(|| box utils::author::Author);
     store.register_late_pass(|| box await_holding_invalid::AwaitHolding);
     store.register_late_pass(|| box serde_api::SerdeApi);
@@ -1441,6 +1447,7 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         LintId::of(&utils::internal_lints::OUTER_EXPN_EXPN_DATA),
         LintId::of(&utils::internal_lints::PRODUCE_ICE),
         LintId::of(&utils::internal_lints::UNNECESSARY_SYMBOL_STR),
+        LintId::of(&utils::internal_lints::metadata_collector::INTERNAL_METADATA_COLLECTOR),
     ]);
 
     store.register_group(true, "clippy::all", Some("clippy"), vec![
