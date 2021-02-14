@@ -1447,6 +1447,7 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         LintId::of(&utils::internal_lints::OUTER_EXPN_EXPN_DATA),
         LintId::of(&utils::internal_lints::PRODUCE_ICE),
         LintId::of(&utils::internal_lints::UNNECESSARY_SYMBOL_STR),
+        #[cfg(feature = "metadata-collector-lint")]
         LintId::of(&utils::internal_lints::metadata_collector::INTERNAL_METADATA_COLLECTOR),
     ]);
 
