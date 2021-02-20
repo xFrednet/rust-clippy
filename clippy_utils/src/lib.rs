@@ -204,7 +204,8 @@ pub fn is_wild<'tcx>(pat: &impl std::ops::Deref<Target = Pat<'tcx>>) -> bool {
     matches!(pat.kind, PatKind::Wild)
 }
 
-/// Checks if type is struct, enum or union type with the given def path.
+/// Checks if type is struct, enum or union type with the given def path. Make sure to use
+/// the original definition path. This function ignores reexports.
 ///
 /// If the type is a diagnostic item, use `is_type_diagnostic_item` instead.
 /// If you change the signature, remember to update the internal lint `MatchTypeOnDiagItem`
@@ -1060,7 +1061,13 @@ pub fn get_parent_node(tcx: TyCtxt<'_>, id: HirId) -> Option<Node<'_>> {
 
 /// Gets the parent expression, if any –- this is useful to constrain a lint.
 pub fn get_parent_expr<'tcx>(cx: &LateContext<'tcx>, e: &Expr<'_>) -> Option<&'tcx Expr<'tcx>> {
-    match get_parent_node(cx.tcx, e.hir_id) {
+    get_parent_expr_for_hir(cx, e.hir_id)
+}
+
+/// This retrieves the parent for the given `HirId` if it's an expression. This is useful for
+/// constraint lints
+pub fn get_parent_expr_for_hir<'tcx>(cx: &LateContext<'tcx>, hir_id: hir::HirId) -> Option<&'tcx Expr<'tcx>> {
+    match get_parent_node(cx.tcx, hir_id) {
         Some(Node::Expr(parent)) => Some(parent),
         _ => None,
     }
