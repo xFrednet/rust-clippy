@@ -57,13 +57,14 @@ impl<'a, 'tcx> SpanlessEq<'a, 'tcx> {
 
     /// Use this method to wrap comparisons that may involve inter-expression context.
     /// See `self.locals`.
-    fn inter_expr(&mut self) -> HirEqInterExpr<'_, 'a, 'tcx> {
+    pub fn inter_expr(&mut self) -> HirEqInterExpr<'_, 'a, 'tcx> {
         HirEqInterExpr {
             inner: self,
             locals: FxHashMap::default(),
         }
     }
 
+    #[allow(dead_code)]
     pub fn eq_block(&mut self, left: &Block<'_>, right: &Block<'_>) -> bool {
         self.inter_expr().eq_block(left, right)
     }
@@ -85,17 +86,17 @@ impl<'a, 'tcx> SpanlessEq<'a, 'tcx> {
     }
 }
 
-struct HirEqInterExpr<'a, 'b, 'tcx> {
+pub struct HirEqInterExpr<'a, 'b, 'tcx> {
     inner: &'a mut SpanlessEq<'b, 'tcx>,
 
-    // When binding are declared, the binding ID in the left expression is mapped to the one on the
-    // right. For example, when comparing `{ let x = 1; x + 2 }` and `{ let y = 1; y + 2 }`,
-    // these blocks are considered equal since `x` is mapped to `y`.
+    /// When binding are declared, the binding ID in the left expression is mapped to the one on the
+    /// right. For example, when comparing `{ let x = 1; x + 2 }` and `{ let y = 1; y + 2 }`,
+    /// these blocks are considered equal since `x` is mapped to `y`.
     locals: FxHashMap<HirId, HirId>,
 }
 
 impl HirEqInterExpr<'_, '_, '_> {
-    fn eq_stmt(&mut self, left: &Stmt<'_>, right: &Stmt<'_>) -> bool {
+    pub fn eq_stmt(&mut self, left: &Stmt<'_>, right: &Stmt<'_>) -> bool {
         match (&left.kind, &right.kind) {
             (&StmtKind::Local(ref l), &StmtKind::Local(ref r)) => {
                 self.eq_pat(&l.pat, &r.pat)
@@ -162,7 +163,7 @@ impl HirEqInterExpr<'_, '_, '_> {
     }
 
     #[allow(clippy::similar_names)]
-    fn eq_expr(&mut self, left: &Expr<'_>, right: &Expr<'_>) -> bool {
+    pub fn eq_expr(&mut self, left: &Expr<'_>, right: &Expr<'_>) -> bool {
         if !self.inner.allow_side_effects && differing_macro_contexts(left.span, right.span) {
             return false;
         }
