@@ -47,7 +47,7 @@ pub mod visitors;
 
 pub use self::attrs::*;
 pub use self::diagnostics::*;
-pub use self::hir_utils::{both, eq_expr_value, over, SpanlessEq, SpanlessHash};
+pub use self::hir_utils::{both, count_eq, eq_expr_value, over, SpanlessEq, SpanlessHash};
 
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
@@ -642,9 +642,9 @@ pub fn get_pat_name(pat: &Pat<'_>) -> Option<Symbol> {
     }
 }
 
-struct ContainsName {
-    name: Symbol,
-    result: bool,
+pub struct ContainsName {
+    pub name: Symbol,
+    pub result: bool,
 }
 
 impl<'tcx> Visitor<'tcx> for ContainsName {
@@ -1600,6 +1600,8 @@ pub fn if_sequence<'tcx>(
     (conds, blocks)
 }
 
+/// This function returns true if the given expression is the `else` or `if else` part of an if
+/// statement
 pub fn parent_node_is_if_expr(expr: &Expr<'_>, cx: &LateContext<'_>) -> bool {
     let map = cx.tcx.hir();
     let parent_id = map.get_parent_node(expr.hir_id);
@@ -1748,6 +1750,16 @@ pub fn fn_def_id(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<DefId> {
     }
 }
 
+/// This function checks if any of the lints in the slice is enabled for the provided `HirId`.
+/// A lint counts as enabled with any of the levels: `Level::Forbid` | `Level::Deny` | `Level::Warn`
+///
+/// ```ignore
+/// #[deny(clippy::YOUR_AWESOME_LINT)]
+/// println!("Hello, World!"); // <- Clippy code: run_lints(cx, &[YOUR_AWESOME_LINT], id) == true
+///
+/// #[allow(clippy::YOUR_AWESOME_LINT)]
+/// println!("See you soon!"); // <- Clippy code: run_lints(cx, &[YOUR_AWESOME_LINT], id) == false
+/// ```
 pub fn run_lints(cx: &LateContext<'_>, lints: &[&'static Lint], id: HirId) -> bool {
     lints.iter().any(|lint| {
         matches!(
