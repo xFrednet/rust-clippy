@@ -204,8 +204,7 @@ pub fn is_wild<'tcx>(pat: &impl std::ops::Deref<Target = Pat<'tcx>>) -> bool {
     matches!(pat.kind, PatKind::Wild)
 }
 
-/// Checks if type is struct, enum or union type with the given def path. Make sure to use
-/// the original definition path. This function ignores reexports.
+/// Checks if type is struct, enum or union type with the given def path.
 ///
 /// If the type is a diagnostic item, use `is_type_diagnostic_item` instead.
 /// If you change the signature, remember to update the internal lint `MatchTypeOnDiagItem`
