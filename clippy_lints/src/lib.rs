@@ -558,9 +558,6 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         &utils::internal_lints::PRODUCE_ICE,
         #[cfg(feature = "internal-lints")]
         &utils::internal_lints::UNNECESSARY_SYMBOL_STR,
-        // TODO xFrednet 2021-02-13: Update `cargo dev update_lints` to support this vvvv
-        #[cfg(feature = "metadata-collector-lint")]
-        &utils::internal_lints::metadata_collector::INTERNAL_METADATA_COLLECTOR,
         &approx_const::APPROX_CONSTANT,
         &arithmetic::FLOAT_ARITHMETIC,
         &arithmetic::INTEGER_ARITHMETIC,
@@ -1447,8 +1444,6 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         LintId::of(&utils::internal_lints::OUTER_EXPN_EXPN_DATA),
         LintId::of(&utils::internal_lints::PRODUCE_ICE),
         LintId::of(&utils::internal_lints::UNNECESSARY_SYMBOL_STR),
-        #[cfg(feature = "metadata-collector-lint")]
-        LintId::of(&utils::internal_lints::metadata_collector::INTERNAL_METADATA_COLLECTOR),
     ]);
 
     store.register_group(true, "clippy::all", Some("clippy"), vec![
