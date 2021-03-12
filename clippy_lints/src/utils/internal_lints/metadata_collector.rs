@@ -32,7 +32,7 @@ use crate::utils::{
 };
 
 /// This is the output file of the lint collector.
-const OUTPUT_FILE: &str = "../metadata_collection.json";
+const OUTPUT_FILE: &str = "../util/gh-pages/metadata_collection.json";
 /// These lints are excluded from the export.
 const BLACK_LISTED_LINTS: [&str; 3] = ["lint_author", "deep_code_inspection", "internal_metadata_collector"];
 /// These groups will be ignored by the lint group matcher. This is useful for collections like
@@ -62,7 +62,7 @@ const SUGGESTION_DIAGNOSTIC_BUILDER_METHODS: [(&str, bool); 9] = [
     ("span_suggestions", true),
 ];
 const SUGGESTION_FUNCTIONS: [&[&str]; 2] = [
-    &["clippy_utils", "diagnostics", "mutispan_sugg"],
+    &["clippy_utils", "diagnostics", "multispan_sugg"],
     &["clippy_utils", "diagnostics", "multispan_sugg_with_applicability"],
 ];
 
