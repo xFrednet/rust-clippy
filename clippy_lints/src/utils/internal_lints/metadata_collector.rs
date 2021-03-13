@@ -28,7 +28,8 @@ use std::path::Path;
 
 use crate::utils::internal_lints::is_lint_ref_type;
 use crate::utils::{
-    last_path_segment, match_function_call, match_path, match_type, paths, span_lint, walk_ptrs_ty_depth,
+    last_path_segment, match_def_path, match_function_call, match_path, match_type, paths, span_lint,
+    walk_ptrs_ty_depth,
 };
 
 /// This is the output file of the lint collector.
@@ -65,6 +66,7 @@ const SUGGESTION_FUNCTIONS: [&[&str]; 2] = [
     &["clippy_utils", "diagnostics", "multispan_sugg"],
     &["clippy_utils", "diagnostics", "multispan_sugg_with_applicability"],
 ];
+const DEPRECIATED_LINT_TYPE: [&str; 3] = ["clippy_lints", "deprecated_lints", "ClippyDepreciatedLint"];
 
 /// The index of the applicability name of `paths::APPLICABILITY_VALUES`
 const APPLICABILITY_NAME_INDEX: usize = 2;
@@ -224,26 +226,43 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
     /// }
     /// ```
     fn check_item(&mut self, cx: &LateContext<'hir>, item: &'hir Item<'_>) {
-        if_chain! {
-            // item validation
-            if let ItemKind::Static(ref ty, Mutability::Not, body_id) = item.kind;
-            if is_lint_ref_type(cx, ty);
-            let expr = &cx.tcx.hir().body(body_id).value;
-            if let ExprKind::AddrOf(_, _, ref inner_exp) = expr.kind;
-            if let ExprKind::Struct(_, _, _) = inner_exp.kind;
-            // blacklist check
-            let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase();
-            if !BLACK_LISTED_LINTS.contains(&lint_name.as_str());
-            // metadata extraction
-            if let Some(group) = get_lint_group_or_lint(cx, &lint_name, item);
-            if let Some(docs) = extract_attr_docs_or_lint(cx, item);
-            then {
-                self.lints.push(LintMetadata::new(
-                    lint_name,
-                    SerializableSpan::from_item(cx, item),
-                    group,
-                    docs,
-                ));
+        if let ItemKind::Static(ref ty, Mutability::Not, _) = item.kind {
+            // Normal lint
+            if_chain! {
+                // item validation
+                if is_lint_ref_type(cx, ty);
+                // blacklist check
+                let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase();
+                if !BLACK_LISTED_LINTS.contains(&lint_name.as_str());
+                // metadata extraction
+                if let Some(group) = get_lint_group_or_lint(cx, &lint_name, item);
+                if let Some(docs) = extract_attr_docs_or_lint(cx, item);
+                then {
+                    self.lints.push(LintMetadata::new(
+                        lint_name,
+                        SerializableSpan::from_item(cx, item),
+                        group,
+                        docs,
+                    ));
+                    return;
+                }
+            }
+
+            if_chain! {
+                if is_depreciated_lint(cx, ty);
+                // blacklist check
+                let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase();
+                if !BLACK_LISTED_LINTS.contains(&lint_name.as_str());
+                // Metadata the little we can get from a depreciated lint
+                if let Some(docs) = extract_attr_docs_or_lint(cx, item);
+                then {
+                    self.lints.push(LintMetadata::new(
+                        lint_name,
+                        SerializableSpan::from_item(cx, item),
+                        "DEPRECIATED".to_string(),
+                        docs,
+                    ));
+                }
             }
         }
     }
@@ -347,6 +366,16 @@ fn get_lint_group(cx: &LateContext<'_>, lint_id: LintId) -> Option<String> {
     }
 
     None
+}
+
+fn is_depreciated_lint(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> bool {
+    if let hir::TyKind::Path(ref path) = ty.kind {
+        if let hir::def::Res::Def(DefKind::Struct, def_id) = cx.qpath_res(path, ty.hir_id) {
+            return match_def_path(cx, def_id, &DEPRECIATED_LINT_TYPE);
+        }
+    }
+
+    false
 }
 
 // ==================================================================

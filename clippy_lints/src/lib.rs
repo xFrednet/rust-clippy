@@ -163,6 +163,7 @@ macro_rules! extract_msrv_attr {
 mod consts;
 #[macro_use]
 mod utils;
+mod deprecated_lints;
 
 // begin lints modules, do not remove this comment, it’s used in `update_lints`
 mod approx_const;
