@@ -67,6 +67,7 @@ const SUGGESTION_FUNCTIONS: [&[&str]; 2] = [
     &["clippy_utils", "diagnostics", "multispan_sugg_with_applicability"],
 ];
 const DEPRECIATED_LINT_TYPE: [&str; 3] = ["clippy_lints", "deprecated_lints", "ClippyDepreciatedLint"];
+const CONFIG_STRUCT_TYPE: [&str; 5] = ["clippy_lints", "utils", "conf", "helpers", "Conf"];
 
 /// The index of the applicability name of `paths::APPLICABILITY_VALUES`
 const APPLICABILITY_NAME_INDEX: usize = 2;
@@ -215,6 +216,15 @@ impl Serialize for ApplicabilityInfo {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+struct ClippyConfiguration {
+    name: String,
+    lints: Vec<String>,
+    doc: String,
+    config_type: String,
+    default: String,
+}
+
 impl<'hir> LateLintPass<'hir> for MetadataCollector {
     /// Collecting lint declarations like:
     /// ```rust, ignore
@@ -262,8 +272,13 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
                         "DEPRECIATED".to_string(),
                         docs,
                     ));
+                    return;
                 }
             }
+        }
+
+        if is_config_struct(cx, item) {
+            let _ = parse_config_struct(cx, item);
         }
     }
 
@@ -311,7 +326,7 @@ fn sym_to_string(sym: Symbol) -> String {
 
 fn extract_attr_docs_or_lint(cx: &LateContext<'_>, item: &Item<'_>) -> Option<String> {
     extract_attr_docs(cx, item).or_else(|| {
-        lint_collection_error_item(cx, item, "could not collect the lint documentation");
+        lint_collection_error_item(cx, item, "could not collect the item documentation");
         None
     })
 }
@@ -376,6 +391,81 @@ fn is_depreciated_lint(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> bool {
     }
 
     false
+}
+
+// ==================================================================
+// Configuration
+// ==================================================================
+fn is_config_struct(cx: &LateContext<'_>, item: &'hir Item<'_>) -> bool {
+    if let hir::ItemKind::Struct(_, _) = item.kind {
+        let item_type = cx.tcx.type_of(item.def_id);
+        return match_type(cx, item_type, &CONFIG_STRUCT_TYPE);
+    }
+
+    false
+}
+
+fn parse_config_struct(cx: &LateContext<'_>, item: &'hir Item<'_>) -> Vec<ClippyConfiguration> {
+    if let hir::ItemKind::Struct(var_data, _generics) = &item.kind {
+        if let hir::VariantData::Struct(fields, _) = var_data {
+            return fields
+                .iter()
+                .filter_map(|x| {
+                    if_chain! {
+                        if let Some(field_doc) = extract_attr_docs_or_lint(cx, item);
+                        if let Some((lints, config_doc)) = parse_config_field_doc(field_doc);
+                        then {
+                            let mut config = ClippyConfiguration::default();
+                            
+                            config.name = transform_to_kebab_case(x.ident.as_str().to_string());
+                            config.lints = lints;
+                            config.doc = config_doc;
+                            // TODO xFrednet 2021-03-20: config.config_type = item.ty.to_string()
+                            // TODO xFrednet 2021-03-20: config.default = Well...
+
+                            Some(config)
+                        } else {
+                            lint_collection_error_item(cx, item, "unable to parse configuration documentation");
+                            None
+                        }
+                    }
+                })
+                .collect();
+        }
+    }
+
+    vec![]
+}
+
+/// This parses the field documentation of the config struct.
+///
+/// ```rust, ignore
+/// parse_config_field_doc(cx, "Lint: LINT_NAME_1, LINT_NAME_2. Papa penguin, papa penguin")
+/// ```
+///
+/// Would yield:
+/// ```rust, ignore
+/// Some(["lint_name_1", "lint_name_2"], "Papa penguin, papa penguin")
+/// ```
+fn parse_config_field_doc(mut doc_comment: String) -> Option<(Vec<String>, String)> {
+    if_chain! {
+        if doc_comment.starts_with("Lint: ");
+        if let Some(split_pos) = doc_comment.find('.');
+        then {
+            let documentation = doc_comment.split_off(split_pos);
+            
+            doc_comment.make_ascii_lowercase();
+            let lints: Vec<String> = doc_comment.split_off(6).split(", ").map(|x| x.to_string()).collect();
+            
+            Some((lints, documentation))
+        } else {
+            None
+        }
+    }
+}
+
+fn transform_to_kebab_case(config_name: String) -> String {
+    config_name.replace('_', "-")
 }
 
 // ==================================================================
