@@ -58,7 +58,7 @@ impl From<io::Error> for Error {
 static ERRORS: SyncLazy<Mutex<Vec<Error>>> = SyncLazy::new(|| Mutex::new(Vec::new()));
 
 macro_rules! define_Conf {
-    ($(#[$doc:meta] ($config:ident, $config_str:literal: $Ty:ty, $default:expr),)+) => {
+    ($(#[doc = $doc:literal] ($config:ident, $config_str:literal: $Ty:ty, $default:expr),)+) => {
         mod helpers {
             use serde::Deserialize;
             /// Type used to store lint configuration.
@@ -66,7 +66,7 @@ macro_rules! define_Conf {
             #[serde(rename_all = "kebab-case", deny_unknown_fields)]
             pub struct Conf {
                 $(
-                    #[$doc]
+                    #[doc = $doc]
                     #[serde(default = $config_str)]
                     #[serde(with = $config_str)]
                     pub $config: $Ty,
@@ -100,11 +100,30 @@ macro_rules! define_Conf {
                     x
                 }
             )+
+
+            #[cfg(feature = "metadata-collector-lint")]
+            pub mod metadata {
+                use crate::utils::internal_lints::metadata_collector::ClippyConfigurationBasicInfo;
+                
+                pub(crate) fn get_configuration_metadata() -> Vec<ClippyConfigurationBasicInfo> {
+                    vec![
+                        $(
+                            ClippyConfigurationBasicInfo {
+                                name: $config_str,
+                                config_type: stringify!($Ty),
+                                default: stringify!($default),
+                                doc_comment: $doc,
+                            },
+                        )+
+                    ]
+                }
+            }
         }
     };
 }
 
 pub use self::helpers::Conf;
+pub use self::helpers::metadata;
 define_Conf! {
     /// Lint: REDUNDANT_FIELD_NAMES, REDUNDANT_STATIC_LIFETIMES, FILTER_MAP_NEXT, CHECKED_CONVERSIONS, MANUAL_RANGE_CONTAINS, USE_SELF, MEM_REPLACE_WITH_DEFAULT, MANUAL_NON_EXHAUSTIVE, OPTION_AS_REF_DEREF, MAP_UNWRAP_OR, MATCH_LIKE_MATCHES_MACRO, MANUAL_STRIP, MISSING_CONST_FOR_FN. The minimum rust version that the project supports
     (msrv, "msrv": Option<String>, None),

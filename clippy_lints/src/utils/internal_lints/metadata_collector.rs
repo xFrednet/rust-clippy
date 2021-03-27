@@ -216,6 +216,14 @@ impl Serialize for ApplicabilityInfo {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct ClippyConfigurationBasicInfo {
+    pub name: &'static str,
+    pub config_type: &'static str,
+    pub default: &'static str,
+    pub doc_comment: &'static str
+}
+
 #[derive(Debug, Clone, Default)]
 struct ClippyConfiguration {
     name: String,
@@ -405,32 +413,16 @@ fn is_config_struct(cx: &LateContext<'_>, item: &'hir Item<'_>) -> bool {
     false
 }
 
-fn parse_config_struct(cx: &LateContext<'_>, item: &'hir Item<'_>) -> Vec<ClippyConfiguration> {
+fn parse_config_struct(_cx: &LateContext<'_>, item: &'hir Item<'_>) -> Vec<ClippyConfiguration> {
     if let hir::ItemKind::Struct(var_data, _generics) = &item.kind {
-        if let hir::VariantData::Struct(fields, _) = var_data {
-            return fields
-                .iter()
-                .filter_map(|x| {
-                    if_chain! {
-                        if let Some(field_doc) = extract_attr_docs_or_lint(cx, item);
-                        if let Some((lints, config_doc)) = parse_config_field_doc(field_doc);
-                        then {
-                            let mut config = ClippyConfiguration::default();
-                            
-                            config.name = transform_to_kebab_case(x.ident.as_str().to_string());
-                            config.lints = lints;
-                            config.doc = config_doc;
-                            // TODO xFrednet 2021-03-20: config.config_type = item.ty.to_string()
-                            // TODO xFrednet 2021-03-20: config.default = Well...
-
-                            Some(config)
-                        } else {
-                            lint_collection_error_item(cx, item, "unable to parse configuration documentation");
-                            None
-                        }
-                    }
-                })
-                .collect();
+        if let hir::VariantData::Struct(_fields, _) = var_data {
+            let cons = crate::utils::conf::metadata::get_configuration_metadata();
+            let mut file = OpenOptions::new().write(true).create(true).append(true).open("cons.txt").unwrap();
+            cons.iter().for_each(move |x| {
+                writeln!(file, "{:?}\n", x).unwrap()
+            });
+            
+            return vec![]
         }
     }
 
@@ -455,7 +447,7 @@ fn parse_config_field_doc(mut doc_comment: String) -> Option<(Vec<String>, Strin
             let documentation = doc_comment.split_off(split_pos);
             
             doc_comment.make_ascii_lowercase();
-            let lints: Vec<String> = doc_comment.split_off(6).split(", ").map(|x| x.to_string()).collect();
+            let lints: Vec<String> = doc_comment.split_off(6).split(", ").map(str::to_string).collect();
             
             Some((lints, documentation))
         } else {
@@ -464,7 +456,7 @@ fn parse_config_field_doc(mut doc_comment: String) -> Option<(Vec<String>, Strin
     }
 }
 
-fn transform_to_kebab_case(config_name: String) -> String {
+fn transform_to_kebab_case(config_name: &str) -> String {
     config_name.replace('_', "-")
 }
 
