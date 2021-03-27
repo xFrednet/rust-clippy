@@ -104,7 +104,6 @@ macro_rules! define_Conf {
             #[cfg(feature = "metadata-collector-lint")]
             pub mod metadata {
                 use crate::utils::internal_lints::metadata_collector::ClippyConfigurationBasicInfo;
-                
                 pub(crate) fn get_configuration_metadata() -> Vec<ClippyConfigurationBasicInfo> {
                     vec![
                         $(
@@ -122,8 +121,8 @@ macro_rules! define_Conf {
     };
 }
 
-pub use self::helpers::Conf;
 pub use self::helpers::metadata;
+pub use self::helpers::Conf;
 define_Conf! {
     /// Lint: REDUNDANT_FIELD_NAMES, REDUNDANT_STATIC_LIFETIMES, FILTER_MAP_NEXT, CHECKED_CONVERSIONS, MANUAL_RANGE_CONTAINS, USE_SELF, MEM_REPLACE_WITH_DEFAULT, MANUAL_NON_EXHAUSTIVE, OPTION_AS_REF_DEREF, MAP_UNWRAP_OR, MATCH_LIKE_MATCHES_MACRO, MANUAL_STRIP, MISSING_CONST_FOR_FN. The minimum rust version that the project supports
     (msrv, "msrv": Option<String>, None),
@@ -131,7 +130,7 @@ define_Conf! {
     (blacklisted_names, "blacklisted_names": Vec<String>, ["foo", "baz", "quux"].iter().map(ToString::to_string).collect()),
     /// Lint: COGNITIVE_COMPLEXITY. The maximum cognitive complexity a function can have
     (cognitive_complexity_threshold, "cognitive_complexity_threshold": u64, 25),
-    /// DEPRECATED LINT: CYCLOMATIC_COMPLEXITY. Use the Cognitive Complexity lint instead.
+    /// Lint: CYCLOMATIC_COMPLEXITY. Use the Cognitive Complexity lint instead.
     (cyclomatic_complexity_threshold, "cyclomatic_complexity_threshold": Option<u64>, None),
     /// Lint: DOC_MARKDOWN. The list of words this lint should not consider as identifiers needing ticks
     (doc_valid_idents, "doc_valid_idents": Vec<String>, [

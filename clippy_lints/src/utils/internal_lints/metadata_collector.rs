@@ -67,7 +67,6 @@ const SUGGESTION_FUNCTIONS: [&[&str]; 2] = [
     &["clippy_utils", "diagnostics", "multispan_sugg_with_applicability"],
 ];
 const DEPRECIATED_LINT_TYPE: [&str; 3] = ["clippy_lints", "deprecated_lints", "ClippyDepreciatedLint"];
-const CONFIG_STRUCT_TYPE: [&str; 5] = ["clippy_lints", "utils", "conf", "helpers", "Conf"];
 
 /// The index of the applicability name of `paths::APPLICABILITY_VALUES`
 const APPLICABILITY_NAME_INDEX: usize = 2;
@@ -104,13 +103,24 @@ declare_clippy_lint! {
 impl_lint_pass!(MetadataCollector => [INTERNAL_METADATA_COLLECTOR]);
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MetadataCollector {
     /// All collected lints
     ///
     /// We use a Heap here to have the lints added in alphabetic order in the export
     lints: BinaryHeap<LintMetadata>,
     applicability_into: FxHashMap<String, ApplicabilityInfo>,
+    config: Vec<ClippyConfiguration>,
+}
+
+impl MetadataCollector {
+    pub fn new() -> Self {
+        Self {
+            lints: BinaryHeap::<LintMetadata>::default(),
+            applicability_into: FxHashMap::<String, ApplicabilityInfo>::default(),
+            config: collect_configs(),
+        }
+    }
 }
 
 impl Drop for MetadataCollector {
@@ -221,7 +231,7 @@ pub(crate) struct ClippyConfigurationBasicInfo {
     pub name: &'static str,
     pub config_type: &'static str,
     pub default: &'static str,
-    pub doc_comment: &'static str
+    pub doc_comment: &'static str,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -229,10 +239,68 @@ struct ClippyConfiguration {
     name: String,
     lints: Vec<String>,
     doc: String,
-    config_type: String,
+    config_type: &'static str,
     default: String,
 }
 
+// ==================================================================
+// Configuration
+// ==================================================================
+fn collect_configs() -> Vec<ClippyConfiguration> {
+    let cons = crate::utils::conf::metadata::get_configuration_metadata();
+    cons.iter()
+        .map(move |x| {
+            let (lints, doc) = parse_config_field_doc(x.doc_comment)
+                .unwrap_or_else(|| (vec![], "[ERROR] MALFORMED DOC COMMENT".to_string()));
+
+            ClippyConfiguration {
+                name: to_kebab(x.name),
+                lints,
+                doc,
+                config_type: x.config_type,
+                default: x.default.to_string(),
+            }
+        })
+        .collect()
+}
+
+/// This parses the field documentation of the config struct.
+///
+/// ```rust, ignore
+/// parse_config_field_doc(cx, "Lint: LINT_NAME_1, LINT_NAME_2. Papa penguin, papa penguin")
+/// ```
+///
+/// Would yield:
+/// ```rust, ignore
+/// Some(["lint_name_1", "lint_name_2"], "Papa penguin, papa penguin")
+/// ```
+fn parse_config_field_doc(doc_comment: &str) -> Option<(Vec<String>, String)> {
+    const DOC_START: &str = " Lint: ";
+    if_chain! {
+        if doc_comment.starts_with(DOC_START);
+        if let Some(split_pos) = doc_comment.find('.');
+        then {
+            let mut doc_comment = doc_comment.to_string();
+            let documentation = doc_comment.split_off(split_pos);
+
+            doc_comment.make_ascii_lowercase();
+            let lints: Vec<String> = doc_comment.split_off(DOC_START.len()).split(", ").map(str::to_string).collect();
+
+            Some((lints, documentation))
+        } else {
+            None
+        }
+    }
+}
+
+/// Transforms a given `snake_case_string` to a tasty `kebab-case-string`
+fn to_kebab(config_name: &str) -> String {
+    config_name.replace('_', "-")
+}
+
+// ==================================================================
+// Lint pass
+// ==================================================================
 impl<'hir> LateLintPass<'hir> for MetadataCollector {
     /// Collecting lint declarations like:
     /// ```rust, ignore
@@ -280,13 +348,8 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
                         "DEPRECIATED".to_string(),
                         docs,
                     ));
-                    return;
                 }
             }
-        }
-
-        if is_config_struct(cx, item) {
-            let _ = parse_config_struct(cx, item);
         }
     }
 
@@ -399,65 +462,6 @@ fn is_depreciated_lint(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> bool {
     }
 
     false
-}
-
-// ==================================================================
-// Configuration
-// ==================================================================
-fn is_config_struct(cx: &LateContext<'_>, item: &'hir Item<'_>) -> bool {
-    if let hir::ItemKind::Struct(_, _) = item.kind {
-        let item_type = cx.tcx.type_of(item.def_id);
-        return match_type(cx, item_type, &CONFIG_STRUCT_TYPE);
-    }
-
-    false
-}
-
-fn parse_config_struct(_cx: &LateContext<'_>, item: &'hir Item<'_>) -> Vec<ClippyConfiguration> {
-    if let hir::ItemKind::Struct(var_data, _generics) = &item.kind {
-        if let hir::VariantData::Struct(_fields, _) = var_data {
-            let cons = crate::utils::conf::metadata::get_configuration_metadata();
-            let mut file = OpenOptions::new().write(true).create(true).append(true).open("cons.txt").unwrap();
-            cons.iter().for_each(move |x| {
-                writeln!(file, "{:?}\n", x).unwrap()
-            });
-            
-            return vec![]
-        }
-    }
-
-    vec![]
-}
-
-/// This parses the field documentation of the config struct.
-///
-/// ```rust, ignore
-/// parse_config_field_doc(cx, "Lint: LINT_NAME_1, LINT_NAME_2. Papa penguin, papa penguin")
-/// ```
-///
-/// Would yield:
-/// ```rust, ignore
-/// Some(["lint_name_1", "lint_name_2"], "Papa penguin, papa penguin")
-/// ```
-fn parse_config_field_doc(mut doc_comment: String) -> Option<(Vec<String>, String)> {
-    if_chain! {
-        if doc_comment.starts_with("Lint: ");
-        if let Some(split_pos) = doc_comment.find('.');
-        then {
-            let documentation = doc_comment.split_off(split_pos);
-            
-            doc_comment.make_ascii_lowercase();
-            let lints: Vec<String> = doc_comment.split_off(6).split(", ").map(str::to_string).collect();
-            
-            Some((lints, documentation))
-        } else {
-            None
-        }
-    }
-}
-
-fn transform_to_kebab_case(config_name: &str) -> String {
-    config_name.replace('_', "-")
 }
 
 // ==================================================================
