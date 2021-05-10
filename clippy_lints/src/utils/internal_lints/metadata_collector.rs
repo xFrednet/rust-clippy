@@ -12,6 +12,7 @@
 // - TODO xFrednet 2021-02-13: Collect depreciations and maybe renames
 
 use if_chain::if_chain;
+use rustc_ast::LitKind;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::{
     self as hir, def::DefKind, intravisit, intravisit::Visitor, ExprKind, Item, ItemKind, Mutability, QPath,
@@ -41,6 +42,8 @@ const BLACK_LISTED_LINTS: [&str; 3] = ["lint_author", "deep_code_inspection", "i
 const IGNORED_LINT_GROUPS: [&str; 1] = ["clippy::all"];
 /// Lints within this group will be excluded from the collection
 const EXCLUDED_LINT_GROUPS: [&str; 1] = ["clippy::internal"];
+/// Collected deprecated lint will be assigned to this group in the JSON output
+const DEPRECATED_LINT_GROUP_STR: &str = "deprecated";
 
 const LINT_EMISSION_FUNCTIONS: [&[&str]; 7] = [
     &["clippy_utils", "diagnostics", "span_lint"],
@@ -66,8 +69,12 @@ const SUGGESTION_FUNCTIONS: [&[&str]; 2] = [
     &["clippy_utils", "diagnostics", "multispan_sugg"],
     &["clippy_utils", "diagnostics", "multispan_sugg_with_applicability"],
 ];
+const REGISTER_REMOVED_METHOD: &str = "register_removed";
+const REGISTER_REMOVED_LINT_ID_INDEX: usize = 1;
+const REGISTER_REMOVED_REASON_INDEX: usize = 2;
+const CLIPPY_LINT_PREFIX: &str = "clippy::";
 
-/// The index of the applicability name of `paths::APPLICABILITY_VALUES`
+/// The index of the applicability name in `paths::APPLICABILITY_VALUES`
 const APPLICABILITY_NAME_INDEX: usize = 2;
 
 declare_clippy_lint! {
@@ -246,9 +253,10 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
         }
     }
 
-    /// Collecting constant applicability from the actual lint emissions
+    /// Collecting the applicability from the actual lint emissions and removed lints with
+    /// the reasoning behind the removal.
     ///
-    /// Example:
+    /// Example of the extracted `Applicability` value:
     /// ```rust, ignore
     /// span_lint_and_sugg(
     ///     cx,
@@ -261,6 +269,7 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
     /// );
     /// ```
     fn check_expr(&mut self, cx: &LateContext<'hir>, expr: &'hir hir::Expr<'_>) {
+        // Applicability value extraction
         if let Some(args) = match_lint_emission(cx, expr) {
             let mut emission_info = extract_emission_info(cx, args);
             if emission_info.is_empty() {
@@ -276,6 +285,29 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
                 let app_info = self.applicability_info.entry(lint_name).or_default();
                 app_info.applicability = applicability;
                 app_info.is_multi_part_suggestion = is_multi_part;
+            }
+
+            return;
+        }
+
+        // Removed lint extraction
+        if let Some(args) = match_removed_emission(cx, expr) {
+            if let Some((id, reason)) = extract_deprecation_info(args) {
+                if let Some(clippy_id) = id.strip_prefix(CLIPPY_LINT_PREFIX) {
+                    let id_span = SerializableSpan::from_span(cx, args[REGISTER_REMOVED_LINT_ID_INDEX].span);
+                    self.lints.push(LintMetadata::new(
+                        clippy_id.to_ascii_lowercase(),
+                        id_span,
+                        DEPRECATED_LINT_GROUP_STR.to_string(),
+                        format_deprecation_reason(&reason),
+                    ));
+                }
+            } else {
+                lint_collection_error_span(
+                    cx,
+                    expr.span,
+                    "Unable to extract arguments, please make sure to only use string literals",
+                )
             }
         }
     }
@@ -357,6 +389,55 @@ fn lint_collection_error_item(cx: &LateContext<'_>, item: &Item<'_>, message: &s
         item.ident.span,
         &format!("metadata collection error for `{}`: {}", item.ident.name, message),
     );
+}
+
+fn lint_collection_error_span(cx: &LateContext<'_>, span: Span, message: &str) {
+    span_lint(
+        cx,
+        INTERNAL_METADATA_COLLECTOR,
+        span,
+        &format!("metadata collection error: {}", message),
+    );
+}
+
+// ==================================================================
+// Removed lints
+// ==================================================================
+fn match_removed_emission<'hir>(cx: &LateContext<'hir>, expr: &'hir hir::Expr<'_>) -> Option<&'hir [hir::Expr<'hir>]> {
+    if_chain! {
+        // Type
+        if let ExprKind::MethodCall(path, _path_span, args, _arg_span) = &expr.kind;
+        let (self_ty, _) = walk_ptrs_ty_depth(cx.typeck_results().expr_ty(&args[0]));
+        if match_type(cx, self_ty, &paths::RUSTC_LINT_STORE);
+        // Method
+        if path.ident.name.as_str() == REGISTER_REMOVED_METHOD;
+        then {
+            return Some(&args)
+        }
+    }
+
+    None
+}
+
+fn extract_deprecation_info(args: &[hir::Expr<'_>]) -> Option<(String, String)> {
+    let lint_id = extract_string_literal(&args[REGISTER_REMOVED_LINT_ID_INDEX]);
+    let removal_reason = extract_string_literal(&args[REGISTER_REMOVED_REASON_INDEX]);
+
+    lint_id.zip(removal_reason)
+}
+
+fn extract_string_literal(expr: &hir::Expr<'_>) -> Option<String> {
+    if let ExprKind::Lit(spanned) = &expr.kind {
+        if let LitKind::Str(sym, _) = &spanned.node {
+            return Some(sym.as_str().to_string());
+        }
+    }
+
+    None
+}
+
+fn format_deprecation_reason(reason: &str) -> String {
+    format!("**Deprecation reason**\n{}", reason)
 }
 
 // ==================================================================
