@@ -447,47 +447,68 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
     // begin deprecated lints, do not remove this comment, it’s used in `update_lints`
     store.register_removed(
         "clippy::should_assert_eq",
-        "`assert!()` will be more flexible with RFC 2011",
+        "This used to check for `assert!(a == b)` and recommend replacement with \
+        `assert_eq!(a, b)`, but this is no longer needed after \
+        [RFC 2011](https://rust-lang.github.io/rfcs/2011-generic-assert.html).",
     );
     store.register_removed(
         "clippy::extend_from_slice",
-        "`.extend_from_slice(_)` is a faster way to extend a Vec by a slice",
+        "This used to check for `Vec::extend`, which was slower than \
+        `Vec::extend_from_slice`. Thanks to specialization, this is no longer true.",
     );
     store.register_removed(
         "clippy::range_step_by_zero",
-        "`iterator.step_by(0)` panics nowadays",
+        "`Range::step_by(0)` used to be linted since it's \
+        an infinite iterator, which is better expressed by `iter::repeat`, \
+        but the method has been removed for `Iterator::step_by` which panics \
+        if given a zero",
     );
     store.register_removed(
         "clippy::unstable_as_slice",
-        "`Vec::as_slice` has been stabilized in 1.7",
+        "This used to check for `Vec::as_slice`, which was unstable with good \
+        stable alternatives. `Vec::as_slice` has now been stabilized.",
     );
     store.register_removed(
         "clippy::unstable_as_mut_slice",
-        "`Vec::as_mut_slice` has been stabilized in 1.7",
+        "This used to check for `Vec::as_mut_slice`, which was unstable with good \
+        stable alternatives. `Vec::as_mut_slice` has now been stabilized.",
     );
     store.register_removed(
         "clippy::misaligned_transmute",
-        "this lint has been split into cast_ptr_alignment and transmute_ptr_to_ptr",
+        "This lint should never have applied to non-pointer types, as transmuting \
+        between non-pointer types of differing alignment is well-defined behavior \
+        (it's semantically equivalent to a memcpy). This lint has thus been \
+        refactored into two separate lints: `clippy::cast_ptr_alignment` and \
+        `clippy::transmute_ptr_to_ptr`.",
     );
     store.register_removed(
         "clippy::assign_ops",
-        "using compound assignment operators (e.g., `+=`) is harmless",
+        "This lint is too subjective, not having a good reason for being in clippy. \
+        Additionally, compound assignment operators may be overloaded separately \
+        from their non-assigning counterparts, so this lint may suggest a change \
+        in behavior or the code may not compile.",
     );
     store.register_removed(
         "clippy::if_let_redundant_pattern_matching",
-        "this lint has been changed to redundant_pattern_matching",
+        "The original rule will only lint for `if let`. After making it support \
+        to lint `match`, naming as `if let` is not suitable for it. So, this lint \
+        is deprecated.",
     );
     store.register_removed(
         "clippy::unsafe_vector_initialization",
-        "the replacement suggested by this lint had substantially different behavior",
+        "This lint used to suggest replacing \
+        `let mut vec = Vec::with_capacity(n); vec.set_len(n);` with \
+        `let vec = vec![0; n];`. The replacement has very different \
+        performance characteristics so the lint is deprecated.",
     );
     store.register_removed(
         "clippy::unused_collect",
-        "`collect` has been marked as #[must_use] in rustc and that covers all cases of this lint",
+        "This lint has been superseded by #[must_use] in rustc.",
     );
     store.register_removed(
         "clippy::replace_consts",
-        "associated-constants `MIN`/`MAX` of integers are preferred to `{min,max}_value()` and module constants",
+        "associated-constants `MIN`/`MAX` of integers are preferred to \
+        `{min,max}_value()` and module constants",
     );
     store.register_removed(
         "clippy::regex_macro",
@@ -495,11 +516,11 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
     );
     store.register_removed(
         "clippy::find_map",
-        "this lint has been replaced by `manual_find_map`, a more specific lint",
+        "This lint has been replaced by `manual_find_map`, a more specific lint.",
     );
     store.register_removed(
         "clippy::filter_map",
-        "this lint has been replaced by `manual_filter_map`, a more specific lint",
+        "This lint has been replaced by `manual_filter_map`, a more specific lint.",
     );
     // end deprecated lints, do not remove this comment, it’s used in `update_lints`
 
