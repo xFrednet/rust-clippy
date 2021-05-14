@@ -98,11 +98,7 @@ macro_rules! define_Conf {
                 vec![
                     $(
                         {
-                            #[allow(unused_mut, unused_assignments)]
-                            let mut deprecation_reason = None;
-
-                            // only set if a deprecation reason was set
-                            $(deprecation_reason = Some(stringify!($dep));)?
+                            let deprecation_reason = @opt $($dep)?;
 
                             ClippyConfiguration::new(
                                 stringify!($name),
