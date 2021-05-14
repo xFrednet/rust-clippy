@@ -105,11 +105,11 @@ macro_rules! define_Conf {
                             $(deprecation_reason = Some(stringify!($dep));)?
 
                             ClippyConfiguration::new(
-                                name: $name,
+                                $name,
                                 config_type: stringify!($ty),
-                                default: format!("{:?}", super::defaults::$name()),
-                                doc_comment: $doc, 
-                                deprecation_reason
+                                format!("{:?}", super::defaults::$name()),
+                                $doc,
+                                deprecation_reason,
                             )
                         },
                     )+
