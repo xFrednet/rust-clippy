@@ -280,16 +280,16 @@ impl ClippyConfiguration {
         doc_comment: &'static str,
         deprecation_reason: Option<&'static str>
     ) -> Self {
-        let (lints, doc) = parse_config_field_doc(x.doc_comment)
+        let (lints, doc) = parse_config_field_doc(doc_comment)
             .unwrap_or_else(|| (vec![], "[ERROR] MALFORMED DOC COMMENT".to_string())); 
 
         Self {
             name: to_kebab(x.name),
             lints,
             doc,
-            config_type: x.config_type,
-            default: clarify_default(x.default),
-            deprecation_reason: x.deprecation_reason,
+            config_type,
+            default: clarify_default(default),
+            deprecation_reason,
         }
     }
 }
