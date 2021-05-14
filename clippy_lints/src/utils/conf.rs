@@ -24,6 +24,11 @@ impl TryConf {
     }
 }
 
+macro_rules! wrap_option {
+    () => (None);
+    ($x:literal) => (Some($x));
+}
+
 macro_rules! define_Conf {
     ($(
         #[doc = $doc:literal]
@@ -98,7 +103,7 @@ macro_rules! define_Conf {
                 vec![
                     $(
                         {
-                            let deprecation_reason = @opt $($dep)?;
+                            let deprecation_reason = wrap_option!($($dep)?);
 
                             ClippyConfiguration::new(
                                 stringify!($name),
