@@ -284,11 +284,11 @@ impl ClippyConfiguration {
             .unwrap_or_else(|| (vec![], "[ERROR] MALFORMED DOC COMMENT".to_string())); 
 
         Self {
-            name: to_kebab(x.name),
+            name: to_kebab(name),
             lints,
             doc,
             config_type,
-            default: clarify_default(default),
+            default,
             deprecation_reason,
         }
     }
