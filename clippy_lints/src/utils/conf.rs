@@ -92,9 +92,9 @@ macro_rules! define_Conf {
 
         #[cfg(feature = "metadata-collector-lint")]
         pub mod metadata {
-            use crate::utils::internal_lints::metadata_collector::ClippyConfigurationBasicInfo;
+            use crate::utils::internal_lints::metadata_collector::ClippyConfiguration;
 
-            pub(crate) fn get_configuration_metadata() -> Vec<ClippyConfigurationBasicInfo> {
+            pub(crate) fn get_configuration_metadata() -> Vec<ClippyConfiguration> {
                 vec![
                     $(
                         {
@@ -104,13 +104,13 @@ macro_rules! define_Conf {
                             // only set if a deprecation reason was set
                             $(deprecation_reason = Some(stringify!($dep));)?
 
-                            ClippyConfigurationBasicInfo {
-                                name: stringify!($name),
+                            ClippyConfiguration::new(
+                                name: $name,
                                 config_type: stringify!($ty),
-                                default: stringify!($default),
-                                doc_comment: $doc,
-                                deprecation_reason,
-                            }
+                                default: format!("{:?}", super::defaults::$name()),
+                                doc_comment: $doc, 
+                                deprecation_reason
+                            )
                         },
                     )+
                 ]
