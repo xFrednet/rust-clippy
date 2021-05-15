@@ -150,7 +150,7 @@ impl MetadataCollector {
         self.config
             .iter()
             .filter(|config| config.lints.iter().any(|lint| lint == lint_name))
-            .map(|config| config.to_string())
+            .map(str::to_string)
             .reduce(|acc, x| acc + &x)
             .map(|configurations| format!(CONFIGURATION_SECTION_TEMPLATE!(), configurations = configurations))
     }
