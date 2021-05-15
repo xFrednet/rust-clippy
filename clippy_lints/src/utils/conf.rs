@@ -24,11 +24,6 @@ impl TryConf {
     }
 }
 
-macro_rules! wrap_option {
-    () => (None);
-    ($x:literal) => (Some($x));
-}
-
 macro_rules! define_Conf {
     ($(
         #[doc = $doc:literal]
@@ -98,6 +93,11 @@ macro_rules! define_Conf {
         #[cfg(feature = "metadata-collector-lint")]
         pub mod metadata {
             use crate::utils::internal_lints::metadata_collector::ClippyConfiguration;
+
+            macro_rules! wrap_option {
+                () => (None);
+                ($x:literal) => (Some($x));
+            }
 
             pub(crate) fn get_configuration_metadata() -> Vec<ClippyConfiguration> {
                 vec![
