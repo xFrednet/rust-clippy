@@ -62,7 +62,7 @@
       "line": 25
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `assert!(true)` and `assert!(false)` calls.\n### Why is this bad?\n\n Will be optimized out by the compiler or should probably be replaced by a\n `panic!()` or `unreachable!()`\n\n### Known problems:\n\n None\n\n### Example:\n\n\n ```rust,ignore\n assert!(false)\n assert!(true)\n const B: bool = false;\n assert!(B)\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -76,7 +76,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `a = a op b` or `a = b commutative_op a` patterns.\n\n### Why is this bad?\n\n These can be written as the shorter `a op= b`.\n\n### Known problems:\n\n While forbidden by the spec, `OpAssign` traits may have\n implementations that differ from the regular `Op` impl.\n\n### Example:\n\n\n ```rust\n let mut a = 5;\n let b = 0;\n // ...\n // Bad\n a = a + b;\n\n // Good\n a += b;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -174,7 +174,7 @@
       "line": 20
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of blacklisted names for variables, such as `foo`.\n\n### Why is this bad?\n\n These names are usually placeholder names and should be\n avoided.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let foo = 3.14;\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* blacklisted-names: Vec<String>: . The list of blacklisted names to lint about. NB: `bar` is not here since it has legitimate uses (defaults to `[\"foo\", \"baz\", \"quux\"]`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -188,7 +188,7 @@
       "line": 175
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `warn`/`deny`/`forbid` attributes targeting the whole clippy::restriction category.\n### Why is this bad?\n\n Restriction lints sometimes are in contrast with other lints or even go against idiomatic rust.\n These lints should only be enabled on a lint-by-lint basis and with careful consideration.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n Bad:\n ```rust\n #![deny(clippy::restriction)]\n ```\n\n Good:\n ```rust\n #![deny(clippy::as_conversions)]\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -202,7 +202,7 @@
       "line": 43
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `if` conditions that use blocks containing an expression, statements or conditions that use closures with blocks.\n\n### Why is this bad?\n\n Style, using blocks in the condition makes it hard to read.\n\n### Known problems:\n\n None.\n\n### Examples:\n\n\n ```rust\n // Bad\n if { true } { /* ... */ }\n\n // Good\n if true { /* ... */ }\n ```\n\n // or\n\n ```rust\n # fn somefunc() -> bool { true };\n // Bad\n if { let x = somefunc(); x } { /* ... */ }\n\n // Good\n let res = { let x = somefunc(); x };\n if res { /* ... */ }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -216,7 +216,7 @@
       "line": 25
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns about boolean comparisons in assert-like macros.\n### Why is this bad?\n\n It is shorter to use the equivalent.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // Bad\n assert_eq!(\"a\".is_empty(), false);\n assert_ne!(\"a\".is_empty(), true);\n\n // Good\n assert!(!\"a\".is_empty());\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -244,7 +244,7 @@
       "line": 110
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks if `const` items which is interior mutable (e.g., contains a `Cell`, `Mutex`, `AtomicXxxx`, etc.) has been borrowed directly.\n\n### Why is this bad?\n\n Consts are copied everywhere they are referenced, i.e.,\n every time you refer to the const a fresh instance of the `Cell` or `Mutex`\n or `AtomicXxxx` will be created, which defeats the whole purpose of using\n these types in the first place.\n\n The `const` value should be stored inside a `static` item.\n\n### Known problems:\n\n When an enum has variants with interior mutability, use of its non\n interior mutable variants can generate false positives. See issue\n [#3962](https://github.com/rust-lang/rust-clippy/issues/3962)\n\n Types that have underlying or potential interior mutability trigger the lint whether\n the interior mutable field is used or not. See issues\n [#5812](https://github.com/rust-lang/rust-clippy/issues/5812) and\n [#3825](https://github.com/rust-lang/rust-clippy/issues/3825)\n\n### Example:\n\n\n ```rust\n use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};\n const CONST_ATOM: AtomicUsize = AtomicUsize::new(12);\n\n // Bad.\n CONST_ATOM.store(6, SeqCst); // the content of the atomic is unchanged\n assert_eq!(CONST_ATOM.load(SeqCst), 12); // because the CONST_ATOM in these lines are distinct\n\n // Good.\n static STATIC_ATOM: AtomicUsize = CONST_ATOM;\n STATIC_ATOM.store(9, SeqCst);\n assert_eq!(STATIC_ATOM.load(SeqCst), 9); // use a `static` item to refer to the same instance\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -314,7 +314,7 @@
       "line": 189
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Warns if a generic shadows a built-in type.\n### Why is this bad?\n\n This gives surprising type errors.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```ignore\n impl<u32> Foo<u32> {\n     fn impl_func(&self) -> u32 {\n         42\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -328,7 +328,7 @@
       "line": 1603
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the use of `.bytes().nth()`.\n### Why is this bad?\n\n `.as_bytes().get()` is more efficient and more\n readable.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // Bad\n let _ = \"Hello\".bytes().nth(3);\n\n // Good\n let _ = \"Hello\".as_bytes().get(3);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -482,7 +482,7 @@
       "line": 1127
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `_.chars().last()` or `_.chars().next_back()` on a `str` to check if it ends with a given char.\n\n### Why is this bad?\n\n Readability, this can be written more concisely as\n `_.ends_with(_)`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # let name = \"_\";\n\n // Bad\n name.chars().last() == Some('_') || name.chars().next_back() == Some('-');\n\n // Good\n name.ends_with('_') || name.ends_with('-');\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -496,7 +496,7 @@
       "line": 664
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `.chars().next()` on a `str` to check if it starts with a given char.\n\n### Why is this bad?\n\n Readability, this can be written more concisely as\n `_.starts_with(_)`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let name = \"foo\";\n if name.chars().next() == Some('_') {};\n ```\n Could be written as\n ```rust\n let name = \"foo\";\n if name.starts_with('_') {};\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -594,7 +594,7 @@
       "line": 96
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint checks for equality comparisons with `ptr::null`\n### Why is this bad?\n\n It's easier and more readable to use the inherent\n `.is_null()`\n method instead\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n // Bad\n if x == ptr::null {\n     ..\n }\n\n // Good\n if x.is_null() {\n     ..\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -636,7 +636,7 @@
       "line": 85
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for collapsible `else { if ... }` expressions that can be collapsed to `else if ...`.\n\n### Why is this bad?\n\n Each `if`-statement adds one level of nesting, which\n makes code look more complex than it really is.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n\n if x {\n     …\n } else {\n     if y {\n         …\n     }\n }\n ```\n\n Should be written:\n\n ```rust.ignore\n if x {\n     …\n } else if y {\n     …\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -650,7 +650,7 @@
       "line": 50
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for nested `if` statements which can be collapsed by `&&`-combining their conditions.\n\n### Why is this bad?\n\n Each `if`-statement adds one level of nesting, which\n makes code look more complex than it really is.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n if x {\n     if y {\n         …\n     }\n }\n\n ```\n\n Should be written:\n\n ```rust.ignore\n if x && y {\n     …\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -664,7 +664,7 @@
       "line": 45
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Finds nested `match` or `if let` expressions where the patterns may be \"collapsed\" together without adding any branches.\n\n Note that this lint is not intended to find _all_ cases where nested match patterns can be merged, but only\n cases where merging would most likely make the code more readable.\n\n### Why is this bad?\n\n It is unnecessarily verbose and complex.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n fn func(opt: Option<Result<u64, String>>) {\n     let n = match opt {\n         Some(n) => match n {\n             Ok(n) => n,\n             _ => return,\n         }\n         None => return,\n     };\n }\n ```\n Use instead:\n ```rust\n fn func(opt: Option<Result<u64, String>>) {\n     let n = match opt {\n         Some(Ok(n)) => n,\n         _ => return,\n     };\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -678,7 +678,7 @@
       "line": 49
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks comparison chains written with `if` that can be rewritten with `match` and `cmp`.\n\n### Why is this bad?\n\n `if` is not guaranteed to be exhaustive and conditionals can get\n repetitive\n\n### Known problems:\n\n The match statement may be slower due to the compiler\n not inlining the call to cmp. See issue [#5354](https://github.com/rust-lang/rust-clippy/issues/5354)\n\n### Example:\n\n\n ```rust,ignore\n # fn a() {}\n # fn b() {}\n # fn c() {}\n fn f(x: u8, y: u8) {\n     if x > y {\n         a()\n     } else if x < y {\n         b()\n     } else {\n         c()\n     }\n }\n ```\n\n Could be written:\n\n ```rust,ignore\n use std::cmp::Ordering;\n # fn a() {}\n # fn b() {}\n # fn c() {}\n fn f(x: u8, y: u8) {\n      match x.cmp(&y) {\n          Ordering::Greater => a(),\n          Ordering::Less => b(),\n          Ordering::Equal => c()\n      }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -692,7 +692,7 @@
       "line": 111
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for comparing to an empty slice such as `\"\"` or `[]`, and suggests using `.is_empty()` where applicable.\n\n### Why is this bad?\n\n Some structures can answer `.is_empty()` much faster\n than checking for equality. So it is good to get into the habit of using\n `.is_empty()`, and having it is cheap.\n Besides, it makes the intent clearer than a manual comparison in some contexts.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```ignore\n if s == \"\" {\n     ..\n }\n\n if arr == [] {\n     ..\n }\n ```\n Use instead:\n ```ignore\n if s.is_empty() {\n     ..\n }\n\n if arr.is_empty() {\n     ..\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -790,7 +790,7 @@
       "line": 69
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for declaration of `const` items which is interior mutable (e.g., contains a `Cell`, `Mutex`, `AtomicXxxx`, etc.).\n\n### Why is this bad?\n\n Consts are copied everywhere they are referenced, i.e.,\n every time you refer to the const a fresh instance of the `Cell` or `Mutex`\n or `AtomicXxxx` will be created, which defeats the whole purpose of using\n these types in the first place.\n\n The `const` should better be replaced by a `static` item if a global\n variable is wanted, or replaced by a `const fn` if a constructor is wanted.\n\n### Known problems:\n\n A \"non-constant\" const item is a legacy way to supply an\n initialized value to downstream `static` items (e.g., the\n `std::sync::ONCE_INIT` constant). In this case the use of `const` is legit,\n and this lint should be suppressed.\n\n Even though the lint avoids triggering on a constant whose type has enums that have variants\n with interior mutability, and its value uses non interior mutable variants (see\n [#3962](https://github.com/rust-lang/rust-clippy/issues/3962) and\n [#3825](https://github.com/rust-lang/rust-clippy/issues/3825) for examples);\n it complains about associated constants without default values only based on its types;\n which might not be preferable.\n There're other enums plus associated constants cases that the lint cannot handle.\n\n Types that have underlying or potential interior mutability trigger the lint whether\n the interior mutable field is used or not. See issues\n [#5812](https://github.com/rust-lang/rust-clippy/issues/5812) and\n\n### Example:\n\n\n ```rust\n use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};\n\n // Bad.\n const CONST_ATOM: AtomicUsize = AtomicUsize::new(12);\n CONST_ATOM.store(6, SeqCst); // the content of the atomic is unchanged\n assert_eq!(CONST_ATOM.load(SeqCst), 12); // because the CONST_ATOM in these lines are distinct\n\n // Good.\n static STATIC_ATOM: AtomicUsize = AtomicUsize::new(15);\n STATIC_ATOM.store(9, SeqCst);\n assert_eq!(STATIC_ATOM.load(SeqCst), 9); // use a `static` item to refer to the same instance\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -958,7 +958,7 @@
       "line": 132
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for a [`#[must_use]`] attribute without further information on functions and methods that return a type already\n marked as `#[must_use]`.\n\n [`#[must_use]`]: https://doc.rust-lang.org/reference/attributes/diagnostics.html#the-must_use-attribute\n\n### Why is this bad?\n\n The attribute isn't needed. Not using the result\n will already be reported. Alternatively, one can add some text to the\n attribute to improve the lint message.\n\n### Known problems:\n\n None.\n\n### Examples:\n\n\n ```rust\n #[must_use]\n fn double_must_use() -> Result<(), ()> {\n     unimplemented!();\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -972,7 +972,7 @@
       "line": 88
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Detects expressions of the form `--x`.\n### Why is this bad?\n\n It can mislead C/C++ programmers to think `x` was\n decremented.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let mut x = 3;\n --x;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1028,7 +1028,7 @@
       "line": 70
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for function arguments having the similar names differing by an underscore.\n\n### Why is this bad?\n\n It affects code readability.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n // Bad\n fn foo(a: i32, _a: i32) {}\n\n // Good\n fn bar(a: i32, _b: i32) {}\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1098,7 +1098,7 @@
       "line": 315
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for empty `loop` expressions.\n### Why is this bad?\n\n These busy loops burn CPU cycles without doing\n anything. It is _almost always_ a better idea to `panic!` than to have\n a busy loop.\n\n If panicking isn't possible, think of the environment and either:\n   - block on something\n   - sleep the thread for some microseconds\n   - yield or pause the thread\n\n For `std` targets, this can be done with\n [`std::thread::sleep`](https://doc.rust-lang.org/std/thread/fn.sleep.html)\n or [`std::thread::yield_now`](https://doc.rust-lang.org/std/thread/fn.yield_now.html).\n\n For `no_std` targets, doing this is more complicated, especially because\n `#[panic_handler]`s can't panic. To stop/pause the thread, you will\n probably need to invoke some target-specific intrinsic. Examples include:\n   - [`x86_64::instructions::hlt`](https://docs.rs/x86_64/0.12.2/x86_64/instructions/fn.hlt.html)\n   - [`cortex_m::asm::wfi`](https://docs.rs/cortex-m/0.6.3/cortex_m/asm/fn.wfi.html)\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```no_run\n loop {}\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1140,7 +1140,7 @@
       "line": 37
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Detects enumeration variants that are prefixed or suffixed by the same characters.\n\n### Why is this bad?\n\n Enumeration variant names should specify their variant,\n not repeat the enumeration name.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n enum Cake {\n     BlackForestCake,\n     HummingbirdCake,\n     BattenbergCake,\n }\n ```\n Could be written as:\n ```rust\n enum Cake {\n     BlackForest,\n     Hummingbird,\n     Battenberg,\n }\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* enum-variant-name-threshold: u64: . The minimum number of enum variants for the lints about variant names to trigger (defaults to `3`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1196,7 +1196,7 @@
       "line": 31
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for float literals with a precision greater than that supported by the underlying type.\n\n### Why is this bad?\n\n Rust will truncate the literal silently.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // Bad\n let v: f32 = 0.123_456_789_9;\n println!(\"{}\", v); //  0.123_456_789\n\n // Good\n let v: f64 = 0.123_456_789_9;\n println!(\"{}\", v); //  0.123_456_789_9\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1406,7 +1406,7 @@
       "line": 62
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for immediate reassignment of fields initialized with Default::default().\n\n### Why is this bad?\n\nIt's more idiomatic to use the [functional update syntax](https://doc.rust-lang.org/reference/expressions/struct-expr.html#functional-update-syntax).\n\n### Known problems:\n\n Assignments to patterns that are of tuple type are not linted.\n\n### Example:\n\n\n Bad:\n ```\n # #[derive(Default)]\n # struct A { i: i32 }\n let mut a: A = Default::default();\n a.i = 42;\n ```\n Use instead:\n ```\n # #[derive(Default)]\n # struct A { i: i32 }\n let a = A {\n     i: 42,\n     .. Default::default()\n };\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1616,7 +1616,7 @@
       "line": 216
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for casts of function pointers to something other than usize\n### Why is this bad?\n\n\n Casting a function pointer to anything other than usize/isize is not portable across\n architectures, because you end up losing bits if the target type is too small or end up with a\n bunch of extra bits that waste space and add more instructions to the final binary than\n strictly necessary for the problem\n\n Casting to isize also doesn't make sense since there are no signed addresses.\n\n### Example\n\n\n\n ```rust\n // Bad\n fn fun() -> i32 { 1 }\n let a = fun as i64;\n\n // Good\n fn fun2() -> i32 { 1 }\n let a = fun2 as usize;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1630,7 +1630,7 @@
       "line": 246
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for casts of a function pointer to a numeric type not wide enough to store address.\n\n### Why is this bad?\n\n\n Such a cast discards some bits of the function's address. If this is intended, it would be more\n clearly expressed by casting to usize first, then casting the usize to the intended type (with\n a comment) to perform the truncation.\n\n### Example\n\n\n\n ```rust\n // Bad\n fn fn1() -> i16 {\n     1\n };\n let _ = fn1 as i32;\n\n // Better: Cast to usize first, then comment with the reason for the truncation\n fn fn2() -> i16 {\n     1\n };\n let fn_ptr = fn2 as usize;\n let fn_ptr_truncated = fn_ptr as i32;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1644,7 +1644,7 @@
       "line": 362
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for iterating a map (`HashMap` or `BTreeMap`) and ignoring either the keys or values.\n\n### Why is this bad?\n\n Readability. There are `keys` and `values` methods that\n can be used to express that don't need the values or keys.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n for (k, _) in &map {\n     ..\n }\n ```\n\n could be replaced by\n\n ```ignore\n for k in map.keys() {\n     ..\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1700,7 +1700,7 @@
       "line": 1528
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `from_iter()` function calls on types that implement the `FromIterator` trait.\n\n### Why is this bad?\n\n It is recommended style to use collect. See\n [FromIterator documentation](https://doc.rust-lang.org/std/iter/trait.FromIterator.html)\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n use std::iter::FromIterator;\n\n let five_fives = std::iter::repeat(5).take(5);\n\n let v = Vec::from_iter(five_fives);\n\n assert_eq!(v, vec![5, 5, 5, 5, 5]);\n ```\n Use instead:\n ```rust\n let five_fives = std::iter::repeat(5).take(5);\n\n let v: Vec<i32> = five_fives.collect();\n\n assert_eq!(v, vec![5, 5, 5, 5, 5]);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1714,7 +1714,7 @@
       "line": 38
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Searches for implementations of the `Into<..>` trait and suggests to implement `From<..>` instead.\n### Why is this bad?\n\n According the std docs implementing `From<..>` is preferred since it gives you `Into<..>` for free where the reverse isn't true.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n struct StringWrapper(String);\n\n impl Into<StringWrapper> for String {\n     fn into(self) -> StringWrapper {\n         StringWrapper(self)\n     }\n }\n ```\n Use instead:\n ```rust\n struct StringWrapper(String);\n\n impl From<String> for StringWrapper {\n     fn from(s: String) -> StringWrapper {\n         StringWrapper(s)\n     }\n }\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1728,7 +1728,7 @@
       "line": 36
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for function invocations of the form `primitive::from_str_radix(s, 10)`\n\n### Why is this bad?\n\n\n This specific common use case can be rewritten as `s.parse::<primitive>()`\n (and in most cases, the turbofish can be removed), which reduces code length\n and complexity.\n\n### Known problems:\n\n\n This lint may suggest using (&<expression>).parse() instead of <expression>.parse() directly\n in some cases, which is correct but adds unnecessary complexity to the code.\n\n### Example:\n\n\n\n ```ignore\n let input: &str = get_input();\n let num = u16::from_str_radix(input, 10)?;\n ```\n Use instead:\n ```ignore\n let input: &str = get_input();\n let num: u16 = input.parse()?;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1826,7 +1826,7 @@
       "line": 37
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n* Checks for unnecessary `ok()` in if let.\n### Why is this bad?\n\n Calling `ok()` in if let is unnecessary, instead match\n on `Ok(pat)`\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n for i in iter {\n     if let Some(value) = i.parse().ok() {\n         vec.push(value)\n     }\n }\n ```\n Could be written:\n\n ```ignore\n for i in iter {\n     if let Ok(value) = i.parse() {\n         vec.push(value)\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -1966,7 +1966,7 @@
       "line": 82
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Warns if an integral or floating-point constant is grouped inconsistently with underscores.\n\n### Why is this bad?\n\n Readers may incorrectly interpret inconsistently\n grouped digits.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // Bad\n let x: u64 = 618_64_9189_73_511;\n\n // Good\n let x: u64 = 61_864_918_973_511;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2036,7 +2036,7 @@
       "line": 357
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for matches being used to destructure a single-variant enum or tuple struct where a `let` will suffice.\n\n### Why is this bad?\n\n Just readability – `let` doesn't nest, whereas a `match` does.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n enum Wrapper {\n     Data(i32),\n }\n\n let wrapper = Wrapper::Data(42);\n\n let data = match wrapper {\n     Wrapper::Data(i) => i,\n };\n ```\n\n The correct use would be:\n ```rust\n enum Wrapper {\n     Data(i32),\n }\n\n let wrapper = Wrapper::Data(42);\n let Wrapper::Data(data) = wrapper;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2064,7 +2064,7 @@
       "line": 42
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the definition of inherent methods with a signature of `to_string(&self) -> String`.\n### Why is this bad?\n\n This method is also implicitly defined if a type implements the `Display` trait. As the functionality of `Display` is much more versatile, it should be preferred.\n\n### Known problems:\n\n None\n\n###  Example:\n\n\n\n ```rust\n // Bad\n pub struct A;\n\n impl A {\n     pub fn to_string(&self) -> String {\n         \"I am A\".to_string()\n     }\n }\n ```\n\n ```rust\n // Good\n use std::fmt;\n\n pub struct A;\n\n impl fmt::Display for A {\n     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {\n         write!(f, \"I am A\")\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2204,7 +2204,7 @@
       "line": 1227
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `into_iter` calls on references which should be replaced by `iter` or `iter_mut`.\n\n### Why is this bad?\n\n Readability. Calling `into_iter` on a reference will not move out its\n content into the resulting iterator, which is confusing. It is better just call `iter` or\n `iter_mut` directly.\n\n### Known problems:\n\n None\n\n### Example:\n\n\n\n ```rust\n // Bad\n let _ = (&vec![3, 4, 5]).into_iter();\n\n // Good\n let _ = (&vec![3, 4, 5]).iter();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2302,7 +2302,7 @@
       "line": 1103
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the use of `.cloned().collect()` on slice to create a `Vec`.\n\n### Why is this bad?\n\n `.to_vec()` is clearer\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let s = [1, 2, 3, 4, 5];\n let s2: Vec<isize> = s[..].iter().cloned().collect();\n ```\n The better use would be:\n ```rust\n let s = [1, 2, 3, 4, 5];\n let s2: Vec<isize> = s.to_vec();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2344,7 +2344,7 @@
       "line": 1413
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `iter().next()` on a Slice or an Array\n### Why is this bad?\n\n These can be shortened into `.get()`\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # let a = [1, 2, 3];\n # let b = vec![1, 2, 3];\n a[2..].iter().next();\n b.iter().next();\n ```\n should be written as:\n ```rust\n # let a = [1, 2, 3];\n # let b = vec![1, 2, 3];\n a.get(2);\n b.get(0);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2372,7 +2372,7 @@
       "line": 968
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the use of `iter.nth(0)`.\n### Why is this bad?\n\n `iter.next()` is equivalent to\n `iter.nth(0)`, as they both consume the next element,\n  but is more readable.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n # use std::collections::HashSet;\n // Bad\n # let mut s = HashSet::new();\n # s.insert(1);\n let x = s.iter().nth(0);\n\n // Good\n # let mut s = HashSet::new();\n # s.insert(1);\n let x = s.iter().next();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2386,7 +2386,7 @@
       "line": 1018
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for use of `.skip(x).next()` on iterators.\n### Why is this bad?\n\n `.nth(x)` is cleaner\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let some_vec = vec![0, 1, 2, 3];\n let bad_vec = some_vec.iter().skip(3).next();\n let bad_slice = &some_vec[..].iter().skip(3).next();\n ```\n The correct use would be:\n ```rust\n let some_vec = vec![0, 1, 2, 3];\n let bad_vec = some_vec.iter().nth(3);\n let bad_slice = &some_vec[..].iter().nth(3);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2414,7 +2414,7 @@
       "line": 65
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks if you have variables whose name consists of just underscores and digits.\n\n### Why is this bad?\n\n It's hard to memorize what a variable means without a\n descriptive name.\n\n### Known problems:\n\n None?\n\n### Example:\n\n\n ```rust\n let _1 = 1;\n let ___1 = 1;\n let __1___2 = 11;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2498,7 +2498,7 @@
       "line": 74
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for items that implement `.len()` but not `.is_empty()`.\n\n### Why is this bad?\n\n It is good custom to have both methods, because for\n some data structures, asking about the length will be a costly operation,\n whereas `.is_empty()` can usually answer in constant time. Also it used to\n lead to false positives on the [`len_zero`](#len_zero) lint – currently that\n lint will ignore such entities.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n impl X {\n     pub fn len(&self) -> usize {\n         ..\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2512,7 +2512,7 @@
       "line": 49
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for getting the length of something via `.len()` just to compare to zero, and suggests using `.is_empty()` where applicable.\n\n### Why is this bad?\n\n Some structures can answer `.is_empty()` much faster\n than calculating their length. So it is good to get into the habit of using\n `.is_empty()`, and having it is cheap.\n Besides, it makes the intent clearer than a manual comparison in some contexts.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n if x.len() == 0 {\n     ..\n }\n if y.len() != 0 {\n     ..\n }\n ```\n instead use\n ```ignore\n if x.is_empty() {\n     ..\n }\n if !y.is_empty() {\n     ..\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2526,7 +2526,7 @@
       "line": 39
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `let`-bindings, which are subsequently returned.\n\n### Why is this bad?\n\n It is just extraneous code. Remove it to make your code\n more rusty.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n fn foo() -> String {\n     let x = String::new();\n     x\n }\n ```\n instead, use\n ```\n fn foo() -> String {\n     String::new()\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -2652,7 +2652,7 @@
       "line": 23
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for recursion using the entrypoint.\n### Why is this bad?\n\n Apart from special setups (which we could detect following attributes like #![no_std]),\n recursing into main() seems like an unintuitive antipattern we should be able to detect.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```no_run\n fn main() {\n     main();\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2666,7 +2666,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n It checks for manual implementations of `async` functions.\n### Why is this bad?\n\n It's more idiomatic to use the dedicated syntax.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n use std::future::Future;\n\n fn foo() -> impl Future<Output = i32> { async { 42 } }\n ```\n Use instead:\n ```rust\n async fn foo() -> i32 { 42 }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -2722,7 +2722,7 @@
       "line": 39
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usages of `match` which could be implemented using `map`\n### Why is this bad?\n\n Using the `map` method is clearer and more concise.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n match Some(0) {\n     Some(x) => Some(x + 1),\n     None => None,\n };\n ```\n Use instead:\n ```rust\n Some(0).map(|x| x + 1);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2750,7 +2750,7 @@
       "line": 56
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for manual implementations of the non-exhaustive pattern.\n### Why is this bad?\n\n Using the #[non_exhaustive] attribute expresses better the intent\n and allows possible optimizations when applied to enums.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n struct S {\n     pub a: i32,\n     pub b: i32,\n     _c: (),\n }\n\n enum E {\n     A,\n     B,\n     #[doc(hidden)]\n     _C,\n }\n\n struct T(pub i32, pub i32, ());\n ```\n Use instead:\n ```rust\n #[non_exhaustive]\n struct S {\n     pub a: i32,\n     pub b: i32,\n }\n\n #[non_exhaustive]\n enum E {\n     A,\n     B,\n }\n\n #[non_exhaustive]\n struct T(pub i32, pub i32);\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2778,7 +2778,7 @@
       "line": 157
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for expressions like `x >= 3 && x < 8` that could be more readably expressed as `(3..8).contains(x)`.\n\n### Why is this bad?\n\n `contains` expresses the intent better and has less\n failure modes (such as fencepost errors or using `||` instead of `&&`).\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // given\n let x = 6;\n\n assert!(x >= 3 && x < 8);\n ```\n Use instead:\n ```rust\n# let x = 6;\n assert!((3..8).contains(&x));\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2792,7 +2792,7 @@
       "line": 1305
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `.checked_add/sub(x).unwrap_or(MAX/MIN)`.\n### Why is this bad?\n\n These can be written simply with `saturating_add/sub` methods.\n\n### Example:\n\n\n\n ```rust\n # let y: u32 = 0;\n # let x: u32 = 100;\n let add = x.checked_add(y).unwrap_or(u32::MAX);\n let sub = x.checked_sub(y).unwrap_or(u32::MIN);\n ```\n\n can be written using dedicated methods for saturating addition/subtraction as:\n\n ```rust\n # let y: u32 = 0;\n # let x: u32 = 100;\n let add = x.saturating_add(y);\n let sub = x.saturating_sub(y);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2848,7 +2848,7 @@
       "line": 45
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for too many variables whose name consists of a single character.\n\n### Why is this bad?\n\n It's hard to memorize what a variable means without a\n descriptive name.\n\n### Known problems:\n\n None?\n\n### Example:\n\n\n ```ignore\n let (a, b, c, d, e, f, g) = (...);\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* single-char-binding-names-threshold: u64: . The maximum number of single char bindings a scope may have (defaults to `4`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2862,7 +2862,7 @@
       "line": 41
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `map(|x| x.clone())` or dereferencing closures for `Copy` types, on `Iterator` or `Option`,\n and suggests `cloned()` or `copied()` instead\n\n### Why is this bad?\n\n Readability, this can be written more concisely\n\n### Known problems:\n\n None\n\n### Example:\n\n\n\n ```rust\n let x = vec![42, 43];\n let y = x.iter();\n let z = y.map(|i| *i);\n ```\n\n The correct use would be:\n\n ```rust\n let x = vec![42, 43];\n let y = x.iter();\n let z = y.cloned();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2876,7 +2876,7 @@
       "line": 1495
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `_.map(_).collect::<Result<(), _>()`.\n### Why is this bad?\n\n Using `try_for_each` instead is more readable and idiomatic.\n\n### Known problems:\n\n None\n\n### Example:\n\n\n\n ```rust\n (0..3).map(|t| Err(t)).collect::<Result<(), _>>();\n ```\n Use instead:\n ```rust\n (0..3).try_for_each(|t| Err(t));\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -2988,7 +2988,7 @@
       "line": 501
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `match`  or `if let` expressions producing a `bool` that could be written using `matches!`\n\n### Why is this bad?\n\n Readability and needless complexity.\n\n### Known problems:\n\n This lint falsely triggers, if there are arms with\n `cfg` attributes that remove an arm evaluating to `false`.\n\n### Example:\n\n\n ```rust\n let x = Some(5);\n\n // Bad\n let a = match x {\n     Some(0) => true,\n     _ => false,\n };\n\n let a = if let Some(0) = x {\n     true\n } else {\n     false\n };\n\n // Good\n let a = matches!(x, Some(0));\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3016,7 +3016,7 @@
       "line": 186
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for overlapping match arms.\n### Why is this bad?\n\n It is likely to be an error and if not, makes the code\n less obvious.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let x = 5;\n match x {\n     1...10 => println!(\"1 ... 10\"),\n     5...15 => println!(\"5 ... 15\"),\n     _ => (),\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3030,7 +3030,7 @@
       "line": 130
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for matches where all arms match a reference, suggesting to remove the reference and deref the matched expression\n instead. It also checks for `if let &foo = bar` blocks.\n\n### Why is this bad?\n\n It just makes the code less readable. That reference\n destructuring adds nothing to the code.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n // Bad\n match x {\n     &A(ref y) => foo(y),\n     &B => bar(),\n     _ => frob(&x),\n }\n\n // Good\n match *x {\n     A(ref y) => foo(y),\n     B => bar(),\n     _ => frob(x),\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3142,7 +3142,7 @@
       "line": 38
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `mem::replace()` on an `Option` with `None`.\n\n### Why is this bad?\n\n `Option` already has the method `take()` for\n taking its current value (Some(..) or None) and replacing it with\n `None`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n use std::mem;\n\n let mut an_option = Some(0);\n let replaced = mem::replace(&mut an_option, None);\n ```\n Is better expressed with:\n ```rust\n let mut an_option = Some(0);\n let taken = an_option.take();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3156,7 +3156,7 @@
       "line": 94
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `std::mem::replace` on a value of type `T` with `T::default()`.\n\n### Why is this bad?\n\n `std::mem` module already has the method `take` to\n take the current value and replace it with the default value of that type.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let mut text = String::from(\"foo\");\n let replaced = std::mem::replace(&mut text, String::default());\n ```\n Is better expressed with:\n ```rust\n let mut text = String::from(\"foo\");\n let taken = std::mem::take(&mut text);\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3310,7 +3310,7 @@
       "line": 96
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the doc comments of publicly visible unsafe functions and warns if there is no `# Safety` section.\n\n### Why is this bad?\n\n Unsafe functions should document their safety\n preconditions, so that users can be sure they are using them safely.\n\n### Known problems:\n\n None.\n\n### Examples:\n\n\n ```rust\n# type Universe = ();\n /// This function should really be documented\n pub unsafe fn start_apocalypse(u: &mut Universe) {\n     unimplemented!();\n }\n ```\n\n At least write a line about safety:\n\n ```rust\n# type Universe = ();\n /// # Safety\n ///\n /// This function should not be called before the horsemen are ready.\n pub unsafe fn start_apocalypse(u: &mut Universe) {\n     unimplemented!();\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3338,7 +3338,7 @@
       "line": 109
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Warns on hexadecimal literals with mixed-case letter digits.\n\n### Why is this bad?\n\n It looks confusing.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n // Bad\n let y = 0x1a9BAcD;\n\n // Good\n let y = 0x1A9BACD;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3352,7 +3352,7 @@
       "line": 122
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for modules that have the same name as their parent module\n\n### Why is this bad?\n\n A typical beginner mistake is to have `mod foo;` and\n again `mod foo { ..\n }` in `foo.rs`.\n The expectation is that items inside the inner `mod foo { .. }` are then\n available\n through `foo::x`, but they are only available through\n `foo::foo::x`.\n If this is done on purpose, it would be better to choose a more\n representative module name.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n // lib.rs\n mod foo;\n // foo.rs\n mod foo {\n     ...\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3450,7 +3450,7 @@
       "line": 107
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for a [`#[must_use]`] attribute on unit-returning functions and methods.\n\n [`#[must_use]`]: https://doc.rust-lang.org/reference/attributes/diagnostics.html#the-must_use-attribute\n\n### Why is this bad?\n\n Unit values are useless. The attribute is likely\n a remnant of a refactoring that removed the return type.\n\n### Known problems:\n\n None.\n\n### Examples:\n\n\n ```rust\n #[must_use]\n fn useless() { }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3492,7 +3492,7 @@
       "line": 41
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `&mut Mutex::lock` calls\n### Why is this bad?\n\n `Mutex::lock` is less efficient than\n calling `Mutex::get_mut`. In addition you also have a statically\n guarantee that the mutex isn't locked, instead of just a runtime\n guarantee.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n use std::sync::{Arc, Mutex};\n\n let mut value_rc = Arc::new(Mutex::new(42_u8));\n let value_mutex = Arc::get_mut(&mut value_rc).unwrap();\n\n let mut value = value_mutex.lock().unwrap();\n *value += 1;\n ```\n Use instead:\n ```rust\n use std::sync::{Arc, Mutex};\n\n let mut value_rc = Arc::new(Mutex::new(42_u8));\n let value_mutex = Arc::get_mut(&mut value_rc).unwrap();\n\n let value = value_mutex.get_mut().unwrap();\n *value += 1;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3674,7 +3674,7 @@
       "line": 184
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `fn main() { .. }` in doctests\n### Why is this bad?\n\n The test can be shorter (and likely more readable)\n if the `fn main()` is left implicit.\n\n### Known problems:\n\n None.\n\n### Examples:\n\n\n ``````rust\n /// An example of a doctest with a `main()` function\n ///\n /// # Examples\n ///\n /// ```\n /// fn main() {\n ///     // this needs not be in an `fn`\n /// }\n /// ```\n fn needless_main() {\n     unimplemented!();\n }\n ``````\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3744,7 +3744,7 @@
       "line": 78
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for looping over the range of `0..len` of some collection just to get the values by index.\n\n### Why is this bad?\n\n Just iterating the collection itself makes the intent\n more clear and is probably faster.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let vec = vec!['a', 'b', 'c'];\n for i in 0..vec.len() {\n     println!(\"{}\", vec[i]);\n }\n ```\n Could be written as:\n ```rust\n let vec = vec!['a', 'b', 'c'];\n for i in vec {\n     println!(\"{}\", i);\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3758,7 +3758,7 @@
       "line": 64
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for return statements at the end of a block.\n### Why is this bad?\n\n Removing the `return` and semicolon will make the code\n more rusty.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n fn foo(x: usize) -> usize {\n     return x;\n }\n ```\n simplify to\n ```rust\n fn foo(x: usize) -> usize {\n     x\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3800,7 +3800,7 @@
       "line": 21
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for multiplication by -1 as a form of negation.\n### Why is this bad?\n\n It's more readable to just negate.\n\n### Known problems:\n\n This only catches integers (for now).\n\n### Example:\n\n\n ```ignore\n x * -1\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3828,7 +3828,7 @@
       "line": 878
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `new` not returning a type that contains `Self`.\n### Why is this bad?\n\n As a convention, `new` methods are used to make a new\n instance of a type.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n In an impl block:\n ```rust\n # struct Foo;\n # struct NotAFoo;\n impl Foo {\n     fn new() -> NotAFoo {\n # NotAFoo\n     }\n }\n ```\n\n ```rust\n # struct Foo;\n struct Bar(Foo);\n impl Foo {\n     // Bad. The type name must contain `Self`\n     fn new() -> Bar {\n # Bar(Foo)\n     }\n }\n ```\n\n ```rust\n # struct Foo;\n # struct FooError;\n impl Foo {\n     // Good. Return type contains `Self`\n     fn new() -> Result<Foo, FooError> {\n # Ok(Foo)\n     }\n }\n ```\n\n Or in a trait definition:\n ```rust\n pub trait Trait {\n     // Bad. The type name must contain `Self`\n     fn new();\n }\n ```\n\n ```rust\n pub trait Trait {\n     // Good. Return type contains `Self`\n     fn new() -> Self;\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3842,7 +3842,7 @@
       "line": 50
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for types with a `fn new() -> Self` method and no implementation of\n [`Default`](https://doc.rust-lang.org/std/default/trait.Default.html).\n\n### Why is this bad?\n\n The user might expect to be able to use\n [`Default`](https://doc.rust-lang.org/std/default/trait.Default.html) as the\n type can be constructed without arguments.\n\n### Known problems:\n\n Hopefully none.\n\n### Example:\n\n\n\n ```ignore\n struct Foo(Bar);\n\n impl Foo {\n     fn new() -> Self {\n         Foo(Bar::new())\n     }\n }\n ```\n\n To fix the lint, add a `Default` implementation that delegates to `new`:\n\n ```ignore\n struct Foo(Bar);\n\n impl Default for Foo {\n     fn default() -> Self {\n         Foo::new()\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3940,7 +3940,7 @@
       "line": 327
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `ok().expect(..)`.\n### Why is this bad?\n\n Because you usually call `expect()` on the `Result`\n directly to get a better error message.\n\n### Known problems:\n\n The error type needs to implement `Debug`\n\n### Example:\n\n\n ```rust\n # let x = Ok::<_, ()>(());\n\n // Bad\n x.ok().expect(\"why did I do this again?\");\n\n // Good\n x.expect(\"why did I do this again?\");\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -3954,7 +3954,7 @@
       "line": 56
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for arguments to `==` which have their address taken to satisfy a bound\n and suggests to dereference the other argument instead\n\n### Why is this bad?\n\n It is more idiomatic to dereference the other argument.\n\n### Known problems:\n\n None\n\n### Example:\n\n\n ```ignore\n // Bad\n &x == y\n\n // Good\n x == *y\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4024,7 +4024,7 @@
       "line": 387
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `_.map_or(None, _)`.\n### Why is this bad?\n\n Readability, this can be written more concisely as\n `_.and_then(_)`.\n\n### Known problems:\n\n The order of the arguments is not in execution order.\n\n### Example:\n\n\n ```rust\n # let opt = Some(1);\n\n // Bad\n opt.map_or(None, |a| Some(a + 1));\n\n // Good\n opt.and_then(|a| Some(a + 1));\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4220,7 +4220,7 @@
       "line": 134
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns about the use of literals as `print!`/`println!` args.\n### Why is this bad?\n\n Using literals as `println!` args is inefficient\n (c.f., https://github.com/matthiaskrgr/rust-str-bench) and unnecessary\n (i.e., just put the literal in the format string)\n\n### Known problems:\n\n Will also warn with macro calls as arguments that expand to literals\n -- e.g., `println!(\"{}\", env!(\"FOO\"))`.\n\n### Example:\n\n\n ```rust\n println!(\"{}\", \"foo\");\n ```\n use the literal without formatting:\n ```rust\n println!(\"foo\");\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -4262,7 +4262,7 @@
       "line": 58
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns when you use `print!()` with a format string that ends in a newline.\n\n### Why is this bad?\n\n You should use `println!()` instead, which appends the\n newline.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # let name = \"World\";\n print!(\"Hello {}!\\n\", name);\n ```\n use println!() instead\n ```rust\n # let name = \"World\";\n println!(\"Hello {}!\", name);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -4276,7 +4276,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns when you use `println!(\"\")` to print a newline.\n\n### Why is this bad?\n\n You should use `println!()`, which is simpler.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n // Bad\n println!(\"\");\n\n // Good\n println!();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4290,7 +4290,7 @@
       "line": 70
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint checks for function arguments of type `&String` or `&Vec` unless the references are mutable. It will also suggest you\n replace `.clone()` calls with the appropriate `.to_owned()`/`to_string()`\n calls.\n\n### Why is this bad?\n\n Requiring the argument to be of the specific size\n makes the function less useful for no benefit; slices in the form of `&[T]`\n or `&str` usually suffice and can be obtained from other types, too.\n\n### Known problems:\n\n The lint does not follow data. So if you have an\n argument `x` and write `let y = x; y.clone()` the lint will not suggest\n changing that `.clone()` to `.to_owned()`.\n\n Other functions called from this function taking a `&String` or `&Vec`\n argument may also fail to compile if you change the argument. Applying\n this lint on them will fix the problem, but they may be in other crates.\n\n One notable example of a function that may cause issues, and which cannot\n easily be changed due to being in the standard library is `Vec::contains`.\n when called on a `Vec<Vec<T>>`. If a `&Vec` is passed to that method then\n it will compile, but if a `&[T]` is passed then it will not compile.\n\n ```ignore\n fn cannot_take_a_slice(v: &Vec<u8>) -> bool {\n     let vec_of_vecs: Vec<Vec<u8>> = some_other_fn();\n\n     vec_of_vecs.contains(v)\n }\n ```\n\n Also there may be `fn(&Vec)`-typed references pointing to your function.\n If you have them, you will get a compiler error after applying this lint's\n suggestions. You then have the choice to undo your changes or change the\n type of the reference.\n\n Note that if the function is part of your public interface, there may be\n other crates referencing it, of which you may not be aware. Carefully\n deprecate the function before applying the lint suggestions in this case.\n\n### Example:\n\n\n ```ignore\n // Bad\n fn foo(&Vec<u32>) { .. }\n\n // Good\n fn foo(&[u32]) { .. }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4318,7 +4318,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Use `std::ptr::eq` when applicable\n### Why is this bad?\n\n `ptr::eq` can be used to compare `&T` references\n (which coerce to `*const T` implicitly) by their address rather than\n comparing the values they point to.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n let a = &[1, 2, 3];\n let b = &[1, 2, 3];\n\n assert!(a as *const _ as usize == b as *const _ as usize);\n ```\n Use instead:\n ```rust\n let a = &[1, 2, 3];\n let b = &[1, 2, 3];\n\n assert!(std::ptr::eq(a, b));\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4360,7 +4360,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for expressions that could be replaced by the question mark operator.\n### Why is this bad?\n\n Question mark usage is more idiomatic.\n\n### Known problems:\n\n None\n\n### Example:\n\n\n ```ignore\n if option.is_none() {\n     return None;\n }\n ```\n\n Could be written:\n\n ```ignore\n option?;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4472,7 +4472,7 @@
       "line": 38
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for closures which just call another function where the function can be called directly. `unsafe` functions or calls where types\n get adjusted are ignored.\n\n### Why is this bad?\n\n Needlessly creating a closure adds code for no benefit\n and gives the optimizer more work.\n\n### Known problems:\n\n If creating the closure inside the closure has a side-\n effect then moving the closure creation out will change when that side-\n effect runs.\n See [#1439](https://github.com/rust-lang/rust-clippy/issues/1439) for more details.\n\n### Example:\n\n\n ```rust,ignore\n // Bad\n xs.map(|x| foo(x))\n\n // Good\n xs.map(foo)\n ```\n where `foo(_)` is a plain function that takes the exact argument type of\n `x`.\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4528,7 +4528,7 @@
       "line": 33
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for fields in struct literals where shorthands could be used.\n\n### Why is this bad?\n\n If the field and variable names are the same,\n the field name is redundant.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let bar: u8 = 123;\n\n struct Foo {\n     bar: u8,\n }\n\n let foo = Foo { bar: bar };\n ```\n the last line can be simplified to\n ```ignore\n let foo = Foo { bar };\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4542,7 +4542,7 @@
       "line": 218
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for patterns in the form `name @ _`.\n### Why is this bad?\n\n It's almost always more readable to just use direct\n bindings.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # let v = Some(\"abc\");\n\n // Bad\n match v {\n     Some(x) => (),\n     y @ _ => (),\n }\n\n // Good\n match v {\n     Some(x) => (),\n     y => (),\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4556,7 +4556,7 @@
       "line": 468
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Lint for redundant pattern matching over `Result`, `Option`, `std::task::Poll` or `std::net::IpAddr`\n\n### Why is this bad?\n\n It's more concise and clear to just use the proper\n utility function\n\n### Known problems:\n\n This will change the drop order for the matched type. Both `if let` and\n `while let` will drop the value at the end of the block, both `if` and `while` will drop the\n value before entering the block. For most types this change will not matter, but for a few\n types this will not be an acceptable change (e.g. locks). See the\n [reference](https://doc.rust-lang.org/reference/destructors.html#drop-scopes) for more about\n drop order.\n\n### Example:\n\n\n\n ```rust\n # use std::task::Poll;\n # use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};\n if let Ok(_) = Ok::<i32, i32>(42) {}\n if let Err(_) = Err::<i32, i32>(42) {}\n if let None = None::<()> {}\n if let Some(_) = Some(42) {}\n if let Poll::Pending = Poll::Pending::<()> {}\n if let Poll::Ready(_) = Poll::Ready(42) {}\n if let IpAddr::V4(_) = IpAddr::V4(Ipv4Addr::LOCALHOST) {}\n if let IpAddr::V6(_) = IpAddr::V6(Ipv6Addr::LOCALHOST) {}\n match Ok::<i32, i32>(42) {\n     Ok(_) => true,\n     Err(_) => false,\n };\n ```\n\n The more idiomatic use would be:\n\n ```rust\n # use std::task::Poll;\n # use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};\n if Ok::<i32, i32>(42).is_ok() {}\n if Err::<i32, i32>(42).is_err() {}\n if None::<()>.is_none() {}\n if Some(42).is_some() {}\n if Poll::Pending::<()>.is_pending() {}\n if Poll::Ready(42).is_ready() {}\n if IpAddr::V4(Ipv4Addr::LOCALHOST).is_ipv4() {}\n if IpAddr::V6(Ipv6Addr::LOCALHOST).is_ipv6() {}\n Ok::<i32, i32>(42).is_ok();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4598,7 +4598,7 @@
       "line": 30
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for constants and statics with an explicit `'static` lifetime.\n### Why is this bad?\n\n Adding `'static` to every reference can create very\n complicated types.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n const FOO: &'static [(&'static str, &'static str, fn(&Bar) -> bool)] =\n &[...]\n static FOO: &'static [(&'static str, &'static str, fn(&Bar) -> bool)] =\n &[...]\n ```\n This code can be rewritten as\n ```ignore\n  const FOO: &[(&str, &str, fn(&Bar) -> bool)] = &[...]\n  static FOO: &[(&str, &str, fn(&Bar) -> bool)] = &[...]\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* msrv: Option<String>: . The minimum rust version that the project supports (defaults to `None`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4696,7 +4696,7 @@
       "line": 413
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usage of `_.map_or(None, Some)`.\n### Why is this bad?\n\n Readability, this can be written more concisely as\n `_.ok()`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n Bad:\n ```rust\n # let r: Result<u32, &str> = Ok(1);\n assert_eq!(Some(1), r.map_or(None, Some));\n ```\n\n Good:\n ```rust\n # let r: Result<u32, &str> = Ok(1);\n assert_eq!(Some(1), r.ok());\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4724,7 +4724,7 @@
       "line": 206
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for public functions that return a `Result` with an `Err` type of `()`. It suggests using a custom type that\n implements `std::error::Error`.\n\n### Why is this bad?\n\n Unit does not implement `Error` and carries no\n further information about what went wrong.\n\n### Known problems:\n\n Of course, this lint assumes that `Result` is used\n for a fallible operation (which is after all the intended use). However\n code may opt to (mis)use it as a basic two-variant-enum. In that case,\n the suggestion is misguided, and the code should use a custom enum\n instead.\n\n### Examples:\n\n\n ```rust\n pub fn read_u8() -> Result<u8, ()> { Err(()) }\n ```\n should become\n ```rust,should_panic\n use std::fmt;\n\n #[derive(Debug)]\n pub struct EndOfStream;\n\n impl fmt::Display for EndOfStream {\n     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n         write!(f, \"End of Stream\")\n     }\n }\n\n impl std::error::Error for EndOfStream { }\n\n pub fn read_u8() -> Result<u8, EndOfStream> { Err(EndOfStream) }\n# fn main() {\n#     read_u8().unwrap();\n# }\n ```\n\n Note that there are crates that simplify creating the error type, e.g.\n [`thiserror`](https://docs.rs/thiserror).\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4766,7 +4766,7 @@
       "line": 459
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks whether a for loop is being used to push a constant value into a Vec.\n\n### Why is this bad?\n\n This kind of operation can be expressed more succinctly with\n `vec![item;SIZE]` or `vec.resize(NEW_SIZE, item)` and using these alternatives may also\n have better performance.\n### Known problems:\n\n None\n\n### Example:\n\n\n ```rust\n let item1 = 2;\n let item2 = 3;\n let mut vec: Vec<u8> = Vec::new();\n for _ in 0..20 {\n    vec.push(item1);\n }\n for _ in 0..30 {\n     vec.push(item2);\n }\n ```\n could be written as\n ```rust\n let item1 = 2;\n let item2 = 3;\n let mut vec: Vec<u8> = vec![item1; 20];\n vec.resize(20 + 30, item2);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4906,7 +4906,7 @@
       "line": 235
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for methods that should live in a trait implementation of a `std` trait (see [llogiq's blog\n post](http://llogiq.github.io/2015/07/30/traits.html) for further\n information) instead of an inherent implementation.\n\n### Why is this bad?\n\n Implementing the traits improve ergonomics for users of\n the code, often with very little cost. Also people seeing a `mul(...)`\n method\n may expect `*` to work equally, so you should have good reason to disappoint\n them.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n struct X;\n impl X {\n     fn add(&self, other: &X) -> X {\n         // ..\n # X\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4934,7 +4934,7 @@
       "line": 1438
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Warns when using `push_str`/`insert_str` with a single-character string literal where `push`/`insert` with a `char` would work fine.\n\n### Why is this bad?\n\n It's less clear that we are pushing a single character.\n\n### Known problems:\n\n None\n\n### Example:\n\n\n ```rust\n let mut string = String::new();\n string.insert_str(0, \"R\");\n string.push_str(\"R\");\n ```\n Could be written as\n ```rust\n let mut string = String::new();\n string.insert(0, 'R');\n string.push('R');\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4962,7 +4962,7 @@
       "line": 32
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checking for imports with single component use path.\n### Why is this bad?\n\n Import with single component use path such as `use cratename;`\n is not necessary, and thus should be removed.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust,ignore\n use regex;\n\n fn main() {\n     regex::Regex::new(r\"^\\d{4}-\\d{2}-\\d{2}$\").unwrap();\n }\n ```\n Better as\n ```rust,ignore\n fn main() {\n     regex::Regex::new(r\"^\\d{4}-\\d{2}-\\d{2}$\").unwrap();\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -4990,7 +4990,7 @@
       "line": 60
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for matches with a single arm where an `if let` will usually suffice.\n\n### Why is this bad?\n\n Just readability – `if let` nests less than a `match`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # fn bar(stool: &str) {}\n # let x = Some(\"abc\");\n // Bad\n match x {\n     Some(ref foo) => bar(foo),\n     _ => (),\n }\n\n // Good\n if let Some(ref foo) = x {\n     bar(foo);\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5116,7 +5116,7 @@
       "line": 1080
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for the use of `.extend(s.chars())` where s is a `&str` or `String`.\n\n### Why is this bad?\n\n `.push_str(s)` is clearer\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let abc = \"abc\";\n let def = String::from(\"def\");\n let mut s = String::new();\n s.extend(abc.chars());\n s.extend(def.chars());\n ```\n The correct use would be:\n ```rust\n let abc = \"abc\";\n let def = String::from(\"def\");\n let mut s = String::new();\n s.push_str(abc);\n s.push_str(&def);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5214,7 +5214,7 @@
       "line": 24
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for use of the non-existent `=*`, `=!` and `=-` operators.\n\n### Why is this bad?\n\n This is either a typo of `*=`, `!=` or `-=` or\n confusing.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n a =- 42; // confusing, should it be `a -= 42` or `a = -42`?\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5228,7 +5228,7 @@
       "line": 82
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for formatting of `else`. It lints if the `else` is followed immediately by a newline or the `else` seems to be missing.\n\n### Why is this bad?\n\n This is probably some refactoring remnant, even if the\n code is correct, it might look confusing.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n if foo {\n } { // looks like an `else` is missing here\n }\n\n if foo {\n } if bar { // looks like an `else` is missing here\n }\n\n if foo {\n } else\n\n { // this is the `else` block of the previous `if`, but should it be?\n }\n\n if foo {\n } else\n\n if bar { // this is the `else` block of the previous `if`, but should it be?\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5270,7 +5270,7 @@
       "line": 61
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for unlikely usages of binary operators that are almost\n certainly typos and/or copy/paste errors, given the other usages\n of binary operators nearby.\n### Why is this bad?\n\n\n They are probably bugs and if they aren't then they look like bugs\n and you should add a comment explaining why you are doing such an\n odd set of operations.\n### Known problems:\n\n\n There may be some false positives if you are trying to do something\n unusual that happens to look like a typo.\n\n### Example:\n\n\n\n ```rust\n struct Vec3 {\n     x: f64,\n     y: f64,\n     z: f64,\n }\n\n impl Eq for Vec3 {}\n\n impl PartialEq for Vec3 {\n     fn eq(&self, other: &Self) -> bool {\n         // This should trigger the lint because `self.x` is compared to `other.y`\n         self.x == other.y && self.y == other.y && self.z == other.z\n     }\n }\n ```\n Use instead:\n ```rust\n # struct Vec3 {\n #     x: f64,\n #     y: f64,\n #     z: f64,\n # }\n // same as above except:\n impl PartialEq for Vec3 {\n     fn eq(&self, other: &Self) -> bool {\n         // Note we now compare other.x to self.x\n         self.x == other.x && self.y == other.y && self.z == other.z\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5284,7 +5284,7 @@
       "line": 46
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks the formatting of a unary operator on the right hand side of a binary operator. It lints if there is no space between the binary and unary operators,\n but there is a space between the unary and its operand.\n\n### Why is this bad?\n\n This is either a typo in the binary operator or confusing.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n if foo <- 30 { // this should be `foo < -30` but looks like a different operator\n }\n\n if foo &&! bar { // this should be `foo && !bar` but looks like a different operator\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5298,7 +5298,7 @@
       "line": 54
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks doc comments for usage of tab characters.\n### Why is this bad?\n\n The rust style-guide promotes spaces instead of tabs for indentation.\n To keep a consistent view on the source, also doc comments should not have tabs.\n Also, explaining ascii-diagrams containing tabs can get displayed incorrectly when the\n display settings of the author and reader differ.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n ///\n /// Struct to hold two strings:\n /// \t- first\t\tone\n /// \t- second\tone\n pub struct DoubleString {\n    ///\n    /// \t- First String:\n    /// \t\t- needs to be inside here\n    first_string: String,\n    ///\n    /// \t- Second String:\n    /// \t\t- needs to be inside here\n    second_string: String,\n}\n ```\n\n Will be converted to:\n ```rust\n ///\n /// Struct to hold two strings:\n ///     - first        one\n ///     - second    one\n pub struct DoubleString {\n    ///\n    ///     - First String:\n    ///         - needs to be inside here\n    first_string: String,\n    ///\n    ///     - Second String:\n    ///         - needs to be inside here\n    second_string: String,\n}\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5326,7 +5326,7 @@
       "line": 29
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `.to_digit(..).is_some()` on `char`s.\n### Why is this bad?\n\n This is a convoluted way of checking if a `char` is a digit. It's\n more straight forward to use the dedicated `is_digit` method.\n\n### Example:\n\n\n ```rust\n # let c = 'c';\n # let radix = 10;\n let is_digit = c.to_digit(radix).is_some();\n ```\n can be written as:\n ```\n # let c = 'c';\n # let radix = 10;\n let is_digit = c.is_digit(radix);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5396,7 +5396,7 @@
       "line": 56
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for function arguments and let bindings denoted as `ref`.\n\n### Why is this bad?\n\n The `ref` declaration makes the function take an owned\n value, but turns the argument into a reference (which means that the value\n is destroyed when exiting the function). This adds not much value: either\n take a reference type, or take an owned value and create references in the\n body.\n\n For let bindings, `let x = &foo;` is preferred over `let ref x = foo`. The\n type of `x` is more obvious with the former.\n\n### Known problems:\n\n If the argument is dereferenced within the function,\n removing the `ref` will lead to errors. This can be fixed by removing the\n dereferences, e.g., changing `*x` to `x` within the function.\n\n### Example:\n\n\n ```rust,ignore\n // Bad\n fn foo(ref x: u8) -> bool {\n     true\n }\n\n // Good\n fn foo(x: &u8) -> bool {\n     true\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5578,7 +5578,7 @@
       "line": 44
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for usages of `Err(x)?`.\n### Why is this bad?\n\n The `?` operator is designed to allow calls that\n can fail to be easily chained. For example, `foo()?.bar()` or\n `foo(bar()?)`. Because `Err(x)?` can't be used that way (it will\n always return), it is more clear to write `return Err(x)`.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n fn foo(fail: bool) -> Result<i32, String> {\n     if fail {\n       Err(\"failed\")?;\n     }\n     Ok(0)\n }\n ```\n Could be written:\n\n ```rust\n fn foo(fail: bool) -> Result<i32, String> {\n     if fail {\n       return Err(\"failed\".into());\n     }\n     Ok(0)\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5746,7 +5746,7 @@
       "line": 1174
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for using `fold` when a more succinct alternative exists. Specifically, this checks for `fold`s which could be replaced by `any`, `all`,\n `sum` or `product`.\n\n### Why is this bad?\n\n Readability.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n let _ = (0..3).fold(false, |acc, x| acc || x > 2);\n ```\n This could be written as:\n ```rust\n let _ = (0..3).any(|x| x > 2);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5760,7 +5760,7 @@
       "line": 1474
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n As the counterpart to `or_fun_call`, this lint looks for unnecessary lazily evaluated closures on `Option` and `Result`.\n\n This lint suggests changing the following functions, when eager evaluation results in\n simpler code:\n  - `unwrap_or_else` to `unwrap_or`\n  - `and_then` to `and`\n  - `or_else` to `or`\n  - `get_or_insert_with` to `get_or_insert`\n  - `ok_or_else` to `ok_or`\n\n### Why is this bad?\n\n Using eager evaluation is shorter and simpler in some cases.\n\n### Known problems:\n\n It is possible, but not recommended for `Deref` and `Index` to have\n side effects. Eagerly evaluating them can change the semantics of the program.\n\n### Example:\n\n\n\n ```rust\n // example code where clippy issues a warning\n let opt: Option<u32> = None;\n\n opt.unwrap_or_else(|| 42);\n ```\n Use instead:\n ```rust\n let opt: Option<u32> = None;\n\n opt.unwrap_or(42);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5774,7 +5774,7 @@
       "line": 26
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Detects passing a mutable reference to a function that only requires an immutable reference.\n\n### Why is this bad?\n\n The mutable reference rules out all other references to\n the value. Also the code misleads about the intent of the call site.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n // Bad\n my_vec.push(&mut value)\n\n // Good\n my_vec.push(&value)\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -5942,7 +5942,7 @@
       "line": 24
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for imports that remove \"unsafe\" from an item's name.\n\n### Why is this bad?\n\n Renaming makes it less clear which traits and\n structures are unsafe.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust,ignore\n use std::cell::{UnsafeCell as TotallySafeCell};\n\n extern crate crossbeam;\n use crossbeam::{spawn_unsafe as spawn};\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6082,7 +6082,7 @@
       "line": 27
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for unit (`()`) expressions that can be removed.\n### Why is this bad?\n\n Such expressions add no value, but can make the code\n less readable. Depending on formatting they can make a `break` or `return`\n statement look like a function call.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n fn return_unit() -> () {\n     ()\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6096,7 +6096,7 @@
       "line": 101
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Warns if hexadecimal or binary literals are not grouped by nibble or byte.\n\n### Why is this bad?\n\n Negatively impacts readability.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n let x: u32 = 0xFFF_FFF;\n let y: u8 = 0b01_011_101;\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6138,7 +6138,7 @@
       "line": 34
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for fully capitalized names and optionally names containing a capitalized acronym.\n### Why is this bad?\n\n In CamelCase, acronyms count as one word.\n See [naming conventions](https://rust-lang.github.io/api-guidelines/naming.html#casing-conforms-to-rfc-430-c-case)\n for more.\n\n By default, the lint only triggers on fully-capitalized names.\n You can use the `upper-case-acronyms-aggressive: true` config option to enable linting\n on all camel case names\n\n### Known problems:\n\n When two acronyms are contiguous, the lint can't tell where\n the first acronym ends and the second starts, so it suggests to lowercase all of\n the letters in the second acronym.\n\n### Example:\n\n\n\n ```rust\n struct HTTPResponse;\n ```\n Use instead:\n ```rust\n struct HttpResponse;\n ```\n\n\n\nConfiguration\n\n\nThis lint has the following configuration variables:\n\n* upper-case-acronyms-aggressive: bool: . Enables verbose mode. Triggers if there is more than one uppercase char next to each other (defaults to `false`)\n\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6404,7 +6404,7 @@
       "line": 334
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for `while let` expressions on iterators.\n### Why is this bad?\n\n Readability. A simple `for` loop is shorter and conveys\n the intent better.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```ignore\n while let Some(val) = iter() {\n     ..\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6474,7 +6474,7 @@
       "line": 208
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns about the use of literals as `write!`/`writeln!` args.\n### Why is this bad?\n\n Using literals as `writeln!` args is inefficient\n (c.f., https://github.com/matthiaskrgr/rust-str-bench) and unnecessary\n (i.e., just put the literal in the format string)\n\n### Known problems:\n\n Will also warn with macro calls as arguments that expand to literals\n -- e.g., `writeln!(buf, \"{}\", env!(\"FOO\"))`.\n\n### Example:\n\n\n ```rust\n # use std::fmt::Write;\n # let mut buf = String::new();\n // Bad\n writeln!(buf, \"{}\", \"foo\");\n\n // Good\n writeln!(buf, \"foo\");\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -6488,7 +6488,7 @@
       "line": 183
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns when you use `write!()` with a format string that\n ends in a newline.\n\n### Why is this bad?\n\n You should use `writeln!()` instead, which appends the\n newline.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # use std::fmt::Write;\n # let mut buf = String::new();\n # let name = \"World\";\n // Bad\n write!(buf, \"Hello {}!\\n\", name);\n\n // Good\n writeln!(buf, \"Hello {}!\", name);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": true,
@@ -6502,7 +6502,7 @@
       "line": 157
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n This lint warns when you use `writeln!(buf, \"\")` to print a newline.\n\n### Why is this bad?\n\n You should use `writeln!(buf)`, which is simpler.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # use std::fmt::Write;\n # let mut buf = String::new();\n // Bad\n writeln!(buf, \"\");\n\n // Good\n writeln!(buf);\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6530,7 +6530,7 @@
       "line": 280
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Checks for methods with certain name prefixes and which doesn't match how self is taken. The actual rules are:\n\n |Prefix |Postfix     |`self` taken           | `self` type  |\n|-------|------------|-----------------------|--------------|\n|`as_`  | none       |`&self` or `&mut self` | any          |\n|`from_`| none       | none                  | any          |\n|`into_`| none       |`self`                 | any          |\n|`is_`  | none       |`&self` or none        | any          |\n|`to_`  | `_mut`     |`&mut self`            | any          |\n|`to_`  | not `_mut` |`self`                 | `Copy`       |\n|`to_`  | not `_mut` |`&self`                | not `Copy`   |\n\n Note: Clippy doesn't trigger methods with `to_` prefix in:\n - Traits definition.\n Clippy can not tell if a type that implements a trait is `Copy` or not.\n - Traits implementation, when `&self` is taken.\n The method signature is controlled by the trait and often `&self` is required for all types that implement the trait\n (see e.g. the `std::string::ToString` trait).\n\n Please find more info here:\n https://rust-lang.github.io/api-guidelines/naming.html#ad-hoc-conversions-follow-as_-to_-into_-conventions-c-conv\n\n### Why is this bad?\n\n Consistency breeds readability. If you follow the\n conventions, your users won't be surprised that they, e.g., need to supply a\n mutable reference to a `as_..` function.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n ```rust\n # struct X;\n impl X {\n     fn as_str(self) -> &'static str {\n         // ..\n # \"\"\n     }\n }\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
@@ -6586,7 +6586,7 @@
       "line": 226
     },
     "group": "style",
-    "level": "warm",
+    "level": "warn",
     "docs": "### What it does:\n\n Catch casts from `0` to some pointer type\n### Why is this bad?\n\n This generally means `null` and is better expressed as\n {`std`, `core`}`::ptr::`{`null`, `null_mut`}.\n\n### Known problems:\n\n None.\n\n### Example:\n\n\n\n ```rust\n // Bad\n let a = 0 as *const u32;\n\n // Good\n let a = std::ptr::null::<u32>();\n ```\n",
     "applicability": {
       "is_multi_part_suggestion": false,
