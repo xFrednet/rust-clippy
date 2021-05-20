@@ -1,35 +1,11 @@
 <!DOCTYPE html>
 <!-- 
-                        _.-;:q=._ 
-                      .' j=""^k;:\. 
-                     ; .F       ";`Y
-                    ,;.J_        ;'j
-                  ,-;"^7F       : .F           _________________
-                 ,-'-_<.        ;gj. _.,---""''               .'
-                ;  _,._`\.     : `T"5,                       ; 
-                : `?8w7 `J  ,-'" -^q. `                     ;  
-                 \;._ _,=' ;   n58L Y.                     .' 
-                   F;";  .' k_ `^'  j'                     ;  
-                   J;:: ;     "y:-='                      ;   
-                    L;;==      |:;   jT\                  ;
-                    L;:;J      J:L  7:;'       _         ; 
-                    I;|:.L     |:k J:.' ,  '       .     ;
-                    |;J:.|     ;.I F.:      .           : 
-                   ;J;:L::     |.| |.J  , '   `    ;    ; 
-                 .' J:`J.`.    :.J |. L .    ;         ; 
-                ;    L :k:`._ ,',j J; |  ` ,        ; ; 
-              .'     I :`=.:."_".'  L J             `.'
-            .'       |.:  `"-=-'    |.J              ; 
-        _.-'         `: :           ;:;           _ ; 
-    _.-'"             J: :         /.;'       ;    ; 
-  ='_                  k;.\.    _.;:Y'     ,     .' 
-     `"---..__          `Y;."-=';:='     ,      .'
-              `""--..__   `"==="'    -        .' 
-                       ``""---...__    itz .-' 
-                                   ``""---'
- 
-Checking out the source code I see :) (This will not be a part of the new index file. It's just a joke for the mean time)
- -->
+Welcome to a Clippy's lint list, at least the source code of it. If you are
+interested in contributing to this website checkout `util/gh-pages/index.html`
+inside the rust-clippy repository.
+
+Otherwise, have a great day =^.^=
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
@@ -53,10 +29,10 @@ Checking out the source code I see :) (This will not be a part of the new index 
 
         .panel-heading { cursor: pointer; }
 
-        .panel-title { display: flex; }
+        .panel-title { display: flex; flex-wrap: wrap;}
         .panel-title .label { display: inline-block; }
 
-        .panel-title-name { flex: 1; }
+        .panel-title-name { flex: 1; min-width: 400px;}
         .panel-title-name span { vertical-align: bottom; }
 
         .panel .panel-title-name .anchor { display: none; }
@@ -93,14 +69,30 @@ Checking out the source code I see :) (This will not be a part of the new index 
             padding-top: 0px;
         }
 
+        @media (max-width:599px) {
+            .lint-additional-info-container {
+                display: flex;
+                flex-flow: column;
+            }
+            .lint-additional-info-item + .lint-additional-info-item {
+                border-top: 1px solid var(--theme-popup-border);
+            }
+        }
+        @media (min-width:600px) {
+            .lint-additional-info-container {
+                display: flex;
+                flex-flow: row;
+            }
+            .lint-additional-info-item + .lint-additional-info-item {
+                border-left: 1px solid var(--theme-popup-border);
+            }
+        }
+
         .lint-additional-info-item {
             display: inline-flex;
+            min-width: 200px;
             flex-grow: 1;
-            padding: 9px 5px 5px 5px;
-            border-left: 1px solid var(--theme-popup-border);
-        }
-        .lint-additional-info-item:first-child {
-            border-left: 0;
+            padding: 9px 5px 5px 15px;
         }
 
         .label-applicability {
@@ -316,7 +308,7 @@ Checking out the source code I see :) (This will not be a part of the new index 
 
                 <ul class="list-group lint-docs" ng-class="{collapse: true, in: open[lint.id]}">
                     <div class="list-group-item lint-doc-md" ng-bind-html="lint.docs | markdown"></div>
-                    <div style="display: flex;">
+                    <div class="lint-additional-info-container">
                         <!-- Applicability -->
                         <div class="lint-additional-info-item">
                             <span> Applicability: </span> 
@@ -330,7 +322,7 @@ Checking out the source code I see :) (This will not be a part of the new index 
                         </div>
                         <!-- Jump to source -->
                         <div class="lint-additional-info-item">
-                            <a href="https://github.com/rust-lang/rust-clippy/blob/{{docVersion}}/clippy_lints/{{lint.id_span.path}}#L{{lint.id_span.line}}">View lint code</a>
+                            <a href="https://github.com/rust-lang/rust-clippy/blob/{{docVersion}}/clippy_lints/{{lint.id_span.path}}#L{{lint.id_span.line}}">Jump into code</a>
                         </div>
                     </div>
                 </ul>
@@ -431,7 +423,7 @@ Checking out the source code I see :) (This will not be a part of the new index 
                 cargo: true,
                 complexity: true,
                 correctness: true,
-                deprecated: false,
+                deprecated: true,
                 nursery: true,
                 pedantic: true,
                 perf: true,
