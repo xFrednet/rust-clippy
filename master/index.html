@@ -249,7 +249,10 @@ Otherwise, have a great day =^.^=
                 <div class="panel-body row filter-panel">
                     <div class="col-md-6 form-inline">
                         <div class="form-group form-group-lg">
-                            <p class="h4">Lint levels</p>
+                            <p class="h4">
+                                Lint levels
+                                <a href="https://doc.rust-lang.org/rustc/lints/levels.html">(?)</a>
+                            </p>
                             <div class="checkbox" ng-repeat="(level, enabled) in levels">
                                 <label class="text-capitalize">
                                     <input type="checkbox" ng-model="levels[level]" />
@@ -260,7 +263,10 @@ Otherwise, have a great day =^.^=
                     </div>
                     <div class="col-md-6 form-inline">
                         <div class="form-group form-group-lg">
-                            <p class="h4">Lint groups</p>
+                            <p class="h4">
+                                Lint groups
+                                <a href="https://github.com/rust-lang/rust-clippy/#clippy">(?)</a>
+                            </p>
                             <div class="checkbox" ng-repeat="(group, enabled) in groups">
                                 <label class="text-capitalize">
                                     <input type="checkbox" ng-model="groups[group]" />
