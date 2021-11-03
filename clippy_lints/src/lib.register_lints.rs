@@ -156,6 +156,7 @@ store.register_lints(&[
     functions::TOO_MANY_LINES,
     future_not_send::FUTURE_NOT_SEND,
     get_last_with_len::GET_LAST_WITH_LEN,
+    graph_query_linter::GRAPH_QUERY_LINTER,
     identity_op::IDENTITY_OP,
     if_let_mutex::IF_LET_MUTEX,
     if_not_else::IF_NOT_ELSE,

@@ -2890,6 +2890,7 @@ Released 2018-09-13
 [`future_not_send`]: https://rust-lang.github.io/rust-clippy/master/index.html#future_not_send
 [`get_last_with_len`]: https://rust-lang.github.io/rust-clippy/master/index.html#get_last_with_len
 [`get_unwrap`]: https://rust-lang.github.io/rust-clippy/master/index.html#get_unwrap
+[`graph_query_linter`]: https://rust-lang.github.io/rust-clippy/master/index.html#graph_query_linter
 [`identity_op`]: https://rust-lang.github.io/rust-clippy/master/index.html#identity_op
 [`if_let_mutex`]: https://rust-lang.github.io/rust-clippy/master/index.html#if_let_mutex
 [`if_let_redundant_pattern_matching`]: https://rust-lang.github.io/rust-clippy/master/index.html#if_let_redundant_pattern_matching

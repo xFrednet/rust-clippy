@@ -225,6 +225,7 @@ mod from_str_radix_10;
 mod functions;
 mod future_not_send;
 mod get_last_with_len;
+mod graph_query_linter;
 mod identity_op;
 mod if_let_mutex;
 mod if_not_else;
@@ -779,6 +780,7 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
     store.register_late_pass(|| Box::new(match_str_case_mismatch::MatchStrCaseMismatch));
     store.register_late_pass(move || Box::new(format_args::FormatArgs));
     store.register_late_pass(|| Box::new(trailing_empty_array::TrailingEmptyArray));
+    store.register_late_pass(|| Box::new(graph_query_linter::GraphQueryLinter));
     // add lints here, do not remove this comment, it's used in `new_lint`
 }
 
