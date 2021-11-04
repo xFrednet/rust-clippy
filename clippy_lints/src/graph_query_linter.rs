@@ -8,6 +8,8 @@ use rustc_span::Span;
 
 use rusted_cypher::{cypher_stmt, Statement};
 
+use rusted_cypher::GraphClient;
+
 declare_clippy_lint! {
     /// ### What it does
     ///
@@ -58,10 +60,22 @@ impl LateLintPass<'_> for GraphQueryLinter {
 fn create_body_graph<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
     let mut query_creator = GraphCreateVisitor::new(cx);
 
-    //intravisit::walk_body(&mut query_creator, body);
     query_creator.visit_body(body);
 
-    println!("{:?}", query_creator.query);
+    #[rustfmt::skip]
+    {
+        // Use 
+        // ```cmd
+        // sudo docker run --publish=7474:7474 --publish=7687:7687 --volume=$HOME/neo4j/data:/data --volume=$HOME/neo4j/logs:/logs neo4j:3.5.29-community`
+        // ```
+        // to create the docker container. Note that this implementation is using 3.5.
+        // Keep the default neo4j user and set the password to pw-clippy-query
+    }
+    let graph = GraphClient::connect("http://neo4j:pw-clippy-query@localhost:7474/db/data").unwrap();
+    let mut query = graph.query();
+    query.set_statements(query_creator.query);
+    let res = query.send();
+    assert!(res.is_ok(), "ERR: {:#?}", res.unwrap_err());
 }
 
 fn to_query(hir_id: hir::HirId) -> String {
@@ -102,8 +116,9 @@ impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
         let self_id = to_query(body.id().hir_id);
         self.query.push(
             cypher_stmt!(
-                "CREATE (:Body {name: 'body', hir_id: {hir_id}})", {
-                    "hir_id" => &self_id
+                "CREATE (:Body {name: 'body', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                    "hir_id" => &self_id,
+                    "from_expansion" => body.value.span.from_expansion()
                 }
             )
             .unwrap(),
@@ -114,10 +129,11 @@ impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
             self.query.push(
                 cypher_stmt!(
                     "MATCH (parent:Body) where parent.hir_id = {parent_hir_id}
-                    CREATE (parent) -[:PARAM {index: {index}}]->(:Param { name: 'param', hir_id: {hir_id}})", {
+                    CREATE (parent) -[:PARAM {index: {index}}]->(:Param { name: 'param', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
                         "parent_hir_id" => &self_id,
                         "index" => index,
-                        "hir_id" => &to_query(param.hir_id)
+                        "hir_id" => &to_query(param.hir_id),
+                        "from_expansion" => param.span.from_expansion()
                     }
                 )
                 .unwrap(),
