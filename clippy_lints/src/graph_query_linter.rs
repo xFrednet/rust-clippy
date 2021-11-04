@@ -6,6 +6,8 @@ use rustc_middle::hir::map::Map;
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::Span;
 
+use rusted_cypher::{cypher_stmt, Statement};
+
 declare_clippy_lint! {
     /// ### What it does
     ///
@@ -39,7 +41,7 @@ impl LateLintPass<'_> for GraphQueryLinter {
         cx: &LateContext<'tcx>,
         _kind: FnKind<'tcx>,
         _fn_declaration: &'tcx hir::FnDecl<'tcx>,
-        _body: &'tcx hir::Body<'tcx>,
+        body: &'tcx hir::Body<'tcx>,
         _span: Span,
         hir_id: hir::HirId,
     ) {
@@ -48,11 +50,42 @@ impl LateLintPass<'_> for GraphQueryLinter {
         if is_lint_allowed(cx, GRAPH_QUERY_LINTER, hir_id) {
             return;
         }
+
+        create_body_graph(cx, body);
     }
+}
+
+fn create_body_graph<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
+    let mut query_creator = GraphCreateVisitor::new(cx);
+
+    //intravisit::walk_body(&mut query_creator, body);
+    query_creator.visit_body(body);
+
+    println!("{:?}", query_creator.query);
+}
+
+fn to_query(hir_id: hir::HirId) -> String {
+    assert_eq!(std::mem::size_of::<hir::HirId>(), 8, "The size of HirId is weird");
+
+    // > transmute is **incredibly** unsafe. There are a vast number of ways to cause undefined
+    // > behavior with this function. transmute should be the absolute last resort.
+    //
+    // It's gonna be fine... ~@xFrednet
+
+    let (owner, local_id) = unsafe { std::mem::transmute::<hir::HirId, (u32, u32)>(hir_id) };
+
+    format!("{:08X}-{:08X}", owner, local_id)
 }
 
 struct GraphCreateVisitor<'a, 'tcx> {
     cx: &'a LateContext<'tcx>,
+    query: Vec<Statement>,
+}
+
+impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
+    fn new(cx: &'a LateContext<'tcx>) -> Self {
+        Self { cx, query: Vec::new() }
+    }
 }
 
 impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
@@ -64,15 +97,37 @@ impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
         NestedVisitorMap::OnlyBodies(self.cx.tcx.hir())
     }
 
-    fn visit_param(&mut self, param: &'tcx hir::Param<'tcx>) {
-        intravisit::walk_param(self, param)
-    }
+    fn visit_body(&mut self, body: &'tcx hir::Body<'tcx>) {
+        // Create Self node
+        let self_id = to_query(body.id().hir_id);
+        self.query.push(
+            cypher_stmt!(
+                "CREATE (:Body {name: 'body', hir_id: {hir_id}})", {
+                    "hir_id" => &self_id
+                }
+            )
+            .unwrap(),
+        );
 
-    fn visit_body(&mut self, b: &'tcx hir::Body<'tcx>) {
-        intravisit::walk_body(self, b)
+        // Extracting parameters
+        for (index, param) in body.params.iter().enumerate() {
+            self.query.push(
+                cypher_stmt!(
+                    "MATCH (parent:Body) where parent.hir_id = {parent_hir_id}
+                    CREATE (parent) -[:PARAM {index: {index}}]->(:Param { name: 'param', hir_id: {hir_id}})", {
+                        "parent_hir_id" => &self_id,
+                        "index" => index,
+                        "hir_id" => &to_query(param.hir_id)
+                    }
+                )
+                .unwrap(),
+            );
+        }
+
+        intravisit::walk_body(self, body);
     }
 
     fn visit_expr(&mut self, ex: &'tcx hir::Expr<'tcx>) {
-        intravisit::walk_expr(self, ex)
+        intravisit::walk_expr(self, ex);
     }
 }

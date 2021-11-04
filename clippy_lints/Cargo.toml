@@ -26,6 +26,8 @@ rustc-semver = "1.1"
 # NOTE: cargo requires serde feat in its url dep
 # see <https://github.com/rust-lang/rust/pull/63587#issuecomment-522343864>
 url = { version = "2.2", features = ["serde"] }
+# Query based linter
+rusted_cypher = "1.1"
 
 [features]
 deny-warnings = ["clippy_utils/deny-warnings"]
