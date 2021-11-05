@@ -1,8 +1,7 @@
 use clippy_utils::is_lint_allowed;
 use rustc_hir as hir;
-use rustc_hir::intravisit::{self, FnKind, NestedVisitorMap, Visitor};
+use rustc_hir::intravisit::FnKind;
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::hir::map::Map;
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::Span;
 
@@ -78,7 +77,7 @@ fn create_body_graph<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) 
     assert!(res.is_ok(), "ERR: {:#?}", res.unwrap_err());
 }
 
-fn to_query(hir_id: hir::HirId) -> String {
+fn serialize_hir_id(hir_id: hir::HirId) -> String {
     assert_eq!(std::mem::size_of::<hir::HirId>(), 8, "The size of HirId is weird");
 
     // > transmute is **incredibly** unsafe. There are a vast number of ways to cause undefined
@@ -92,6 +91,7 @@ fn to_query(hir_id: hir::HirId) -> String {
 }
 
 struct GraphCreateVisitor<'a, 'tcx> {
+    #[allow(dead_code)]
     cx: &'a LateContext<'tcx>,
     query: Vec<Statement>,
 }
@@ -102,22 +102,34 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
     }
 }
 
-impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
-    type Map = Map<'tcx>;
+#[rustfmt::skip]
+impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
 
-    fn nested_visit_map(&mut self) -> NestedVisitorMap<Self::Map> {
-        // Using `All` here would capture more nodes as items would also be visited and
-        // translated into a graph. However, I decided to neglect items for the sake of simplicity
-        NestedVisitorMap::OnlyBodies(self.cx.tcx.hir())
+    fn create_link(&mut self, from_hir_id: hir::HirId, edge: &str, index: usize, to_hir_id: hir::HirId) {
+        let from_hir_id = serialize_hir_id(from_hir_id);
+        let to_hir_id = serialize_hir_id(to_hir_id);
+
+        self.query.push(cypher_stmt!(
+            r#"
+            MATCH (from), (to)
+                where from.hir_id = {from_hir_id} AND to.hir_id = {to_hir_id}
+            CREATE (from)-[:Child {name: {edge}, index: {index}}]->(to)"#, {
+                "from_hir_id" => &from_hir_id,
+                "to_hir_id" => &to_hir_id,
+                "edge" => edge,
+                "index" => index
+            }
+        )
+        .unwrap());
     }
 
     fn visit_body(&mut self, body: &'tcx hir::Body<'tcx>) {
         // Create Self node
-        let self_id = to_query(body.id().hir_id);
+        let self_hir_id = body.id().hir_id;
         self.query.push(
             cypher_stmt!(
                 "CREATE (:Body {name: 'body', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
-                    "hir_id" => &self_id,
+                    "hir_id" => &serialize_hir_id(self_hir_id),
                     "from_expansion" => body.value.span.from_expansion()
                 }
             )
@@ -128,22 +140,471 @@ impl<'a, 'tcx> Visitor<'tcx> for GraphCreateVisitor<'a, 'tcx> {
         for (index, param) in body.params.iter().enumerate() {
             self.query.push(
                 cypher_stmt!(
-                    "MATCH (parent:Body) where parent.hir_id = {parent_hir_id}
-                    CREATE (parent) -[:PARAM {index: {index}}]->(:Param { name: 'param', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
-                        "parent_hir_id" => &self_id,
-                        "index" => index,
-                        "hir_id" => &to_query(param.hir_id),
+                    "CREATE (:Param { name: 'param', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                        "hir_id" => &serialize_hir_id(param.hir_id),
                         "from_expansion" => param.span.from_expansion()
                     }
                 )
                 .unwrap(),
             );
+            self.create_link(self_hir_id, "Param", index, param.hir_id)
         }
 
-        intravisit::walk_body(self, body);
+        let child_hir_id = self.visit_expr(&body.value);
+        self.create_link(self_hir_id, "Child", 0, child_hir_id)
     }
 
-    fn visit_expr(&mut self, ex: &'tcx hir::Expr<'tcx>) {
-        intravisit::walk_expr(self, ex);
+    fn visit_expr(&mut self, ex: &'tcx hir::Expr<'tcx>) -> hir::HirId {
+        let from_expansion = ex.span.from_expansion();
+        let self_hir_id = ex.hir_id;
+        let hir_id = serialize_hir_id(self_hir_id);
+
+        match &ex.kind {
+            hir::ExprKind::Err
+                | hir::ExprKind::ConstBlock(..)
+                | hir::ExprKind::Box(..)
+                | hir::ExprKind::InlineAsm(..)
+                | hir::ExprKind::LlvmInlineAsm(..)
+                | hir::ExprKind::Struct(..)
+                | hir::ExprKind::Repeat(..)
+                | hir::ExprKind::Yield(..)
+                | hir::ExprKind::Closure(..)
+                | hir::ExprKind::Cast(..)
+                | hir::ExprKind::Type(..) => unimplemented!("Ignored for the sake of simplicity {:#?}", ex),
+            hir::ExprKind::DropTemps(..) => {
+                // Accepted ignore
+            }
+            hir::ExprKind::Tup(args) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Tup {name: 'Tup', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                for (index, child) in args.iter().enumerate() {
+                    let child_hir_id = self.visit_expr(child);
+                    self.create_link(ex.hir_id, "Child", index, child_hir_id);
+                }
+            }
+            hir::ExprKind::Array(args) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Array {name: 'Array', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                for (index, child) in args.iter().enumerate() {
+                    let child_hir_id = self.visit_expr(child);
+                    self.create_link(ex.hir_id, "Child", index, child_hir_id);
+                }
+            },
+            hir::ExprKind::Call(call, args) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Call {name: 'Call', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+                
+                let call_hir_id = self.visit_expr(call);
+                self.create_link(ex.hir_id, "Call", 0, call_hir_id);
+
+                for (index, child) in args.iter().enumerate() {
+                    let child_hir_id = self.visit_expr(child);
+                    self.create_link(ex.hir_id, "Child", index, child_hir_id);
+                }
+            },
+            hir::ExprKind::MethodCall(path_seg, _span1, args, _span2) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:MethodCall {name: 'MethodCall', hir_id: {hir_id}, from_expansion: {from_expansion}, ident: {ident}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "ident" => &format!("{}", &path_seg.ident.as_str())
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                for (index, child) in args.iter().enumerate() {
+                    let child_hir_id = self.visit_expr(child);
+                    self.create_link(ex.hir_id, "Child", index, child_hir_id);
+                }
+            },
+            hir::ExprKind::Binary(op, left, right) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:AssignOp {name: 'AssignOp', hir_id: {hir_id}, from_expansion: {from_expansion}, op: {op}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "op" => &format!("{:?}", op)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(left);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+
+                let child_hir_id = self.visit_expr(right);
+                self.create_link(ex.hir_id, "Child", 1, child_hir_id);
+            },
+            hir::ExprKind::Unary(op, expr) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:AssignOp {name: 'AssignOp', hir_id: {hir_id}, from_expansion: {from_expansion}, op: {op}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "op" => &format!("{:?}", op)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(expr);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::Let(pat, expr, _span) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Let {name: 'Let', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "local_id" => &serialize_hir_id(pat.hir_id)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(expr);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::If(condition, then_expr, else_expr) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:If {name: 'If', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let condition_hir_id = self.visit_expr( condition);
+                self.create_link(ex.hir_id, "Condition", 0, condition_hir_id);
+
+                let then_hir_id = self.visit_expr( then_expr);
+                self.create_link(ex.hir_id, "Then", 0, then_hir_id);
+
+                if let Some(else_expr) = else_expr {
+                    let else_hir_id = self.visit_expr( else_expr);
+                    self.create_link(ex.hir_id, "Else", 0, else_hir_id);
+                }
+            },
+            hir::ExprKind::Loop(block, _label, _source, _span) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Loop {name: 'Loop', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_block( block);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::Match(scrutinee, arms, _source) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Match {name: 'Match', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let scrutinee_hir_id = self.visit_expr(scrutinee);
+                self.create_link(self_hir_id, "Child", 0, scrutinee_hir_id);
+
+                for (index, arm) in arms.iter().enumerate() {
+                    let arm_hir_id = arm.hir_id;
+                    self.query.push(
+                        cypher_stmt!(
+                            "CREATE (:Arm {name: 'Arm', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                                "hir_id" => &serialize_hir_id(arm.hir_id),
+                                "from_expansion" => from_expansion
+                            }
+                        )
+                        .unwrap(),
+                    );
+                    self.create_link(self_hir_id, "Arm", index, arm_hir_id);
+
+                    if let Some(_guard) = &arm.guard {
+                        unimplemented!();
+                    }
+
+                    let child_hir_id = self.visit_expr(arm.body);
+                    self.create_link(arm.hir_id, "Child", 0, child_hir_id);
+                }
+            },
+            hir::ExprKind::Block(block, _) => {
+                return self.visit_block(block);
+            },
+            hir::ExprKind::Assign(value, expr, _) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Assign {name: 'Assign', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(value);
+                self.create_link(ex.hir_id, "Value", 0, child_hir_id);
+
+                let child_hir_id = self.visit_expr(expr);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::AssignOp(op, value, expr) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:AssignOp {name: 'AssignOp', hir_id: {hir_id}, from_expansion: {from_expansion}, op: {op}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "op" => &format!("{:?}", op)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(value);
+                self.create_link(ex.hir_id, "Value", 0, child_hir_id);
+
+                let child_hir_id = self.visit_expr(expr);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::Field(value, ident) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Field {name: 'Field', hir_id: {hir_id}, from_expansion: {from_expansion}, ident: {ident}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "ident" => &*ident.as_str()
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(value);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::Index(value, index) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Index {name: 'Index', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(value);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+
+                let child_hir_id = self.visit_expr(index);
+                self.create_link(ex.hir_id, "Index", 0, child_hir_id);
+            },
+            hir::ExprKind::Path(path) => {
+                let path_str = match path {
+                    hir::QPath::Resolved(_, path) => {
+                        path.segments.iter().fold(String::new(), |mut acc, seg| {
+                            acc.push_str(&seg.ident.as_str());
+                            acc
+                        })
+                    },
+                    hir::QPath::TypeRelative(ty, path_seg) => {
+                        format!("{:?}::{:?}", ty, path_seg.ident.as_str())
+                        // if let hir::Adt(adt, _) = ty.kind {
+                        //     let path = self.cx.get_def_path(adt.did).iter().fold(String::new(), |acc, sym| {
+                        //         acc.push_str(&sym.as_str());
+                        //         acc
+                        //     });
+                        //     path.push_str(&path_seg.ident.as_str());
+                        //     path
+                        // } else {
+                        //     unimplemented!()
+                        // }
+                    },
+                    hir::QPath::LangItem(..) => unimplemented!(),
+                };
+
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Path {name: 'Path', hir_id: {hir_id}, from_expansion: {from_expansion}, path: {path}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "path" => &path_str
+                        }
+                    )
+                    .unwrap(),
+                );
+            },
+            hir::ExprKind::AddrOf(borrow_kind, mutability, value) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:AddrOf {name: 'AddrOf', hir_id: {hir_id}, from_expansion: {from_expansion}, borrow_kind: {borrow_kind}, mutability: {mutability}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "borrow_kind" => &format!("{:?}", borrow_kind),
+                            "mutability" => &format!("{:?}", mutability)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                let child_hir_id = self.visit_expr(value);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+            },
+            hir::ExprKind::Break(dest, value) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Break {name: 'Break', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                if let Ok(target) = dest.target_id {
+                    self.create_link(ex.hir_id, "Jump", 0, target);
+                }
+
+                if let Some(value) = value {
+                    let child_hir_id = self.visit_expr(value);
+                    self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+                }
+            },
+            hir::ExprKind::Continue(dest) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Continue {name: 'Continue', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+                
+                if let Ok(target) = dest.target_id {
+                    self.create_link(ex.hir_id, "Jump", 0, target);
+                }
+            },
+            hir::ExprKind::Ret(value) => {
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Return {name: 'Return', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                if let Some(value) = value {
+                    let child_hir_id = self.visit_expr(value);
+                    self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+                }
+            },
+            hir::ExprKind::Lit(lit) => {
+                let value = format!("{:?}", lit.node);
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Lit {name: 'Lit', hir_id: {hir_id}, from_expansion: {from_expansion}, value: {value}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "value" => &value
+                        }
+                    )
+                    .unwrap(),
+                );
+            },
+        }
+
+        ex.hir_id
+    }
+
+    fn visit_block(&mut self, block: &'tcx hir::Block<'tcx>) -> hir::HirId {
+        let from_expansion = block.span.from_expansion();
+        let hir_id = serialize_hir_id(block.hir_id);
+
+        self.query.push(
+            cypher_stmt!(
+                "CREATE (:Block {name: 'Block', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                    "hir_id" => &hir_id,
+                    "from_expansion" => from_expansion
+                }
+            )
+            .unwrap(),
+        );
+
+        for (index, stmt) in block.stmts.iter().enumerate() {
+            let child_hir_id = self.visit_stmt(stmt);
+            self.create_link(block.hir_id, "Child", index, child_hir_id);
+        }
+
+        if let Some(value) = block.expr {
+            let child_hir_id = self.visit_expr(value);
+            self.create_link(block.hir_id, "Expr", 0, child_hir_id);
+        }
+
+        block.hir_id
+    }
+
+    fn visit_stmt(&mut self, stmt: &'tcx hir::Stmt<'tcx>) -> hir::HirId {
+        match stmt.kind {
+            hir::StmtKind::Local(local) => {
+                let from_expansion = stmt.span.from_expansion();
+                let hir_id = serialize_hir_id(local.hir_id);
+                self.query.push(
+                    cypher_stmt!(
+                        "CREATE (:Local {name: 'Local', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                            "hir_id" => &hir_id,
+                            "from_expansion" => from_expansion,
+                            "local_id" => &serialize_hir_id(local.pat.hir_id)
+                        }
+                    )
+                    .unwrap(),
+                );
+
+                if let Some(value) = local.init {
+                    let child_hir_id = self.visit_expr(value);
+                    self.create_link(local.hir_id, "Child", 0, child_hir_id);
+                }
+
+                local.hir_id
+            },
+            hir::StmtKind::Expr(expr) | hir::StmtKind::Semi(expr) => {
+                self.visit_expr(expr)
+            },
+            hir::StmtKind::Item(_item_id) => unimplemented!(),
+        }
     }
 }
