@@ -53,6 +53,23 @@ impl LateLintPass<'_> for GraphQueryLinter {
         }
 
         create_body_graph(cx, body);
+
+        /*
+        // Get new vectors
+
+        MATCH
+            (var)<-[:Child {index: 0}]-
+            (assign {from_expansion: false})-[:Child {index: 1}]->
+            (init_call:Call)-[:Child]->
+            (init:Path)
+        WHERE
+            (var.name = "Pat" OR var.name = "Path")
+            AND (assign.name = "Local" OR assign.name = "Assign")
+            AND (init.path CONTAINS 'new'
+                OR init.path CONTAINS 'with_capacity'
+                OR init.path CONTAINS 'default')
+        return var, assign, init_call, init
+        */
     }
 }
 
@@ -65,7 +82,7 @@ fn create_body_graph<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) 
     {
         // Use 
         // ```cmd
-        // sudo docker run --publish=7474:7474 --publish=7687:7687 --volume=$HOME/neo4j/data:/data --volume=$HOME/neo4j/logs:/logs neo4j:3.5.29-community`
+        // sudo docker run --publish=7474:7474 --publish=7687:7687 --volume=$home/neo4j/data:/data --volume=$home/neo4j/logs:/logs neo4j:3.5.29-community
         // ```
         // to create the docker container. Note that this implementation is using 3.5.
         // Keep the default neo4j user and set the password to pw-clippy-query
@@ -280,15 +297,17 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
                     cypher_stmt!(
                         "CREATE (:Let {name: 'Let', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
                             "hir_id" => &hir_id,
-                            "from_expansion" => from_expansion,
-                            "local_id" => &serialize_hir_id(pat.hir_id)
+                            "from_expansion" => from_expansion
                         }
                     )
                     .unwrap(),
                 );
 
+                let pat_hir_id = self.visit_pat(pat);
+                self.create_link(ex.hir_id, "Child", 0, pat_hir_id);
+
                 let child_hir_id = self.visit_expr(expr);
-                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+                self.create_link(ex.hir_id, "Child", 1, child_hir_id);
             },
             hir::ExprKind::If(condition, then_expr, else_expr) => {
                 self.query.push(
@@ -376,10 +395,10 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
                 );
 
                 let child_hir_id = self.visit_expr(value);
-                self.create_link(ex.hir_id, "Value", 0, child_hir_id);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
 
                 let child_hir_id = self.visit_expr(expr);
-                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+                self.create_link(ex.hir_id, "Child", 1, child_hir_id);
             },
             hir::ExprKind::AssignOp(op, value, expr) => {
                 self.query.push(
@@ -394,10 +413,10 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
                 );
 
                 let child_hir_id = self.visit_expr(value);
-                self.create_link(ex.hir_id, "Value", 0, child_hir_id);
+                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
 
                 let child_hir_id = self.visit_expr(expr);
-                self.create_link(ex.hir_id, "Child", 0, child_hir_id);
+                self.create_link(ex.hir_id, "Child", 1, child_hir_id);
             },
             hir::ExprKind::Field(value, ident) => {
                 self.query.push(
@@ -587,16 +606,18 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
                     cypher_stmt!(
                         "CREATE (:Local {name: 'Local', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
                             "hir_id" => &hir_id,
-                            "from_expansion" => from_expansion,
-                            "local_id" => &serialize_hir_id(local.pat.hir_id)
+                            "from_expansion" => from_expansion
                         }
                     )
                     .unwrap(),
                 );
 
+                let pat_hir_id = self.visit_pat(local.pat);
+                self.create_link(local.hir_id, "Child", 0, pat_hir_id);
+
                 if let Some(value) = local.init {
                     let child_hir_id = self.visit_expr(value);
-                    self.create_link(local.hir_id, "Child", 0, child_hir_id);
+                    self.create_link(local.hir_id, "Child", 1, child_hir_id);
                 }
 
                 local.hir_id
@@ -606,5 +627,21 @@ impl<'a, 'tcx> GraphCreateVisitor<'a, 'tcx> {
             },
             hir::StmtKind::Item(_item_id) => unimplemented!(),
         }
+    }
+
+    fn visit_pat(&mut self, pat: &'tcx hir::Pat<'tcx>) -> hir::HirId {
+        let from_expansion = pat.span.from_expansion();
+        let hir_id = serialize_hir_id(pat.hir_id);
+        self.query.push(
+            cypher_stmt!(
+                "CREATE (:Pat {name: 'Pat', hir_id: {hir_id}, from_expansion: {from_expansion}})", {
+                    "hir_id" => &hir_id,
+                    "from_expansion" => from_expansion
+                }
+            )
+            .unwrap(),
+        );
+
+        pat.hir_id
     }
 }
