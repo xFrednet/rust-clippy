@@ -1,11 +1,14 @@
-use clippy_utils::{is_lint_allowed, path_to_local, path_to_local_id};
+use clippy_utils::diagnostics::span_lint_and_sugg;
+use clippy_utils::source::snippet;
 use clippy_utils::ty::is_type_diagnostic_item;
+use clippy_utils::{is_lint_allowed, path_to_local, path_to_local_id};
+use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::intravisit::FnKind;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
-use rustc_span::Span;
 use rustc_span::symbol::sym;
+use rustc_span::Span;
 
 use rusted_cypher::cypher::result::Row;
 use rusted_cypher::{cypher_stmt, GraphClient, GraphError, Statement};
@@ -29,12 +32,6 @@ MATCH
 WHERE
     next_edge.index = assign_edge.index + 1
     AND method.ident = "push"
-
-MATCH
-    (method)-[:Child {index: 0}]->(self_arg:Path),
-    (method)-[:Child {index: 1}]->(push_arg)
-WHERE
-    1 = 1
 
 return assign.hir_id, method.hir_id
 "#;
@@ -89,7 +86,6 @@ impl LateLintPass<'_> for GraphQueryLinter {
 
         exec_query_post(cx)
     }
-
 }
 
 fn exec_query_post(cx: &LateContext<'tcx>) {
@@ -114,14 +110,22 @@ fn process_vec_init_then_push_row(cx: &LateContext<'tcx>, row: Row<'_>) -> Resul
     let map = &cx.tcx.hir();
     let local_id;
     let init_expr;
+    let mut has_let = false;
+    let ident_span;
+    let err_span;
     match map.get(assign_id) {
         hir::Node::Local(local) if let Some(init) = local.init => {
             local_id = local.pat.hir_id;
             init_expr = init;
+            ident_span = local.pat.span;
+            err_span = local.span;
+            has_let = true;
         }
         hir::Node::Expr(expr) if let hir::ExprKind::Assign(path, init, _) = &expr.kind => {
             local_id = path_to_local(path).unwrap();
             init_expr = init;
+            ident_span = path.span;
+            err_span = expr.span;
         }
         node => {
             eprintln!("Unexpected node: {:#?}", node);
@@ -139,9 +143,21 @@ fn process_vec_init_then_push_row(cx: &LateContext<'tcx>, row: Row<'_>) -> Resul
 
     let method_id = deserialize_hir_id(row.get("method.hir_id")?);
     let push_expr = map.expect_expr(method_id);
-    if let hir::ExprKind::MethodCall(_, _, [self_expr, push_expr], _) = push_expr.kind {
+    if let hir::ExprKind::MethodCall(_, _, [self_expr, _push_arg], _) = push_expr.kind {
         if path_to_local_id(self_expr, local_id) {
-            println!("LINT!!!!!")
+            let mut s = if has_let { String::from("let ") } else { String::new() };
+            s.push_str(&snippet(cx, ident_span, ".."));
+            s.push_str(" = vec![..];");
+
+            span_lint_and_sugg(
+                cx,
+                GRAPH_QUERY_LINTER,
+                err_span.to(push_expr.span),
+                "calls to `push` immediately after creation",
+                "consider using the `vec![]` macro",
+                s,
+                Applicability::HasPlaceholders,
+            );
         }
     }
 

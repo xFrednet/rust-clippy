@@ -1,0 +1,43 @@
+error: calls to `push` immediately after creation
+  --> $DIR/query_vec_init_then_push.rs:8:5
+   |
+LL | /     let mut new_err = Vec::<u32>::new();
+LL | |     new_err.push(1);
+   | |___________________^ help: consider using the `vec![]` macro: `let mut new_err = vec![..];`
+   |
+note: the lint level is defined here
+  --> $DIR/query_vec_init_then_push.rs:2:9
+   |
+LL | #![deny(clippy::graph_query_linter)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: calls to `push` immediately after creation
+  --> $DIR/query_vec_init_then_push.rs:5:5
+   |
+LL | /     let mut def_err: Vec<u32> = Default::default();
+LL | |     def_err.push(0);
+   | |___________________^ help: consider using the `vec![]` macro: `let mut def_err = vec![..];`
+
+error: calls to `push` immediately after creation
+  --> $DIR/query_vec_init_then_push.rs:11:5
+   |
+LL | /     let mut cap_err = Vec::with_capacity(2);
+LL | |     cap_err.push(0);
+   | |___________________^ help: consider using the `vec![]` macro: `let mut cap_err = vec![..];`
+
+error: calls to `push` immediately after creation
+  --> $DIR/query_vec_init_then_push.rs:20:5
+   |
+LL | /     let mut cap_ok = Vec::with_capacity(10);
+LL | |     cap_ok.push(0);
+   | |__________________^ help: consider using the `vec![]` macro: `let mut cap_ok = vec![..];`
+
+error: calls to `push` immediately after creation
+  --> $DIR/query_vec_init_then_push.rs:23:5
+   |
+LL | /     new_err = Vec::new();
+LL | |     new_err.push(0);
+   | |___________________^ help: consider using the `vec![]` macro: `new_err = vec![..];`
+
+error: aborting due to 5 previous errors
+
