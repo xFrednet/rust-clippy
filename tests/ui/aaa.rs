@@ -30,17 +30,3 @@ fn main() {
         vec.push(1);
     }
 }
-
-pub fn no_lint() -> Vec<i32> {
-    let mut p = Some(1);
-    let mut vec = Vec::new();
-    loop {
-        match p {
-            None => return vec,
-            Some(i) => {
-                vec.push(i);
-                p = None;
-            },
-        }
-    }
-}

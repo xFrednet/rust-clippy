@@ -1,9 +1,11 @@
-use clippy_utils::is_lint_allowed;
+use clippy_utils::{is_lint_allowed, path_to_local, path_to_local_id};
+use clippy_utils::ty::is_type_diagnostic_item;
 use rustc_hir as hir;
 use rustc_hir::intravisit::FnKind;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::Span;
+use rustc_span::symbol::sym;
 
 use rusted_cypher::cypher::result::Row;
 use rusted_cypher::{cypher_stmt, GraphClient, GraphError, Statement};
@@ -34,7 +36,7 @@ MATCH
 WHERE
     1 = 1
 
-return var.hir_id, assign.hir_id, method.hir_id, self_arg.hir_id, push_arg.hir_id
+return assign.hir_id, method.hir_id
 "#;
 
 declare_clippy_lint! {
@@ -62,11 +64,6 @@ impl LateLintPass<'_> for GraphQueryLinter {
     // just a fancy prototype. Therefore, I'll start at the function level with `check_fn` that
     // reduces the complexity (a lot).
 
-    fn check_crate(&mut self, _: &LateContext<'tcx>) {
-        let graph = GraphClient::connect(DB_URL).unwrap();
-        graph.exec("MATCH (node) DETACH DELETE (node)").unwrap();
-    }
-
     /// This `check_fn` is the entry point to the graph generation later used for linting. Some
     /// arguments are ignored as they provide span or type data that will not be exported as part
     /// of the labeled property graph. They'll later be retrieved from the [`LateContext`].
@@ -83,35 +80,71 @@ impl LateLintPass<'_> for GraphQueryLinter {
             return;
         }
 
+        let graph = GraphClient::connect(DB_URL).unwrap();
+        graph.exec("MATCH (node) DETACH DELETE (node)").unwrap();
+
         // We'll pass the actual graph creation off to a visitor to use a stack like structure.
         // Similar to how [`rustc_lint::levels::LintLevelsBuilder`] does it.
         create_body_graph(cx, body);
+
+        exec_query_post(cx)
     }
 
-    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        let graph = GraphClient::connect(DB_URL).unwrap();
-        let result = match graph.exec(VEC_INIT_THEN_PUSH_QUERY) {
-            Ok(result) => result,
-            Err(err) => {
-                eprintln!("Query Err: {:#?}", err);
-                return;
-            },
-        };
+}
 
-        for row in result.rows() {
-            if let Err(err) = process_vec_init_then_push_row(cx, row) {
-                eprintln!("Row Err: {:#?}", err);
-            }
+fn exec_query_post(cx: &LateContext<'tcx>) {
+    let graph = GraphClient::connect(DB_URL).unwrap();
+    let result = match graph.exec(VEC_INIT_THEN_PUSH_QUERY) {
+        Ok(result) => result,
+        Err(err) => {
+            eprintln!("Query Err: {:#?}", err);
+            return;
+        },
+    };
+
+    for row in result.rows() {
+        if let Err(err) = process_vec_init_then_push_row(cx, row) {
+            eprintln!("Row Err: {:#?}", err);
         }
     }
 }
 
-fn process_vec_init_then_push_row(_cx: &LateContext<'tcx>, row: Row<'_>) -> Result<(), GraphError> {
-    let _ = deserialize_hir_id(row.get("var.hir_id")?);
-    let _ = deserialize_hir_id(row.get("assign.hir_id")?);
-    let _ = deserialize_hir_id(row.get("method.hir_id")?);
-    let _ = deserialize_hir_id(row.get("self_arg.hir_id")?);
-    let _ = deserialize_hir_id(row.get("push_arg.hir_id")?);
+fn process_vec_init_then_push_row(cx: &LateContext<'tcx>, row: Row<'_>) -> Result<(), GraphError> {
+    let assign_id = deserialize_hir_id(row.get("assign.hir_id")?);
+    let map = &cx.tcx.hir();
+    let local_id;
+    let init_expr;
+    match map.get(assign_id) {
+        hir::Node::Local(local) if let Some(init) = local.init => {
+            local_id = local.pat.hir_id;
+            init_expr = init;
+        }
+        hir::Node::Expr(expr) if let hir::ExprKind::Assign(path, init, _) = &expr.kind => {
+            local_id = path_to_local(path).unwrap();
+            init_expr = init;
+        }
+        node => {
+            eprintln!("Unexpected node: {:#?}", node);
+            return Ok(());
+        }
+    }
+
+    // Checking the type
+    // A proper lint implementation would go further then just checking the type but a proper
+    // query based implementation might handle the graph representation better
+    let ty = cx.typeck_results().expr_ty(init_expr);
+    if !is_type_diagnostic_item(cx, ty, sym::Vec) {
+        return Ok(());
+    }
+
+    let method_id = deserialize_hir_id(row.get("method.hir_id")?);
+    let push_expr = map.expect_expr(method_id);
+    if let hir::ExprKind::MethodCall(_, _, [self_expr, push_expr], _) = push_expr.kind {
+        if path_to_local_id(self_expr, local_id) {
+            println!("LINT!!!!!")
+        }
+    }
+
     Ok(())
 }
 
