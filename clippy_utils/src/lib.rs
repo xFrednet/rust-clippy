@@ -129,6 +129,10 @@ pub const USE_LINT: bool = std::option_env!("CFG_RELEASE_CHANNEL").is_none()
     || std::option_env!("CFG_RELEASE_CHANNEL").unwrap().len() == "nightly".len()
     || std::option_env!("CFG_RELEASE_CHANNEL").unwrap().len() == "dev".len();
 
+pub fn is_nightly(lint: &'static Lint) -> bool {
+    std::ptr::eq(lint, crate::NIGHTLY_LINT)
+}
+
 pub fn parse_msrv(msrv: &str, sess: Option<&Session>, span: Option<Span>) -> Option<RustcVersion> {
     if let Ok(version) = RustcVersion::parse(msrv) {
         return Some(version);
