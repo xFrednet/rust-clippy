@@ -1,4 +1,5 @@
 #![feature(box_patterns)]
+#![feature(const_option)]
 #![feature(control_flow_enum)]
 #![feature(in_band_lifetimes)]
 #![feature(let_else)]
@@ -102,6 +103,30 @@ use rustc_target::abi::Integer;
 use crate::consts::{constant, Constant};
 use crate::ty::{can_partially_move_ty, is_copy, is_recursively_primitive_type};
 use crate::visitors::expr_visitor_no_bodies;
+
+rustc_session::declare_tool_lint! {
+    /// This is a magic lint is used by Clippy to act as a dropin replacement
+    /// for lints which should only be emitted on nightly. This allows Clippy's
+    /// `span_lint*` functions to check if the lint is a nighly lint with a simple
+    /// check.
+    pub clippy::NIGHTLY_LINT,
+    Allow,
+    "Clippy's magic nightly lint",
+    report_in_external_macro: false
+}
+
+/// This value is used by the `declare_clippy_lint!` macro to determine which lint
+/// should be assigned to the lint value. The goal is to assign the normal lint
+/// when compiling on `nightly`, `dev` or when building Clippy in the `rust-clippy`
+/// repo.
+///
+/// This function is used to initialize a static value and has to be const.
+/// Therefore, we can't check the string inside the environment value, luckily we
+/// can use the length of the string, as all possible values have a different length.
+/// This is hacky and not advisable, but is works in our case.
+pub const USE_LINT: bool = std::option_env!("CFG_RELEASE_CHANNEL").is_none()
+    || std::option_env!("CFG_RELEASE_CHANNEL").unwrap().len() == "nightly".len()
+    || std::option_env!("CFG_RELEASE_CHANNEL").unwrap().len() == "dev".len();
 
 pub fn parse_msrv(msrv: &str, sess: Option<&Session>, span: Option<Span>) -> Option<RustcVersion> {
     if let Ok(version) = RustcVersion::parse(msrv) {
