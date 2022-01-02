@@ -106,7 +106,7 @@ macro_rules! declare_clippy_lint_macro {
             ) => {
                     #[allow(non_snake_case)]
                     #[doc(hidden)]
-                    mod $d name {
+                    pub mod $d name {
                         super::declare_tool_lint! {
                             $d(#[doc = $d doc])*
                             #[clippy::version = "nightly"]
@@ -129,15 +129,22 @@ macro_rules! declare_clippy_lint_macro {
                     $d(#[clippy::version = $d version:literal])?
                     pub $d name:ident, $category, $d description:tt
                 ) => {
-                        declare_tool_lint! {
+                    #[allow(non_snake_case)]
+                    #[doc(hidden)]
+                    pub mod $d name {
+                        super::declare_tool_lint! {
                             $d(#[doc = $d doc])*
-                            $d(#[clippy::version = $d version])*
+                            #[clippy::version = "nightly"]
                             pub clippy::$d name,
                             $level,
                             $d description,
                             report_in_external_macro: true
                         }
-                    };
+                    }
+
+                    #[allow(dead_code, reason = "Some lints are never referenced")]
+                    pub static $d name: &rustc_lint::Lint = $d name::$d name;
+                };
             )*
         }
     };

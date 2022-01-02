@@ -109,6 +109,7 @@ rustc_session::declare_tool_lint! {
     /// for lints which should only be emitted on nightly. This allows Clippy's
     /// `span_lint*` functions to check if the lint is a nighly lint with a simple
     /// check.
+    #[allow(clippy::missing_clippy_version_attribute, clippy::lint_without_lint_pass)]
     pub clippy::NIGHTLY_LINT,
     Allow,
     "Clippy's magic nightly lint",

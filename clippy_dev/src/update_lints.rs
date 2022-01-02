@@ -311,8 +311,12 @@ fn gen_register_lint_list<'a>(
     usable_lints: impl Iterator<Item = &'a Lint>,
 ) -> String {
     let mut details: Vec<_> = internal_lints
-        .map(|l| (false, &l.module, l.name.to_uppercase()))
-        .chain(usable_lints.map(|l| (true, &l.module, l.name.to_uppercase())))
+        .map(|l| (false, l.module.to_string(), l.name.to_uppercase()))
+        .chain(usable_lints.map(|l| {
+            let name = l.name.to_uppercase();
+            let module = format!("{}::{}", &l.module, name);
+            (true, module, name)
+        }))
         .collect();
     details.sort_unstable();
 
