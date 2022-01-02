@@ -34,7 +34,7 @@ declare_clippy_lint! {
     /// // This is OK however
     /// let _ = TupleStruct { 0: 42, ..base };
     /// ```
-    #[clippy::version = "1.59.0"]
+    #[clippy::version = "nightly"]
     pub INIT_NUMBERED_FIELDS,
     style,
     "numbered fields in tuple struct initializer"

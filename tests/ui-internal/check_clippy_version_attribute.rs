@@ -27,7 +27,7 @@ declare_tool_lint! {
 }
 
 declare_tool_lint! {
-    #[clippy::version = "1.59.0"]
+    #[clippy::version = "nightly"]
     pub clippy::VALID_THREE,
     Warn,
     "Three",
