@@ -117,11 +117,11 @@ macro_rules! declare_clippy_lint_macro {
                         }
                     }
 
-                    pub static $d name: &rustc_lint::Lint =
+                    pub static $d name: &&rustc_lint::Lint =
                         if clippy_utils::USE_LINT {
-                            $d name::$d name
+                            &$d name::$d name
                         } else {
-                            clippy_utils::NIGHTLY_LINT
+                            &clippy_utils::NIGHTLY_LINT
                         };
                 };
                 (
@@ -143,7 +143,7 @@ macro_rules! declare_clippy_lint_macro {
                     }
 
                     #[allow(dead_code, reason = "Some lints are never referenced")]
-                    pub static $d name: &rustc_lint::Lint = $d name::$d name;
+                    pub static $d name: &&rustc_lint::Lint = &$d name::$d name;
                 };
             )*
         }

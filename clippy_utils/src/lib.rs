@@ -7,7 +7,12 @@
 #![feature(rustc_private)]
 #![recursion_limit = "512"]
 #![cfg_attr(feature = "deny-warnings", deny(warnings))]
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::must_use_candidate)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::lint_without_lint_pass
+)]
 // warn on the same lints as `clippy_lints`
 #![warn(trivial_casts, trivial_numeric_casts)]
 // warn on lints, that are included in `rust-lang/rust`s bootstrap
@@ -109,7 +114,7 @@ rustc_session::declare_tool_lint! {
     /// for lints which should only be emitted on nightly. This allows Clippy's
     /// `span_lint*` functions to check if the lint is a nighly lint with a simple
     /// check.
-    #[allow(clippy::missing_clippy_version_attribute, clippy::lint_without_lint_pass)]
+    #[allow(clippy::missing_clippy_version_attribute)]
     pub clippy::NIGHTLY_LINT,
     Allow,
     "Clippy's magic nightly lint",
