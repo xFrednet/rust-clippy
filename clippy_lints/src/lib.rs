@@ -134,7 +134,7 @@ macro_rules! declare_clippy_lint_macro {
                     pub mod $d name {
                         super::declare_tool_lint! {
                             $d(#[doc = $d doc])*
-                            #[clippy::version = "nightly"]
+                            $d(#[clippy::version = $d version])?
                             pub clippy::$d name,
                             $level,
                             $d description,
