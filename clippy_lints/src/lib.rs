@@ -167,6 +167,22 @@ declare_clippy_lint_macro! {
     $
 }
 
+trait HasStableLint {
+    fn has_stable_lint() -> bool;
+}
+
+macro_rules! impl_clippy_lint_pass {
+    ($ty:ty => [$($lint:expr),* $(,)?]) => {
+        rustc_session::impl_lint_pass!($ty => [$($lint),*]);
+
+        impl crate::HasStableLint for $ty {
+            fn has_stable_lint() -> bool {
+                <$ty> ::get_lints().iter().any(|lint| !clippy_utils::is_nightly(lint))
+            }
+        }
+    };
+}
+
 #[cfg(feature = "metadata-collector-lint")]
 mod deprecated_lints;
 #[cfg_attr(
@@ -472,6 +488,18 @@ pub fn read_conf(sess: &Session) -> Conf {
     conf
 }
 
+#[inline]
+fn maybe_add<T>(store: &mut rustc_lint::LintStore, pass: impl Fn() -> T + 'static) 
+    where
+        T: rustc_data_structures::sync::Send + rustc_data_structures::sync::Sync + 'static,
+        T: HasStableLint,
+        T: for<'tcx> rustc_lint::LateLintPass<'tcx>
+{
+    if T::has_stable_lint() {
+        store.register_late_pass(move || Box::new(pass()));
+    }
+}
+
 /// Register all lints and lint groups with the rustc plugin registry
 ///
 /// Used in `./src/driver.rs`.
@@ -521,7 +549,12 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
         store.register_late_pass(|| Box::new(utils::internal_lints::OuterExpnDataPass));
     }
 
-    store.register_late_pass(|| Box::new(utils::author::Author));
+    maybe_add( store, || utils::author::Author);
+    // {
+    //     if utils::author::Author::get_lints().iter().any(|lint| !clippy_utils::is_nightly(lint)) {
+    //         store.register_late_pass(|| Box::new(utils::author::Author));
+    //     }
+    // }
     store.register_late_pass(|| Box::new(await_holding_invalid::AwaitHolding));
     store.register_late_pass(|| Box::new(serde_api::SerdeApi));
     let vec_box_size_threshold = conf.vec_box_size_threshold;
