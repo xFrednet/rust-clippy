@@ -193,12 +193,22 @@ LL |     let _: Result<usize, usize> = res.or_else(|_| Ok(ext_str.some_field));
    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: use `or` instead: `res.or(Ok(ext_str.some_field))`
 
 error: unnecessary closure used to substitute value for `Option::None`
-  --> $DIR/unnecessary_lazy_eval.rs:138:15
+  --> $DIR/unnecessary_lazy_eval.rs:132:24
    |
-LL |               })
-   |  _______________^
+LL |           let _: usize = self
+   |  ________________________^
+LL | |             .idx_change(pos)
+LL | |             .ok()
+LL | |             .and_then(|idx| {
+...  |
+LL | |             })
 LL | |             .unwrap_or_else(|| 0);
-   | |_________________________________^ help: try this: `.unwrap_or(0)`
+   | |_________________________________^
+   |
+help: try this
+   |
+LL |             }).unwrap_or(0);
+   |               ~~~~~~~~~~~~~
 
 error: aborting due to 33 previous errors
 

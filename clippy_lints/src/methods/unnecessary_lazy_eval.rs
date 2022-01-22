@@ -1,9 +1,9 @@
-use clippy_utils::diagnostics::span_lint_and_sugg;
+use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{eager_or_lazy, usage};
 use rustc_errors::emitter::MAX_SUGGESTION_HIGHLIGHT_LINES;
-use rustc_errors::Applicability;
+use rustc_errors::{Applicability, SuggestionStyle};
 use rustc_hir as hir;
 use rustc_lint::LateContext;
 use rustc_span::sym;
@@ -49,7 +49,9 @@ pub(super) fn check<'tcx>(
                     Applicability::MaybeIncorrect
                 };
 
+                let msg_span = expr.span;
                 let mut sugg_span = expr.span;
+                let mut sugg_style = SuggestionStyle::ShowCode;
                 let mut sugg: String = format!(
                     "{}.{}({})",
                     snippet(cx, recv.span, ".."),
@@ -62,16 +64,25 @@ pub(super) fn check<'tcx>(
                     sugg_span = expr.span.with_lo(recv.span.hi());
                     sugg = format!(".{}({})", simplify_using, snippet(cx, body_expr.span, ".."));
                     help = "try this".to_string();
+                    sugg_style = SuggestionStyle::ShowAlways;
                 }
 
-                span_lint_and_sugg(
+                span_lint_and_then(
                     cx,
                     UNNECESSARY_LAZY_EVALUATIONS,
-                    sugg_span,
+                    msg_span,
                     msg,
-                    &help,
-                    sugg,
-                    applicability,
+                    |diag| {
+                        diag.span_suggestion_with_style(
+                            sugg_span,
+                            &help,
+                            sugg,
+                            applicability,
+                            // Sometimes we want to ensure that this is displayed in
+                            // as extra suggestion message
+                            sugg_style,
+                        );
+                    }
                 );
             }
         }
