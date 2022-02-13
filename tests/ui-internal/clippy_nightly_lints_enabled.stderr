@@ -1,0 +1,9 @@
+error: this triggered a lint that should only be available on nightly
+  --> $DIR/clippy_nightly_lints_enabled.rs:5:4
+   |
+LL | fn trigger_forever_nightly_lint() {}
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+error: aborting due to previous error
+

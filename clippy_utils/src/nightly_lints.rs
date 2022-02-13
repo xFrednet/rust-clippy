@@ -1,6 +1,8 @@
 //! This module is intended to hold most implementations related to Clippy's
 //! nightly lints.
 
+#![allow(clippy::module_name_repetitions)]
+
 use std::lazy::SyncOnceCell;
 
 use rustc_session::Session;
@@ -17,7 +19,7 @@ pub fn eval_enable_nightly_lints(sess: &Session) {
 
     ENABLE_NIGHTLY_LINTS
         .set(enable_lint)
-        .expect("`ENABLE_NIGHTLY_LINTS` should only be set once.")
+        .expect("`ENABLE_NIGHTLY_LINTS` should only be set once.");
 }
 
 pub fn is_enable_nightly_lint() -> bool {
