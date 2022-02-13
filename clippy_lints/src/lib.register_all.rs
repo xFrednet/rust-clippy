@@ -115,7 +115,7 @@ store.register_group(true, "clippy::all", Some("clippy_all"), [
     Some(LintId::of(loops::WHILE_LET_ON_ITERATOR)),
     Some(LintId::of(main_recursion::MAIN_RECURSION)),
     Some(LintId::of(manual_async_fn::MANUAL_ASYNC_FN)),
-    Some(LintId::of(manual_bits::MANUAL_BITS)),
+    clippy_utils::nightly_lints::is_enable_nightly_lint().then_some(LintId::of(manual_bits::MANUAL_BITS)),
     Some(LintId::of(manual_map::MANUAL_MAP)),
     Some(LintId::of(manual_non_exhaustive::MANUAL_NON_EXHAUSTIVE)),
     Some(LintId::of(manual_strip::MANUAL_STRIP)),

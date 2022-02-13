@@ -26,7 +26,7 @@ store.register_group(true, "clippy::nursery", Some("clippy_nursery"), [
     Some(LintId::of(strings::STRING_LIT_AS_BYTES)),
     Some(LintId::of(suspicious_operation_groupings::SUSPICIOUS_OPERATION_GROUPINGS)),
     Some(LintId::of(trailing_empty_array::TRAILING_EMPTY_ARRAY)),
-    Some(LintId::of(transmute::TRANSMUTE_UNDEFINED_REPR)),
+    clippy_utils::nightly_lints::is_enable_nightly_lint().then_some(LintId::of(transmute::TRANSMUTE_UNDEFINED_REPR)),
     Some(LintId::of(transmute::USELESS_TRANSMUTE)),
     Some(LintId::of(use_self::USE_SELF)),
 ].iter().copied().flatten().collect::<Vec<_>>())
