@@ -21,7 +21,7 @@ pub(super) fn check<'tcx>(
             ReducedTys::FromFatPtr { unsized_ty, .. } => {
                 span_lint_and_then(
                     cx,
-                    TRANSMUTE_UNDEFINED_REPR,
+                    &TRANSMUTE_UNDEFINED_REPR,
                     e.span,
                     &format!("transmute from `{}` which has an undefined layout", from_ty_orig),
                     |diag| {
@@ -35,7 +35,7 @@ pub(super) fn check<'tcx>(
             ReducedTys::ToFatPtr { unsized_ty, .. } => {
                 span_lint_and_then(
                     cx,
-                    TRANSMUTE_UNDEFINED_REPR,
+                    &TRANSMUTE_UNDEFINED_REPR,
                     e.span,
                     &format!("transmute to `{}` which has an undefined layout", to_ty_orig),
                     |diag| {
@@ -53,7 +53,7 @@ pub(super) fn check<'tcx>(
                 ReducedTy::UnorderedFields(from_ty) => {
                     span_lint_and_then(
                         cx,
-                        TRANSMUTE_UNDEFINED_REPR,
+                        &TRANSMUTE_UNDEFINED_REPR,
                         e.span,
                         &format!("transmute from `{}` which has an undefined layout", from_ty_orig),
                         |diag| {
@@ -78,7 +78,7 @@ pub(super) fn check<'tcx>(
                 ReducedTy::UnorderedFields(to_ty) => {
                     span_lint_and_then(
                         cx,
-                        TRANSMUTE_UNDEFINED_REPR,
+                        &TRANSMUTE_UNDEFINED_REPR,
                         e.span,
                         &format!("transmute to `{}` which has an undefined layout", to_ty_orig),
                         |diag| {
@@ -104,7 +104,7 @@ pub(super) fn check<'tcx>(
                 (ReducedTy::UnorderedFields(from_ty), ReducedTy::UnorderedFields(to_ty)) if from_ty != to_ty => {
                     span_lint_and_then(
                         cx,
-                        TRANSMUTE_UNDEFINED_REPR,
+                        &TRANSMUTE_UNDEFINED_REPR,
                         e.span,
                         &format!(
                             "transmute from `{}` to `{}`, both of which have an undefined layout",
@@ -136,7 +136,7 @@ pub(super) fn check<'tcx>(
                 ) => {
                     span_lint_and_then(
                         cx,
-                        TRANSMUTE_UNDEFINED_REPR,
+                        &TRANSMUTE_UNDEFINED_REPR,
                         e.span,
                         &format!("transmute from `{}` which has an undefined layout", from_ty_orig),
                         |diag| {
@@ -153,7 +153,7 @@ pub(super) fn check<'tcx>(
                 ) => {
                     span_lint_and_then(
                         cx,
-                        TRANSMUTE_UNDEFINED_REPR,
+                        &TRANSMUTE_UNDEFINED_REPR,
                         e.span,
                         &format!("transmute into `{}` which has an undefined layout", to_ty_orig),
                         |diag| {

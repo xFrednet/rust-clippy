@@ -1,32 +1,24 @@
 //! This module is intended to hold most implementations related to Clippy's
 //! nightly lints.
 
-use std::lazy::SyncOnceCell;
+use std::lazy::{SyncLazy, SyncOnceCell};
 
 use rustc_data_structures::stable_set::FxHashSet;
+use rustc_feature::UnstableFeatures;
 use rustc_lint::{EarlyContext, LateContext, Level, Lint, LintId};
 use rustc_middle::lint::{LevelAndSource, LintLevelSource};
-use rustc_session::Session;
 
-static IS_NIGHTLY_RUN: SyncOnceCell<bool> = SyncOnceCell::new();
+pub static IS_NIGHTLY_RUN: SyncLazy<bool> = SyncLazy::new(|| {
+    match std::env::var("CLIPPY_NIGHTLY").as_ref().map(String::as_str) {
+        // This allows users to disable nightly lints on nightly
+        Ok("0") => false,
+        // This allows users to enable nightly lints on stable
+        Ok("1") => true,
+        // This uses rustc to determine if this is currently a nightly run
+        _ => UnstableFeatures::from_environment(None).is_nightly_build(),
+    }
+});
 static NIGHTLY_LINTS: SyncOnceCell<FxHashSet<LintId>> = SyncOnceCell::new();
-
-/// This function is used to determine if nightly lints should be enabled or disabled
-/// in this Clippy run.
-///
-/// It's only allowed to call this once. This is done by [`clippy_lints::lib`]
-pub fn eval_is_nightly_run(sess: &Session) {
-    // This allows users to disable nightly lints on nightly
-    let disable_nightly = std::env::var("CLIPPY_NIGHTLY").map(|s| s == "0").unwrap_or(false);
-    // This allows users to enable nightly lints on stable
-    let enable_nightly = std::env::var("CLIPPY_NIGHTLY").map(|s| s == "1").unwrap_or(false);
-
-    let is_nightly_run = enable_nightly || (sess.is_nightly_build() && !disable_nightly);
-
-    IS_NIGHTLY_RUN
-        .set(is_nightly_run)
-        .expect("`ENABLE_NIGHTLY_LINTS` should only be set once.");
-}
 
 /// This function checks if the current run is a nightly run with Clippy's nightly lints. This is
 /// destinct from rustc's as a nightly build can disable Clippy's nightly features.

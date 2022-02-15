@@ -7,7 +7,7 @@ use rustc_hir::{BinOpKind, Expr, ExprKind, GenericArg, QPath};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty};
 use rustc_semver::RustcVersion;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::impl_lint_pass;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -43,7 +43,7 @@ impl ManualBits {
     }
 }
 
-impl_lint_pass!(ManualBits => [MANUAL_BITS]);
+impl_lint_pass!(ManualBits => [&MANUAL_BITS]);
 
 impl<'tcx> LateLintPass<'tcx> for ManualBits {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
@@ -62,7 +62,7 @@ impl<'tcx> LateLintPass<'tcx> for ManualBits {
             then {
                 span_lint_and_sugg(
                     cx,
-                    MANUAL_BITS,
+                    &MANUAL_BITS,
                     expr.span,
                     "usage of `mem::size_of::<T>()` to obtain the size of `T` in bits",
                     "consider using",

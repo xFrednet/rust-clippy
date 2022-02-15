@@ -7,7 +7,7 @@ use rustc_errors::Applicability;
 use rustc_hir::{BorrowKind, Expr, ExprKind, Mutability, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_semver::RustcVersion;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::impl_lint_pass;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -42,7 +42,7 @@ declare_clippy_lint! {
     "borrowing just to cast to a raw pointer"
 }
 
-impl_lint_pass!(BorrowAsPtr => [BORROW_AS_PTR]);
+impl_lint_pass!(BorrowAsPtr => [&BORROW_AS_PTR]);
 
 pub struct BorrowAsPtr {
     msrv: Option<RustcVersion>,
@@ -79,7 +79,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowAsPtr {
 
                 span_lint_and_sugg(
                     cx,
-                    BORROW_AS_PTR,
+                    &BORROW_AS_PTR,
                     expr.span,
                     "borrow as raw pointer",
                     "try",

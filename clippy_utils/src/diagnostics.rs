@@ -8,8 +8,6 @@
 //! Thank you!
 //! ~The `INTERNAL_METADATA_COLLECTOR` lint
 
-use crate::nightly::LintLevelProvider;
-
 use rustc_errors::{Applicability, DiagnosticBuilder};
 use rustc_hir::HirId;
 use rustc_lint::{LateContext, Lint, LintContext};
@@ -48,7 +46,7 @@ fn docs_link(diag: &mut DiagnosticBuilder<'_>, lint: &'static Lint) {
 /// 17 |     std::mem::forget(seven);
 ///    |     ^^^^^^^^^^^^^^^^^^^^^^^
 /// ```
-pub fn span_lint<T: LintContext + LintLevelProvider>(cx: &T, lint: &'static Lint, sp: impl Into<MultiSpan>, msg: &str) {
+pub fn span_lint<T: LintContext>(cx: &T, lint: &'static Lint, sp: impl Into<MultiSpan>, msg: &str) {
     cx.struct_span_lint(lint, sp, |diag| {
         let mut diag = diag.build(msg);
         docs_link(&mut diag, lint);
@@ -76,7 +74,7 @@ pub fn span_lint<T: LintContext + LintLevelProvider>(cx: &T, lint: &'static Lint
 ///    |
 ///    = help: consider using `f64::NAN` if you would like a constant representing NaN
 /// ```
-pub fn span_lint_and_help<'a, T: LintContext + LintLevelProvider>(
+pub fn span_lint_and_help<'a, T: LintContext>(
     cx: &'a T,
     lint: &'static Lint,
     span: Span,
@@ -119,7 +117,7 @@ pub fn span_lint_and_help<'a, T: LintContext + LintLevelProvider>(
 /// 10 |     forget(&SomeStruct);
 ///    |            ^^^^^^^^^^^
 /// ```
-pub fn span_lint_and_note<'a, T: LintContext + LintLevelProvider>(
+pub fn span_lint_and_note<'a, T: LintContext>(
     cx: &'a T,
     lint: &'static Lint,
     span: impl Into<MultiSpan>,
@@ -145,7 +143,7 @@ pub fn span_lint_and_note<'a, T: LintContext + LintLevelProvider>(
 /// If you change the signature, remember to update the internal lint `CollapsibleCalls`
 pub fn span_lint_and_then<C, S, F>(cx: &C, lint: &'static Lint, sp: S, msg: &str, f: F)
 where
-    C: LintContext + LintLevelProvider,
+    C: LintContext,
     S: Into<MultiSpan>,
     F: FnOnce(&mut DiagnosticBuilder<'_>),
 {
@@ -201,7 +199,7 @@ pub fn span_lint_hir_and_then(
 ///     = note: `-D fold-any` implied by `-D warnings`
 /// ```
 #[cfg_attr(feature = "internal", allow(clippy::collapsible_span_lint_calls))]
-pub fn span_lint_and_sugg<'a, T: LintContext + LintLevelProvider>(
+pub fn span_lint_and_sugg<'a, T: LintContext>(
     cx: &'a T,
     lint: &'static Lint,
     sp: Span,

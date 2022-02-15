@@ -2,7 +2,7 @@ use clippy_utils::diagnostics::span_lint_and_help;
 use rustc_hir::{self as hir, HirId, Item, ItemKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::layout::LayoutOf;
-use rustc_session::{declare_lint_pass, declare_tool_lint};
+use rustc_session::declare_lint_pass;
 use rustc_span::sym;
 use rustc_typeck::hir_ty_to_ty;
 
@@ -48,14 +48,14 @@ declare_clippy_lint! {
     restriction,
     "unions without a `#[repr(C)]` attribute"
 }
-declare_lint_pass!(DefaultUnionRepresentation => [DEFAULT_UNION_REPRESENTATION]);
+declare_lint_pass!(DefaultUnionRepresentation => [&DEFAULT_UNION_REPRESENTATION]);
 
 impl<'tcx> LateLintPass<'tcx> for DefaultUnionRepresentation {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         if is_union_with_two_non_zst_fields(cx, item) && !has_c_repr_attr(cx, item.hir_id()) {
             span_lint_and_help(
                 cx,
-                DEFAULT_UNION_REPRESENTATION,
+                &DEFAULT_UNION_REPRESENTATION,
                 item.span,
                 "this union has the default representation",
                 None,

@@ -255,11 +255,18 @@ impl Lint {
     fn by_lint_group(lints: impl Iterator<Item = Self>) -> HashMap<String, Vec<Self>> {
         lints.map(|lint| (lint.group.to_string(), lint)).into_group_map()
     }
+
+    #[must_use]
+    fn is_nightly(&self) -> bool {
+        self.version.as_ref().map_or(false, |v| v == "nightly")
+    }
 }
 
 /// Generates the code for registering a group
 fn gen_lint_group_list<'a>(group_name: &str, lints: impl Iterator<Item = &'a Lint>) -> String {
-    let mut details: Vec<_> = lints.map(|l| (&l.module, l.name.to_uppercase(), &l.version)).collect();
+    let mut details: Vec<_> = lints
+        .map(|l| (&l.module, l.name.to_uppercase(), l.is_nightly()))
+        .collect();
     details.sort_unstable();
 
     let mut output = GENERATED_FILE_COMMENT.to_string();
@@ -268,10 +275,10 @@ fn gen_lint_group_list<'a>(group_name: &str, lints: impl Iterator<Item = &'a Lin
         "store.register_group(true, \"clippy::{0}\", Some(\"clippy_{0}\"), [\n",
         group_name
     ));
-    for (module, name, version) in details {
-        if version.as_ref().map_or(false, |v| v == "nightly") {
+    for (module, name, is_nightly) in details {
+        if is_nightly {
             output.push_str(&format!(
-                "    clippy_utils::nightly::is_nightly_run().then_some(LintId::of({}::{})),\n",
+                "    clippy_utils::nightly::is_nightly_run().then_some(LintId::of(&{}::{})),\n",
                 module, name
             ));
         } else {
@@ -332,7 +339,7 @@ fn gen_nightly_lint_list<'a>(
     let mut details: Vec<_> = internal_lints
         .map(|l| (false, l))
         .chain(usable_lints.map(|l| (true, l)))
-        .filter(|(_, l)| l.version.as_ref().map_or(false, |v| v == "nightly"))
+        .filter(|(_, l)| l.is_nightly())
         .map(|(p, l)| (p, &l.module, l.name.to_uppercase()))
         .collect();
     details.sort_unstable();
@@ -343,13 +350,13 @@ fn gen_nightly_lint_list<'a>(
     // not processed by `update_lints`. For testing purposes we still need the lint to be
     // registered in the `nightly_lints` list. This manually adds this one lint.
     output.push_str("    #[cfg(feature = \"internal\")]\n");
-    output.push_str("    LintId::of(utils::internal_lints::FOREVER_NIGHTLY_LINT),\n");
+    output.push_str("    LintId::of(&utils::internal_lints::FOREVER_NIGHTLY_LINT),\n");
 
     for (is_public, module_name, lint_name) in details {
         if !is_public {
             output.push_str("    #[cfg(feature = \"internal\")]\n");
         }
-        output.push_str(&format!("    LintId::of({}::{}),\n", module_name, lint_name));
+        output.push_str(&format!("    LintId::of(&{}::{}),\n", module_name, lint_name));
     }
     output.push_str("])\n");
 
@@ -363,19 +370,23 @@ fn gen_register_lint_list<'a>(
     usable_lints: impl Iterator<Item = &'a Lint>,
 ) -> String {
     let mut details: Vec<_> = internal_lints
-        .map(|l| (false, &l.module, l.name.to_uppercase()))
-        .chain(usable_lints.map(|l| (true, &l.module, l.name.to_uppercase())))
+        .map(|l| (false, &l.module, l.name.to_uppercase(), l.is_nightly()))
+        .chain(usable_lints.map(|l| (true, &l.module, l.name.to_uppercase(), l.is_nightly())))
         .collect();
     details.sort_unstable();
 
     let mut output = GENERATED_FILE_COMMENT.to_string();
     output.push_str("store.register_lints(&[\n");
 
-    for (is_public, module_name, lint_name) in details {
+    for (is_public, module_name, lint_name, is_nightly) in details {
         if !is_public {
             output.push_str("    #[cfg(feature = \"internal\")]\n");
         }
-        output.push_str(&format!("    {}::{},\n", module_name, lint_name));
+        if is_nightly {
+            output.push_str(&format!("    &{}::{},\n", module_name, lint_name));
+        } else {
+            output.push_str(&format!("    {}::{},\n", module_name, lint_name));
+        }
     }
     output.push_str("])\n");
 

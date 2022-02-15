@@ -18,7 +18,7 @@ use clippy_utils::in_constant;
 use if_chain::if_chain;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_session::{declare_lint_pass, declare_tool_lint};
+use rustc_session::declare_lint_pass;
 use rustc_span::symbol::sym;
 
 declare_clippy_lint! {
@@ -395,7 +395,7 @@ declare_lint_pass!(Transmute => [
     TRANSMUTE_NUM_TO_BYTES,
     UNSOUND_COLLECTION_TRANSMUTE,
     TRANSMUTES_EXPRESSIBLE_AS_PTR_CASTS,
-    TRANSMUTE_UNDEFINED_REPR,
+    &TRANSMUTE_UNDEFINED_REPR,
 ]);
 
 impl<'tcx> LateLintPass<'tcx> for Transmute {
