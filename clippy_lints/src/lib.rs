@@ -8,6 +8,7 @@
 #![feature(iter_intersperse)]
 #![feature(let_chains)]
 #![feature(let_else)]
+#![feature(lint_reasons)]
 #![feature(once_cell)]
 #![feature(rustc_private)]
 #![feature(stmt_expr_attributes)]
@@ -210,6 +211,7 @@ mod doc;
 mod double_comparison;
 mod double_parens;
 mod drop_forget_ref;
+mod duplicate_mod;
 mod duration_subsec;
 mod else_if_without_else;
 mod empty_drop;
@@ -345,6 +347,7 @@ mod ptr_offset_with_cast;
 mod pub_use;
 mod question_mark;
 mod ranges;
+mod rc_clone_in_vec_init;
 mod redundant_clone;
 mod redundant_closure_call;
 mod redundant_else;
@@ -473,7 +476,7 @@ pub fn read_conf(sess: &Session) -> Conf {
 /// Register all lints and lint groups with the rustc plugin registry
 ///
 /// Used in `./src/driver.rs`.
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf: &Conf) {
     register_removed_non_tool_lints(store);
 
@@ -583,8 +586,17 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
     });
 
     let avoid_breaking_exported_api = conf.avoid_breaking_exported_api;
+    let allow_expect_in_tests = conf.allow_expect_in_tests;
+    let allow_unwrap_in_tests = conf.allow_unwrap_in_tests;
     store.register_late_pass(move || Box::new(approx_const::ApproxConstant::new(msrv)));
-    store.register_late_pass(move || Box::new(methods::Methods::new(avoid_breaking_exported_api, msrv)));
+    store.register_late_pass(move || {
+        Box::new(methods::Methods::new(
+            avoid_breaking_exported_api,
+            msrv,
+            allow_expect_in_tests,
+            allow_unwrap_in_tests,
+        ))
+    });
     store.register_late_pass(move || Box::new(matches::Matches::new(msrv)));
     store.register_early_pass(move || Box::new(manual_non_exhaustive::ManualNonExhaustiveStruct::new(msrv)));
     store.register_late_pass(move || Box::new(manual_non_exhaustive::ManualNonExhaustiveEnum::new(msrv)));
@@ -892,6 +904,8 @@ pub fn register_plugins(store: &mut rustc_lint::LintStore, sess: &Session, conf:
     let max_include_file_size = conf.max_include_file_size;
     store.register_late_pass(move || Box::new(large_include_file::LargeIncludeFile::new(max_include_file_size)));
     store.register_late_pass(|| Box::new(strings::TrimSplitWhitespace));
+    store.register_late_pass(|| Box::new(rc_clone_in_vec_init::RcCloneInVecInit));
+    store.register_early_pass(|| Box::new(duplicate_mod::DuplicateMod::default()));
     // add lints here, do not remove this comment, it's used in `new_lint`
 }
 
