@@ -3197,10 +3197,10 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Checks for initial `'/'` in an argument to `.join()` on a `Path`.
+    /// Checks for initial `'/ or \\'` in an argument to `.join()` on a `Path`.
     ///
     /// ### Why is this bad?
-    /// `.join()` comments starting with a separator, can replace the entire path.
+    /// `.join()` comments starting with a separator  (`/` or `\\`) can replace the entire path.
     /// If this is intentional, prefer creating a new `Path` instead.
     ///
     /// See [`Path::join()`](https://doc.rust-lang.org/std/path/struct.Path.html#method.join)
