@@ -31,9 +31,8 @@ use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::edition::Edition;
 use rustc_span::source_map::{BytePos, FilePathMapping, SourceMap, Span};
 use rustc_span::{sym, FileName, Pos};
-use std::io;
 use std::ops::Range;
-use std::thread;
+use std::{io, thread};
 use url::Url;
 
 declare_clippy_lint! {
@@ -295,7 +294,9 @@ impl<'tcx> LateLintPass<'tcx> for DocMarkdown {
 
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'_>) {
         let attrs = cx.tcx.hir().attrs(item.hir_id());
-        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else { return };
+        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else {
+            return;
+        };
         match item.kind {
             hir::ItemKind::Fn(ref sig, _, body_id) => {
                 if !(is_entrypoint_fn(cx, item.owner_id.to_def_id()) || in_external_macro(cx.tcx.sess, item.span)) {
@@ -339,7 +340,9 @@ impl<'tcx> LateLintPass<'tcx> for DocMarkdown {
 
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'_>) {
         let attrs = cx.tcx.hir().attrs(item.hir_id());
-        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else { return };
+        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else {
+            return;
+        };
         if let hir::TraitItemKind::Fn(ref sig, ..) = item.kind {
             if !in_external_macro(cx.tcx.sess, item.span) {
                 lint_for_missing_headers(cx, item.owner_id, sig, headers, None, None);
@@ -349,7 +352,9 @@ impl<'tcx> LateLintPass<'tcx> for DocMarkdown {
 
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::ImplItem<'_>) {
         let attrs = cx.tcx.hir().attrs(item.hir_id());
-        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else { return };
+        let Some(headers) = check_attrs(cx, &self.valid_idents, attrs) else {
+            return;
+        };
         if self.in_trait_impl || in_external_macro(cx.tcx.sess, item.span) {
             return;
         }
@@ -571,6 +576,7 @@ fn check_doc<'a, Events: Iterator<Item = (pulldown_cmark::Event<'a>, Range<usize
     let mut in_link = None;
     let mut in_heading = false;
     let mut is_rust = false;
+    let mut no_test = false;
     let mut edition = None;
     let mut ticks_unbalanced = false;
     let mut text_to_check: Vec<(CowStr<'_>, Span)> = Vec::new();
@@ -584,6 +590,8 @@ fn check_doc<'a, Events: Iterator<Item = (pulldown_cmark::Event<'a>, Range<usize
                         if item == "ignore" {
                             is_rust = false;
                             break;
+                        } else if item == "no_test" {
+                            no_test = true;
                         }
                         if let Some(stripped) = item.strip_prefix("edition") {
                             is_rust = true;
@@ -648,7 +656,7 @@ fn check_doc<'a, Events: Iterator<Item = (pulldown_cmark::Event<'a>, Range<usize
                 headers.errors |= in_heading && trimmed_text == "Errors";
                 headers.panics |= in_heading && trimmed_text == "Panics";
                 if in_code {
-                    if is_rust {
+                    if is_rust && !no_test {
                         let edition = edition.unwrap_or_else(|| cx.tcx.sess.edition());
                         check_code(cx, &text, edition, span);
                     }
@@ -906,15 +914,15 @@ impl<'a, 'tcx> Visitor<'tcx> for FindPanicUnwrap<'a, 'tcx> {
             if is_panic(self.cx, macro_call.def_id)
                 || matches!(
                     self.cx.tcx.item_name(macro_call.def_id).as_str(),
-                    "assert" | "assert_eq" | "assert_ne" | "todo"
+                    "assert" | "assert_eq" | "assert_ne"
                 )
             {
                 self.panic_span = Some(macro_call.span);
             }
         }
 
-        // check for `unwrap`
-        if let Some(arglists) = method_chain_args(expr, &["unwrap"]) {
+        // check for `unwrap` and `expect` for both `Option` and `Result`
+        if let Some(arglists) = method_chain_args(expr, &["unwrap"]).or(method_chain_args(expr, &["expect"])) {
             let receiver_ty = self.typeck_results.expr_ty(arglists[0].0).peel_refs();
             if is_type_diagnostic_item(self.cx, receiver_ty, sym::Option)
                 || is_type_diagnostic_item(self.cx, receiver_ty, sym::Result)

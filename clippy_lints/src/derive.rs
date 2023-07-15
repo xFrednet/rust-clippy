@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_note, span_lint_and_sugg, span_lint_and_then};
-use clippy_utils::paths;
 use clippy_utils::ty::{implements_trait, implements_trait_with_env, is_copy};
-use clippy_utils::{is_lint_allowed, match_def_path};
+use clippy_utils::{is_lint_allowed, match_def_path, paths};
 use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::def_id::DefId;
@@ -14,7 +13,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter;
 use rustc_middle::traits::Reveal;
 use rustc_middle::ty::{
-    self, Binder, BoundConstness, Clause, GenericArgKind, GenericParamDefKind, ImplPolarity, ParamEnv, PredicateKind,
+    self, BoundConstness, ClauseKind, GenericArgKind, GenericParamDefKind, ImplPolarity, ParamEnv, ToPredicate,
     TraitPredicate, Ty, TyCtxt,
 };
 use rustc_session::{declare_lint_pass, declare_tool_lint};
@@ -334,7 +333,9 @@ fn check_copy_clone<'tcx>(cx: &LateContext<'tcx>, item: &Item<'_>, trait_ref: &h
         Some(id) if trait_ref.trait_def_id() == Some(id) => id,
         _ => return,
     };
-    let Some(copy_id) = cx.tcx.lang_items().copy_trait() else { return };
+    let Some(copy_id) = cx.tcx.lang_items().copy_trait() else {
+        return;
+    };
     let (ty_adt, ty_subs) = match *ty.kind() {
         // Unions can't derive clone.
         ty::Adt(adt, subs) if !adt.is_union() => (adt, subs),
@@ -345,9 +346,9 @@ fn check_copy_clone<'tcx>(cx: &LateContext<'tcx>, item: &Item<'_>, trait_ref: &h
     if !is_copy(cx, ty) {
         if ty_subs.non_erasable_generics().next().is_some() {
             let has_copy_impl = cx.tcx.all_local_trait_impls(()).get(&copy_id).map_or(false, |impls| {
-                impls
-                    .iter()
-                    .any(|&id| matches!(cx.tcx.type_of(id).subst_identity().kind(), ty::Adt(adt, _) if ty_adt.did() == adt.did()))
+                impls.iter().any(|&id| {
+                    matches!(cx.tcx.type_of(id).subst_identity().kind(), ty::Adt(adt, _) if ty_adt.did() == adt.did())
+                })
             });
             if !has_copy_impl {
                 return;
@@ -503,7 +504,7 @@ fn param_env_for_derived_eq(tcx: TyCtxt<'_>, did: DefId, eq_trait_id: DefId) -> 
 
     let ty_predicates = tcx.predicates_of(did).predicates;
     for (p, _) in ty_predicates {
-        if let PredicateKind::Clause(Clause::Trait(p)) = p.kind().skip_binder()
+        if let ClauseKind::Trait(p) = p.kind().skip_binder()
             && p.trait_ref.def_id == eq_trait_id
             && let ty::Param(self_ty) = p.trait_ref.self_ty().kind()
             && p.constness == BoundConstness::NotConst
@@ -514,13 +515,14 @@ fn param_env_for_derived_eq(tcx: TyCtxt<'_>, did: DefId, eq_trait_id: DefId) -> 
     }
 
     ParamEnv::new(
-        tcx.mk_predicates_from_iter(ty_predicates.iter().map(|&(p, _)| p).chain(
+        tcx.mk_clauses_from_iter(ty_predicates.iter().map(|&(p, _)| p).chain(
             params.iter().filter(|&&(_, needs_eq)| needs_eq).map(|&(param, _)| {
-                tcx.mk_predicate(Binder::dummy(PredicateKind::Clause(Clause::Trait(TraitPredicate {
+                ClauseKind::Trait(TraitPredicate {
                     trait_ref: ty::TraitRef::new(tcx, eq_trait_id, [tcx.mk_param_from_def(param)]),
                     constness: BoundConstness::NotConst,
                     polarity: ImplPolarity::Positive,
-                }))))
+                })
+                .to_predicate(tcx)
             }),
         )),
         Reveal::UserFacing,

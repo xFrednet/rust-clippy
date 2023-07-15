@@ -10,7 +10,8 @@ use rustc_hir::{
     TyKind,
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{hir::nested_filter::OnlyBodies, ty};
+use rustc_middle::hir::nested_filter::OnlyBodies;
+use rustc_middle::ty;
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::symbol::{kw, sym};
 use rustc_span::{Span, Symbol};
@@ -134,9 +135,10 @@ impl<'a, 'tcx> Visitor<'tcx> for SelfFinder<'a, 'tcx> {
                 kw::SelfUpper => self.upper.push(segment.ident.span),
                 _ => continue,
             }
+
+            self.invalid |= segment.ident.span.from_expansion();
         }
 
-        self.invalid |= path.span.from_expansion();
         if !self.invalid {
             walk_path(self, path);
         }
@@ -156,11 +158,20 @@ fn convert_to_from(
     self_ty: &Ty<'_>,
     impl_item_ref: &ImplItemRef,
 ) -> Option<Vec<(Span, String)>> {
+    if !target_ty.find_self_aliases().is_empty() {
+        // It's tricky to expand self-aliases correctly, we'll ignore it to not cause a
+        // bad suggestion/fix.
+        return None;
+    }
     let impl_item = cx.tcx.hir().impl_item(impl_item_ref.id);
-    let ImplItemKind::Fn(ref sig, body_id) = impl_item.kind else { return None };
+    let ImplItemKind::Fn(ref sig, body_id) = impl_item.kind else {
+        return None;
+    };
     let body = cx.tcx.hir().body(body_id);
     let [input] = body.params else { return None };
-    let PatKind::Binding(.., self_ident, None) = input.pat.kind else { return None };
+    let PatKind::Binding(.., self_ident, None) = input.pat.kind else {
+        return None;
+    };
 
     let from = snippet_opt(cx, self_ty.span)?;
     let into = snippet_opt(cx, target_ty.span)?;

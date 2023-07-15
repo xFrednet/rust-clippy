@@ -1,6 +1,6 @@
 use clippy_utils::diagnostics::{span_lint_and_then, span_lint_hir_and_then};
 use clippy_utils::source::{snippet_opt, snippet_with_context};
-use clippy_utils::visitors::{for_each_expr, Descend};
+use clippy_utils::visitors::{for_each_expr_with_closures, Descend};
 use clippy_utils::{fn_def_id, path_to_local_id, span_find_starting_semi};
 use core::ops::ControlFlow;
 use if_chain::if_chain;
@@ -9,7 +9,8 @@ use rustc_hir::intravisit::FnKind;
 use rustc_hir::{Block, Body, Expr, ExprKind, FnDecl, LangItem, MatchSource, PatKind, QPath, StmtKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_middle::ty::{self, subst::GenericArgKind, Ty};
+use rustc_middle::ty::subst::GenericArgKind;
+use rustc_middle::ty::{self, Ty};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::source_map::Span;
@@ -24,6 +25,12 @@ declare_clippy_lint! {
     /// ### Why is this bad?
     /// It is just extraneous code. Remove it to make your code
     /// more rusty.
+    ///
+    /// ### Known problems
+    /// In the case of some temporaries, e.g. locks, eliding the variable binding could lead
+    /// to deadlocks. See [this issue](https://github.com/rust-lang/rust/issues/37612).
+    /// This could become relevant if the code is later changed to use the code that would have been
+    /// bound without first assigning it to a let-binding.
     ///
     /// ### Example
     /// ```rust
@@ -70,7 +77,7 @@ declare_clippy_lint! {
     "using a return statement like `return expr;` where an expression would suffice"
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq)]
 enum RetReplacement<'tcx> {
     Empty,
     Block,
@@ -80,7 +87,7 @@ enum RetReplacement<'tcx> {
 }
 
 impl<'tcx> RetReplacement<'tcx> {
-    fn sugg_help(self) -> &'static str {
+    fn sugg_help(&self) -> &'static str {
         match self {
             Self::Empty | Self::Expr(..) => "remove `return`",
             Self::Block => "replace `return` with an empty block",
@@ -88,10 +95,11 @@ impl<'tcx> RetReplacement<'tcx> {
             Self::IfSequence(..) => "remove `return` and wrap the sequence with parentheses",
         }
     }
-    fn applicability(&self) -> Option<Applicability> {
+
+    fn applicability(&self) -> Applicability {
         match self {
-            Self::Expr(_, ap) | Self::IfSequence(_, ap) => Some(*ap),
-            _ => None,
+            Self::Expr(_, ap) | Self::IfSequence(_, ap) => *ap,
+            _ => Applicability::MachineApplicable,
         }
     }
 }
@@ -271,7 +279,7 @@ fn check_final_expr<'tcx>(
                 return;
             }
 
-            emit_return_lint(cx, ret_span, semi_spans, replacement);
+            emit_return_lint(cx, ret_span, semi_spans, &replacement);
         },
         ExprKind::If(_, then, else_clause_opt) => {
             check_block_return(cx, &then.kind, peeled_drop_expr.span, semi_spans.clone());
@@ -285,7 +293,7 @@ fn check_final_expr<'tcx>(
         // (except for unit type functions) so we don't match it
         ExprKind::Match(_, arms, MatchSource::Normal) => {
             let match_ty = cx.typeck_results().expr_ty(peeled_drop_expr);
-            for arm in arms.iter() {
+            for arm in *arms {
                 check_final_expr(cx, arm.body, semi_spans.clone(), RetReplacement::Unit, Some(match_ty));
             }
         },
@@ -306,25 +314,22 @@ fn expr_contains_conjunctive_ifs<'tcx>(expr: &'tcx Expr<'tcx>) -> bool {
     contains_if(expr, false)
 }
 
-fn emit_return_lint(cx: &LateContext<'_>, ret_span: Span, semi_spans: Vec<Span>, replacement: RetReplacement<'_>) {
+fn emit_return_lint(cx: &LateContext<'_>, ret_span: Span, semi_spans: Vec<Span>, replacement: &RetReplacement<'_>) {
     if ret_span.from_expansion() {
         return;
     }
 
-    let applicability = replacement.applicability().unwrap_or(Applicability::MachineApplicable);
-    let return_replacement = replacement.to_string();
-    let sugg_help = replacement.sugg_help();
     span_lint_and_then(cx, NEEDLESS_RETURN, ret_span, "unneeded `return` statement", |diag| {
-        diag.span_suggestion_hidden(ret_span, sugg_help, return_replacement, applicability);
-        // for each parent statement, we need to remove the semicolon
-        for semi_stmt_span in semi_spans {
-            diag.tool_only_span_suggestion(semi_stmt_span, "remove this semicolon", "", applicability);
-        }
+        let suggestions = std::iter::once((ret_span, replacement.to_string()))
+            .chain(semi_spans.into_iter().map(|span| (span, String::new())))
+            .collect();
+
+        diag.multipart_suggestion_verbose(replacement.sugg_help(), suggestions, replacement.applicability());
     });
 }
 
 fn last_statement_borrows<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> bool {
-    for_each_expr(expr, |e| {
+    for_each_expr_with_closures(cx, expr, |e| {
         if let Some(def_id) = fn_def_id(cx, e)
             && cx
                 .tcx
@@ -333,7 +338,7 @@ fn last_statement_borrows<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) 
                 .skip_binder()
                 .output()
                 .walk()
-                .any(|arg| matches!(arg.unpack(), GenericArgKind::Lifetime(_)))
+                .any(|arg| matches!(arg.unpack(), GenericArgKind::Lifetime(re) if !re.is_static()))
         {
             ControlFlow::Break(())
         } else {
