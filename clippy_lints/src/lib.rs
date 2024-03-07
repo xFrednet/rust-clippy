@@ -89,6 +89,7 @@ mod bool_assert_comparison;
 mod bool_to_int_with_if;
 mod booleans;
 mod borrow_deref_ref;
+mod borrow_pats;
 mod box_default;
 mod cargo;
 mod casts;
@@ -630,6 +631,11 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
         store.register_late_pass(|_| {
             Box::new(utils::internal_lints::almost_standard_lint_formulation::AlmostStandardFormulation::new())
         });
+    }
+
+    store.register_late_pass(|_| Box::new(borrow_pats::BorrowPats));
+    if !std::env::var("ENABLE_ALL_LINTS").eq(&Ok("1".to_string())) {
+        return;
     }
 
     store.register_late_pass(move |_| {
