@@ -1,3 +1,5 @@
+#![expect(unused)]
+
 use rustc_hir as hir;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::declare_lint_pass;
@@ -23,7 +25,18 @@ declare_clippy_lint! {
     "default lint description"
 }
 
+// TODO: Abort on feature use
+
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
+
+struct BasicBlock {
+    
+}
+
+#[derive(Debug)]
+struct MyBody<'tcx> {
+    mir: &'tcx mir::Body<'tcx>,
+}
 
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
@@ -33,11 +46,16 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         let def = cx.tcx.hir().body_owner_def_id(body.id());
         
+        if cx.tcx.item_name(def.into()).as_str() != "simple_ownership" {
+            return;
+        }
         
         // let mir = cx.tcx.mir_built(def).borrow();
-        // let mir = cx.tcx.mir_promoted(def);
-        let mir = cx.tcx.optimized_mir(def);
-        print_body(mir);
+        // print_body(&mir);
+        let (mir, _) = cx.tcx.mir_promoted(def);
+        print_body(&mir.borrow());
+        //let mir = cx.tcx.optimized_mir(def);
+        //print_body(mir);
     }
 }
 
@@ -52,5 +70,5 @@ fn print_body(body: &mir::Body<'_>) {
         println!();
     }
 
-    println!("{body:#?}");
+    //println!("{body:#?}");
 }

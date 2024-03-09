@@ -1,20 +1,28 @@
+
 #![allow(unused)]
 
+struct B<'a>(&'a String);
+
+
+fn maybe_simple() {
+    let data = String::new();
+    let b = B(&data);
+    
+    magic(&b);
+    
+    drop(data);
+    //magic(&b);
+}
+
+fn magic(b: &B) {
+    
+}
+
+fn simple_ownership(owned: String) {
+    let x = &owned;
+    x.len();
+}
 
 fn main() {
-
-    // let owned_1 = String::new();
-// 
-    // {
-    //     let owned_2 = String::new();
-    //     let owned_3 = String::new();
-// 
-    //     drop(owned_2);
-    // }
-
-    let owned_4b = {
-        let owned_4a = String::new();
-
-        owned_4a
-    };
+    
 }
