@@ -50,8 +50,6 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             return;
         }
         
-        // let mir = cx.tcx.mir_built(def).borrow();
-        // print_body(&mir);
         let (mir, _) = cx.tcx.mir_promoted(def);
         print_body(&mir.borrow());
         //let mir = cx.tcx.optimized_mir(def);
