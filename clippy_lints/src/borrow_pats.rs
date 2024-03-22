@@ -39,7 +39,7 @@ declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 struct BorrowAnalysis<'a, 'tcx> {
     cx: &'a LateContext<'tcx>,
     body: &'a mir::Body<'tcx>,
-    checked_bbs: FxHashSet<mir::BasicBlock>,
+    edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
     // These are variables defined in code, extracted from the scope
     vars: IndexVec<mir::Local, ValueUsage<'a, 'tcx>>,
 }
@@ -64,29 +64,17 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         Self {
             cx,
             body,
-            checked_bbs: Default::default(),
+            edges: Default::default(),
             vars,
         }
     }
 
     fn do_body(&mut self) {
-        let mut q: VecDeque<mir::BasicBlock> = VecDeque::new();
-
-        q.push_back(mir::BasicBlock::from_u32(0));
-
-        while let Some(bb) = q.pop_front() {
-            if self.checked_bbs.contains(&bb) {
-                continue;
-            }
-            self.checked_bbs.insert(bb);
-
-            let bbd = &self.body.basic_blocks[bb];
+        for (bbi, bbd) in self.body.basic_blocks.iter_enumerated() {
             bbd.statements.iter().for_each(|stmt| self.do_stmt(stmt));
-            let next_bbs = self.do_term(&bbd.terminator);
-            q.extend(next_bbs);
+            let next = self.do_term(&bbd.terminator);
+            self.edges.insert(bbi, next);
         }
-
-        // TODO assert that all BBs have been checked
 
         self.assign_value_kinds();
     }
@@ -148,7 +136,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     }
                 });
 
-                
                 let mut next = vec![target.unwrap()];
                 if let mir::UnwindAction::Cleanup(bb) = unwind {
                     next.push(*bb)
@@ -157,22 +144,53 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             },
             // The resurn value is modeled as an assignment to the value `_0` and will be
             // handled by the assign statement. So this is basically a NoOp
-            mir::TerminatorKind::Return => vec![],
+            mir::TerminatorKind::Return
+            | mir::TerminatorKind::UnwindResume
+            | mir::TerminatorKind::UnwindTerminate(_)
+            | mir::TerminatorKind::Unreachable => vec![],
             mir::TerminatorKind::Goto { target } => vec![*target],
+            mir::TerminatorKind::FalseUnwind { real_target, unwind } => {
+                let mut next = vec![*real_target];
+                if let mir::UnwindAction::Cleanup(bb) = unwind {
+                    next.push(*bb)
+                }
+                next
+            },
+            mir::TerminatorKind::Drop {
+                place,
+                target,
+                unwind,
+                replace,
+            } => {
+                self.vars[place.local].uses.push(ValueUse::Drop {
+                    place,
+                    is_replace: *replace,
+                });
+
+                let mut next = vec![*target];
+                if let mir::UnwindAction::Cleanup(bb) = unwind {
+                    next.push(*bb)
+                }
+                next
+            },
+            mir::TerminatorKind::SwitchInt { discr, targets } => {
+                match discr {
+                    mir::Operand::Copy(place) | mir::Operand::Move(place) => {
+                        self.vars[place.local].uses.push(ValueUse::Scrutinee { place, targets });
+                    },
+                    mir::Operand::Constant(_) => {},
+                }
+
+                terminator.successors().collect()
+            },
             _ => {
                 println!("TODO: Handle terminator: {terminator:#?}");
                 vec![]
             },
-            // mir::TerminatorKind::SwitchInt { discr, targets } => todo!(),
-            // mir::TerminatorKind::UnwindResume => todo!(),
-            // mir::TerminatorKind::UnwindTerminate(_) => todo!(),
-            // mir::TerminatorKind::Unreachable => todo!(),
-            mir::TerminatorKind::Drop { place, target, unwind, replace } => todo!(),
             // mir::TerminatorKind::Assert { cond, expected, msg, target, unwind } => todo!(),
             // mir::TerminatorKind::Yield { value, resume, resume_arg, drop } => todo!(),
             // mir::TerminatorKind::CoroutineDrop => todo!(),
             // mir::TerminatorKind::FalseEdge { real_target, imaginary_target } => todo!(),
-            // mir::TerminatorKind::FalseUnwind { real_target, unwind } => todo!(),
             // mir::TerminatorKind::InlineAsm { template, operands, options, line_spans, destination, unwind } =>
             // todo!(),
         }
@@ -194,6 +212,14 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                         [] => {
                             v.kind = ValueKind::DiscardNonDrop;
                         },
+                        [
+                            ValueUse::Drop {
+                                place: _,
+                                is_replace: false,
+                            },
+                        ] => {
+                            v.kind = ValueKind::DiscardDrop;
+                        },
                         [ValueUse::MoveArg] => {
                             v.kind = ValueKind::TempBorrow;
                         },
@@ -208,7 +234,7 @@ impl<'a, 'tcx> std::fmt::Debug for BorrowAnalysis<'a, 'tcx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BorrowAnalysis")
             .field("body", &self.body)
-            .field("checked_bbs", &self.checked_bbs)
+            .field("edges", &self.edges)
             .field("vars", &self.vars)
             .finish()
     }
@@ -255,8 +281,9 @@ enum ValueKind {
     TempBorrow,
     /// The value is automatically generated and only written to once, but never read.
     DiscardNonDrop,
-    /// The value is being dropped. This also stores the place, as it might first
-    Drop{ place: &'a mir::Place<'tcx>, is_replace: bool },
+    /// The value is automatically generated and only written to once, but never read (besides
+    /// drop).
+    DiscardDrop,
 }
 
 #[derive(Debug)]
@@ -268,6 +295,16 @@ enum ValueUse<'a, 'tcx> {
     /// Moved into a function via arguments
     MoveArg,
     CopyArg,
+    /// The value is being dropped. This also stores the place, as it might first
+    Drop {
+        place: &'a mir::Place<'tcx>,
+        is_replace: bool,
+    },
+    /// Used to decide which branch to take
+    Scrutinee {
+        place: &'a mir::Place<'tcx>,
+        targets: &'a mir::SwitchTargets,
+    },
     /// AKA unhandled for now
     Hmm,
 }
@@ -276,13 +313,9 @@ impl<'a, 'tcx> ValueUse<'a, 'tcx> {
     /// This function returns the destination of the assignment, if this is an assignment.
     fn assign_place(&self) -> Option<&'a mir::Place<'tcx>> {
         match self {
-            Self::Assign(mir::StatementKind::Assign(box (place, _expr))) => {
-                Some(place)
-            },
-            Self::AssignFromCall(mir::TerminatorKind::Call { destination, .. }) => {
-                Some(destination)
-            },
-            _ => None
+            Self::Assign(mir::StatementKind::Assign(box (place, _expr))) => Some(place),
+            Self::AssignFromCall(mir::TerminatorKind::Call { destination, .. }) => Some(destination),
+            _ => None,
         }
     }
 }
