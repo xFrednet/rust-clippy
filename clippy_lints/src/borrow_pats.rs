@@ -100,7 +100,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     eprintln!("TODO: Handle projections {place:?}");
                 }
 
-                self.vars[place.local].uses.push(ValueUse::Assign(stmt));
+                self.vars[place.local].uses.push(ValueUse::Assign(&stmt.kind));
             },
 
             // Accept with TODO prints
@@ -167,7 +167,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             // mir::TerminatorKind::UnwindResume => todo!(),
             // mir::TerminatorKind::UnwindTerminate(_) => todo!(),
             // mir::TerminatorKind::Unreachable => todo!(),
-            // mir::TerminatorKind::Drop { place, target, unwind, replace } => todo!(),
+            mir::TerminatorKind::Drop { place, target, unwind, replace } => todo!(),
             // mir::TerminatorKind::Assert { cond, expected, msg, target, unwind } => todo!(),
             // mir::TerminatorKind::Yield { value, resume, resume_arg, drop } => todo!(),
             // mir::TerminatorKind::CoroutineDrop => todo!(),
@@ -255,11 +255,13 @@ enum ValueKind {
     TempBorrow,
     /// The value is automatically generated and only written to once, but never read.
     DiscardNonDrop,
+    /// The value is being dropped. This also stores the place, as it might first
+    Drop{ place: &'a mir::Place<'tcx>, is_replace: bool },
 }
 
 #[derive(Debug)]
 enum ValueUse<'a, 'tcx> {
-    Assign(&'a mir::Statement<'tcx>),
+    Assign(&'a mir::StatementKind<'tcx>),
     AssignFromCall(&'a mir::TerminatorKind<'tcx>),
     /// The value is borrowed into a local
     Borrow(mir::Local),
@@ -274,8 +276,7 @@ impl<'a, 'tcx> ValueUse<'a, 'tcx> {
     /// This function returns the destination of the assignment, if this is an assignment.
     fn assign_place(&self) -> Option<&'a mir::Place<'tcx>> {
         match self {
-            Self::Assign(stmt) => {
-                let mir::StatementKind::Assign(box (place, _expr)) = &stmt.kind else {unreachable!()};
+            Self::Assign(mir::StatementKind::Assign(box (place, _expr))) => {
                 Some(place)
             },
             Self::AssignFromCall(mir::TerminatorKind::Call { destination, .. }) => {
