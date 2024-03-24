@@ -82,11 +82,13 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn do_stmt(&mut self, stmt: &'a mir::Statement<'tcx>) {
         match &stmt.kind {
             // Handle first
-            mir::StatementKind::Assign(box (place, _expr)) => {
+            mir::StatementKind::Assign(box (place, rval)) => {
                 // TODO: add handling for _0
                 if (place.projection.len() != 0) {
                     eprintln!("TODO: Handle projections {place:?}");
                 }
+                
+                self.do_rvalue(*place, rval);
 
                 self.vars[place.local].uses.push(ValueUse::Assign(&stmt.kind));
             },
@@ -109,6 +111,38 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             // Needed for type checking
             | mir::StatementKind::FakeRead(_)
             | mir::StatementKind::Nop => return,
+        }
+    }
+
+    /// Note: this only handles the usage of `rval`. `lval` should be handled by the caller
+    fn do_rvalue(&mut self, lval: mir::Place<'tcx>, rval: &'a mir::Rvalue<'tcx>) {
+        match rval {
+            mir::Rvalue::Use(op) => {
+                // Probably check for projections and handle them here/in the value use
+                match op {
+                    mir::Operand::Copy(rplace) => self.vars[rplace.local].uses.push(ValueUse::CopiedTo { from: lval, to: *rplace }),
+                    mir::Operand::Move(rplace) => self.vars[rplace.local].uses.push(ValueUse::MovedTo { from: lval, to: *rplace }),
+                    mir::Operand::Constant(_) => {},
+                }
+            },
+            // Repeat is the construction of a new value. The value has to be `Copy`,
+            // Probably only interesting if the type has a lifeitme
+            //
+            // Follow up question, is there a semantic difference between `&'a T` and `U<'a>`
+            mir::Rvalue::Repeat(_, _) => todo!(),
+            mir::Rvalue::Ref(_, _, _) => todo!(),
+            mir::Rvalue::ThreadLocalRef(_) => todo!(),
+            mir::Rvalue::AddressOf(_, _) => todo!(),
+            mir::Rvalue::Len(_) => todo!(),
+            mir::Rvalue::Cast(_, _, _) => todo!(),
+            mir::Rvalue::BinaryOp(_, _) => todo!(),
+            mir::Rvalue::CheckedBinaryOp(_, _) => todo!(),
+            mir::Rvalue::NullaryOp(_, _) => todo!(),
+            mir::Rvalue::UnaryOp(_, _) => todo!(),
+            mir::Rvalue::Discriminant(_) => todo!(),
+            mir::Rvalue::Aggregate(_, _) => todo!(),
+            mir::Rvalue::ShallowInitBox(_, _) => todo!(),
+            mir::Rvalue::CopyForDeref(_) => todo!(),
         }
     }
 
@@ -163,7 +197,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 replace,
             } => {
                 self.vars[place.local].uses.push(ValueUse::Drop {
-                    place,
+                    place: *place,
                     is_replace: *replace,
                 });
 
@@ -174,11 +208,8 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 next
             },
             mir::TerminatorKind::SwitchInt { discr, targets } => {
-                match discr {
-                    mir::Operand::Copy(place) | mir::Operand::Move(place) => {
-                        self.vars[place.local].uses.push(ValueUse::Scrutinee { place, targets });
-                    },
-                    mir::Operand::Constant(_) => {},
+                if let Some(place) = discr.place() {
+                    self.vars[place.local].uses.push(ValueUse::Scrutinee { place, targets });
                 }
 
                 terminator.successors().collect()
@@ -297,24 +328,26 @@ enum ValueUse<'a, 'tcx> {
     CopyArg,
     /// The value is being dropped. This also stores the place, as it might first
     Drop {
-        place: &'a mir::Place<'tcx>,
+        place: mir::Place<'tcx>,
         is_replace: bool,
     },
     /// Used to decide which branch to take
     Scrutinee {
-        place: &'a mir::Place<'tcx>,
+        place: mir::Place<'tcx>,
         targets: &'a mir::SwitchTargets,
     },
+    CopiedTo{from: mir::Place<'tcx>, to: mir::Place<'tcx>},
+    MovedTo{from: mir::Place<'tcx>, to: mir::Place<'tcx>},
     /// AKA unhandled for now
     Hmm,
 }
 
 impl<'a, 'tcx> ValueUse<'a, 'tcx> {
     /// This function returns the destination of the assignment, if this is an assignment.
-    fn assign_place(&self) -> Option<&'a mir::Place<'tcx>> {
+    fn assign_place(&self) -> Option<mir::Place<'tcx>> {
         match self {
-            Self::Assign(mir::StatementKind::Assign(box (place, _expr))) => Some(place),
-            Self::AssignFromCall(mir::TerminatorKind::Call { destination, .. }) => Some(destination),
+            Self::Assign(mir::StatementKind::Assign(box (place, _expr))) => Some(*place),
+            Self::AssignFromCall(mir::TerminatorKind::Call { destination, .. }) => Some(*destination),
             _ => None,
         }
     }
