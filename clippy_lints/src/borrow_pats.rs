@@ -36,8 +36,8 @@ declare_clippy_lint! {
 
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 
+#[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
-    cx: &'a LateContext<'tcx>,
     body: &'a mir::Body<'tcx>,
     edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
     // These are variables defined in code, extracted from the scope
@@ -46,7 +46,7 @@ struct BorrowAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
-    fn new(cx: &'a LateContext<'tcx>, body: &'a mir::Body<'tcx>) -> Self {
+    fn new(body: &'a mir::Body<'tcx>) -> Self {
         let mut vars: IndexVec<_, _> = body
             .local_decls
             .iter_enumerated()
@@ -62,6 +62,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             }
         });
 
+        // Create Automatas
         let mut autos: IndexVec<_, _> = body
             .local_decls
             .iter_enumerated()
@@ -77,8 +78,22 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             }
         });
 
+        autos[mir::Local::from_u32(0)].local_kind = LocalKind::Return;
+        body.var_debug_info.iter().for_each(|info| {
+            if let mir::VarDebugInfoContents::Place(place) = info.value {
+                let local = place.local;
+                autos.get_mut(local).unwrap().local_kind = if local < body.arg_count.into() {
+                    LocalKind::UserArg(info.name)
+                } else {
+                    LocalKind::UserVar(info.name)
+                };
+            } else {
+                todo!("How should this be handled? {info:#?}");
+            }
+        });
+        autos.iter_mut().filter(|x| matches!(x.local_kind, LocalKind::Unknown)).for_each(|x| x.local_kind = LocalKind::GenVar);
+
         Self {
-            cx,
             body,
             edges: Default::default(),
             vars,
@@ -105,7 +120,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     mir::BorrowKind::Mut {..} => Mutability::Mut,
                     mir::BorrowKind::Fake => return,
                 };
-                
+
                 // _0 should be handled in the automata
                 if (dst.projection.len() != 0) {
                     eprintln!("TODO: Handle src projections {dst:?}");
@@ -113,20 +128,30 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 if (src.projection.len() != 0) {
                     eprintln!("TODO: Handle src projections {src:?}");
                 }
-                
+
                 // self.do_rvalue(*place, rval);
 
-                
+                self.accept_event(Event {
+                    bb,
+                    local: dst.local,
+                    kind: EventKind::BorrowFrom(mutability, src.local)
+                });
+                let local_kind = self.autos[dst.local].local_kind;
+                self.accept_event(Event {
+                    bb,
+                    local: src.local,
+                    kind: EventKind::BorrowInto(mutability, dst.local, local_kind)
+                });
             },
 
             // Accept with TODO prints
             mir::StatementKind::Assign(_)
-             | mir::StatementKind::SetDiscriminant { .. }
-            |mir::StatementKind::Deinit(_)
-            |mir::StatementKind::PlaceMention(_)
-            |mir::StatementKind::AscribeUserType(_, _)
-            |mir::StatementKind::Intrinsic(_)
-            |mir::StatementKind::ConstEvalCounter => eprintln!("TODO Handle STMT: {stmt:?}"),
+            | mir::StatementKind::SetDiscriminant { .. }
+            | mir::StatementKind::Deinit(_)
+            | mir::StatementKind::PlaceMention(_)
+            | mir::StatementKind::AscribeUserType(_, _)
+            | mir::StatementKind::Intrinsic(_)
+            | mir::StatementKind::ConstEvalCounter => eprintln!("TODO Handle STMT: {stmt:?}"),
 
             // NOOP or basically noop (For now)
             mir::StatementKind::StorageLive(_)
@@ -214,16 +239,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     }
                 }
             });
-    }
-}
-
-impl<'a, 'tcx> std::fmt::Debug for BorrowAnalysis<'a, 'tcx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BorrowAnalysis")
-            .field("body", &self.body)
-            .field("edges", &self.edges)
-            .field("vars", &self.vars)
-            .finish()
     }
 }
 
@@ -319,6 +334,7 @@ impl<'a, 'tcx> ValueUse<'a, 'tcx> {
 struct Automata<'a, 'tcx> {
     /// The local that this automata belongs to
     local: mir::Local,
+    local_kind: LocalKind,
     body: &'a mir::Body<'tcx>,
     state: State<'a, 'tcx>,
     /// Events handled by this automata, should only be used for debugging
@@ -330,8 +346,9 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
     fn new(local: mir::Local, body: &'a mir::Body<'tcx>) -> Self {
         Self {
             local,
+            local_kind: LocalKind::Unknown,
             body,
-            state: State::Init,
+            state: State::Start,
             events: vec![],
         }
     }
@@ -342,22 +359,76 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
     /// This accepts an event and might create a followup event
     fn accept_event(&mut self, event: Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
-        let mut result = None;
-
-        match self.state {
-            State::Dummy(_) => unreachable!(),
-            State::Init => todo!(),
-            State::UserOwned => todo!(),
-            State::LocalBorrow(_mut, target) => result = Some(event.followup_event(target)),
-
-            // Should remain uninteresting?
-            State::Generated => {},
-            // TODOs
-            State::Todo => {},
-        }
+        let followup = match &self.local_kind {
+            LocalKind::Unknown => unreachable!(),
+            LocalKind::Return => {
+                self.state = State::Todo;
+                None
+            },
+            LocalKind::UserArg(_) | LocalKind::UserVar(_) => {
+                if self.body.local_decls[self.local].ty.is_ref() {
+                    self.state = State::Todo;
+                    None
+                } else {
+                    self.accept_event_owned(&event)
+                }
+            },
+            LocalKind::GenVar => self.accept_event_gen_var(&event),
+        };
 
         self.events.push(event);
-        result
+        followup
+    }
+
+    fn accept_event_owned(&mut self, event: &Event<'a, 'tcx>)  -> Option<Event<'a, 'tcx>> {
+        match (&mut self.state, &event.kind) {
+            (State::Dummy(_), _) => unreachable!(),
+            (State::UserOwned, EventKind::BorrowInto(mutability, borrower, LocalKind::GenVar)) => {
+                self.state = State::TempBorrowed(*mutability, vec![*borrower]);
+                None
+            }
+            (State::TempBorrowed(_old_mut, borrowers), EventKind::BorrowInto(_new_mut, borrower, LocalKind::GenVar)) => {
+                // If we have multiple borrows, they have to be immutable. We keep the mutability
+                // stored in `TempBorrowed` as it might me mutable from a previous iteration
+                borrowers.push(*borrower);
+                None
+            }
+            (State::PatOwnedTempBorrowed(old_mut), EventKind::BorrowInto(new_mut, borrower, LocalKind::GenVar)) => {
+                let mutability = match (*old_mut, *new_mut) {
+                    (_, Mutability::Mut)|(Mutability::Mut, _) => Mutability::Mut,
+                    _ => Mutability::Not,
+                };
+                self.state = State::TempBorrowed(mutability, vec![*borrower]);
+                None
+            }
+            (State::Todo, _) => None,
+            (_, _) => todo!(),
+        }
+    }
+
+    fn accept_event_gen_var(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        assert_eq!(self.local_kind, LocalKind::GenVar);
+        match (&self.state, &event.kind) {
+            (State::Dummy(_), _) | (State::UserOwned, _) => unreachable!(),
+            (State::Start, EventKind::BorrowFrom(mutability, target) ) => {
+                self.state = State::LocalBorrow(*mutability, *target);
+                None
+            },
+            (State::LocalBorrow(_mut, target), EventKind::MoveFn) => {
+                // This should only be called on temporary borrows. Temporary borrows should be
+                // created in the same branch they are used. Therefore we don't need to consider
+                // branching, or so the idea.
+                let target = *target;
+                self.state = State::Dead;
+                Some(Event {
+                    bb: event.bb,
+                    local: target,
+                    kind: EventKind::Loan(self.local, LoanEventKind::MovedToFn),
+                })
+            },
+            (State::Todo, _) => None,
+            (_, _) => todo!(),
+        }
     }
 }
 
@@ -367,11 +438,13 @@ enum State<'a, 'tcx> {
     /// The initial state, this should be short lived, as it's usually only used to directly
     /// jump to the next state.
     // TODO: Is this needed?
-    Init,
-    /// A value generated for MIR
-    Generated,
+    Start,
+    /// The value has been dropped or moved. It is dead :D
+    Dead,
     /// A user created variable containing owned data.
     UserOwned,
+    TempBorrowed(Mutability, Vec<mir::Local>),
+    PatOwnedTempBorrowed(Mutability),
     /// An unnamed local borrow. This is usually used for temporary borrows.
     ///
     /// This usually doesn't have followup states, but creates events for the originally
@@ -391,28 +464,35 @@ struct Event<'a, 'tcx> {
     kind: EventKind<'a, 'tcx>,
 }
 
-impl<'a, 'tcx> Event<'a, 'tcx> {
-    fn followup_event(&self, target: mir::Local) -> Self {
-        let new_kind = match self.kind {
-            EventKind::Dummy(_) => unreachable!(),
-            EventKind::BorrowInto(_, _) => todo!(),
-            EventKind::BorrowFrom(_, _) => todo!(),
-        };
-        Self {
-            bb: self.bb,
-            local: target,
-            kind: new_kind,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum EventKind<'a, 'tcx> {
     Dummy(&'a &'tcx ()),
     /// This value is being borrowed into
-    BorrowInto(Mutability, mir::Local),
+    BorrowInto(Mutability, mir::Local, LocalKind),
     /// This value was borrowed from
     BorrowFrom(Mutability, mir::Local),
+    /// Moved into a function as an argument
+    MoveFn,
+    /// Events that happened to a loan (identified by the Local) of this value
+    Loan(mir::Local, LoanEventKind)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum LoanEventKind {
+    MovedToFn,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum LocalKind {
+    Unknown,
+    /// The return local
+    Return,
+    /// User defined argument
+    UserArg(Symbol),
+    /// User defined variable
+    UserVar(Symbol),
+    /// Generated variable, i.e. unnamed
+    GenVar,
 }
 
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
@@ -429,7 +509,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let mir_borrow = &mir_borrow;
 
         if cx.tcx.item_name(def.into()).as_str() == "simple_ownership" {
-            let mut duck = BorrowAnalysis::new(cx, mir_borrow);
+            let mut duck = BorrowAnalysis::new(mir_borrow);
             duck.do_body();
 
             println!("{duck:#?}");
