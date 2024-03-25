@@ -9,7 +9,7 @@ use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::declare_lint_pass;
 
-use rustc_middle::mir;
+use rustc_middle::mir::{self, BasicBlock};
 use rustc_span::Symbol;
 
 declare_clippy_lint! {
@@ -39,6 +39,7 @@ declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
     body: &'a mir::Body<'tcx>,
+    current_bb: BasicBlock,
     edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
     // These are variables defined in code, extracted from the scope
     vars: IndexVec<mir::Local, ValueUsage<'a, 'tcx>>,
@@ -95,6 +96,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
         Self {
             body,
+            current_bb: BasicBlock::from_u32(0),
             edges: Default::default(),
             vars,
             autos,
@@ -103,6 +105,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
     fn do_body(&mut self) {
         for (bbi, bbd) in self.body.basic_blocks.iter_enumerated() {
+            self.current_bb = bbi;
             bbd.statements.iter().for_each(|stmt| self.do_stmt(stmt, bbi));
             let next = self.do_term(&bbd.terminator);
             self.edges.insert(bbi, next);
@@ -132,13 +135,13 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 // self.do_rvalue(*place, rval);
 
                 self.accept_event(Event {
-                    bb,
+                    bb: self.current_bb,
                     local: dst.local,
                     kind: EventKind::BorrowFrom(mutability, src.local)
                 });
                 let local_kind = self.autos[dst.local].local_kind;
                 self.accept_event(Event {
-                    bb,
+                    bb: self.current_bb,
                     local: src.local,
                     kind: EventKind::BorrowInto(mutability, dst.local, local_kind)
                 });
@@ -201,6 +204,41 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn do_term(&mut self, terminator: &'a Option<mir::Terminator<'tcx>>) -> Vec<mir::BasicBlock> {
         let Some(terminator) = terminator else { return vec![] };
         match &terminator.kind {
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination,
+                ..
+            } => {
+                self.vars[destination.local]
+                    .uses
+                    .push(ValueUse::AssignFromCall(&terminator.kind));
+
+                args.iter().map(|x| &x.node).for_each(|op| {
+                    match op {
+                        mir::Operand::Copy(place) => {
+                            self.accept_event(Event {
+                                bb: self.current_bb,
+                                local: place.local,
+                                kind: EventKind::CopyFn,
+                            });
+                            self.vars[place.local].uses.push(ValueUse::CopyArg);
+                        }
+                        mir::Operand::Move(place) => {
+                            self.accept_event(Event {
+                                bb: self.current_bb,
+                                local: place.local,
+                                kind: EventKind::MoveFn,
+                            });
+                            self.vars[place.local].uses.push(ValueUse::MoveArg);
+                        }
+                        // Don't care
+                        mir::Operand::Constant(_) => {},
+                    }
+                });
+
+                terminator.successors().collect()
+            },
             _ => {
                 println!("TODO: Handle terminator: {terminator:#?}");
                 terminator.successors().collect()
@@ -393,6 +431,15 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 borrowers.push(*borrower);
                 None
             }
+            (State::TempBorrowed(mutability, borrowers),  EventKind::Loan(local, LoanEventKind::MovedToFn)) => {
+                // If we have multiple borrows, they have to be immutable. We keep the mutability
+                // stored in `TempBorrowed` as it might me mutable from a previous iteration
+                borrowers.retain(|x| x != local);
+                if borrowers.is_empty() {
+                    self.state = State::PatOwnedTempBorrowed(*mutability);
+                }
+                None
+            }
             (State::PatOwnedTempBorrowed(old_mut), EventKind::BorrowInto(new_mut, borrower, LocalKind::GenVar)) => {
                 let mutability = match (*old_mut, *new_mut) {
                     (_, Mutability::Mut)|(Mutability::Mut, _) => Mutability::Mut,
@@ -401,6 +448,10 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::TempBorrowed(mutability, vec![*borrower]);
                 None
             }
+            (State::UserOwned, EventKind::AutoDrop) => {
+                self.state = State::Dead;
+                None
+            },
             (State::Todo, _) => None,
             (_, _) => todo!(),
         }
@@ -473,8 +524,11 @@ enum EventKind<'a, 'tcx> {
     BorrowFrom(Mutability, mir::Local),
     /// Moved into a function as an argument
     MoveFn,
+    /// Coppied into a function as an argument
+    CopyFn,
     /// Events that happened to a loan (identified by the Local) of this value
-    Loan(mir::Local, LoanEventKind)
+    Loan(mir::Local, LoanEventKind),
+    AutoDrop,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
