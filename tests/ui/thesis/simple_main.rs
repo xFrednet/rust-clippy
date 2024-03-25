@@ -23,8 +23,6 @@ fn magic_1(b: &B) {}
 fn magic_2(b: &B, c: &B) {}
 
 fn simple_ownership(owned: String) {
-    17;
-    String::new();
     owned.len();
 }
 

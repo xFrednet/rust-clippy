@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 
-use hir::UseKind;
+use hir::{Mutability, UseKind};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir as hir;
 use rustc_index::IndexVec;
@@ -42,6 +42,7 @@ struct BorrowAnalysis<'a, 'tcx> {
     edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
     // These are variables defined in code, extracted from the scope
     vars: IndexVec<mir::Local, ValueUsage<'a, 'tcx>>,
+    autos: IndexVec<mir::Local, Automata<'a, 'tcx>>,
 }
 
 impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
@@ -61,17 +62,33 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             }
         });
 
+        let mut autos: IndexVec<_, _> = body
+            .local_decls
+            .iter_enumerated()
+            .map(|(mir_name, _decl)| Automata::new(mir_name, body))
+            .collect();
+
+        body.args_iter().for_each(|x| {
+            let decl = &body.local_decls[x];
+            if decl.ty.is_ref() {
+                unimplemented!();
+            } else {
+                autos[x].make_owned_arg();
+            }
+        });
+
         Self {
             cx,
             body,
             edges: Default::default(),
             vars,
+            autos,
         }
     }
 
     fn do_body(&mut self) {
         for (bbi, bbd) in self.body.basic_blocks.iter_enumerated() {
-            bbd.statements.iter().for_each(|stmt| self.do_stmt(stmt));
+            bbd.statements.iter().for_each(|stmt| self.do_stmt(stmt, bbi));
             let next = self.do_term(&bbd.terminator);
             self.edges.insert(bbi, next);
         }
@@ -79,27 +96,37 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         self.assign_value_kinds();
     }
 
-    fn do_stmt(&mut self, stmt: &'a mir::Statement<'tcx>) {
+    fn do_stmt(&mut self, stmt: &'a mir::Statement<'tcx>, bb: mir::BasicBlock) {
         match &stmt.kind {
             // Handle first
-            mir::StatementKind::Assign(box (place, rval)) => {
-                // TODO: add handling for _0
-                if (place.projection.len() != 0) {
-                    eprintln!("TODO: Handle projections {place:?}");
+            mir::StatementKind::Assign(box (dst, mir::Rvalue::Ref(_reg, kind, src))) => {
+                let mutability = match kind {
+                    mir::BorrowKind::Shared => Mutability::Not,
+                    mir::BorrowKind::Mut {..} => Mutability::Mut,
+                    mir::BorrowKind::Fake => return,
+                };
+                
+                // _0 should be handled in the automata
+                if (dst.projection.len() != 0) {
+                    eprintln!("TODO: Handle src projections {dst:?}");
+                }
+                if (src.projection.len() != 0) {
+                    eprintln!("TODO: Handle src projections {src:?}");
                 }
                 
-                self.do_rvalue(*place, rval);
+                // self.do_rvalue(*place, rval);
 
-                self.vars[place.local].uses.push(ValueUse::Assign(&stmt.kind));
+                
             },
 
             // Accept with TODO prints
-            mir::StatementKind::SetDiscriminant { .. } => eprintln!("TODO Handle STMT: {stmt:?}"),
-            mir::StatementKind::Deinit(_) => eprintln!("TODO Handle STMT: {stmt:?}"),
-            mir::StatementKind::PlaceMention(_) => eprintln!("TODO Handle STMT: {stmt:?}"),
-            mir::StatementKind::AscribeUserType(_, _) => eprintln!("TODO Handle STMT: {stmt:?}"),
-            mir::StatementKind::Intrinsic(_) => eprintln!("TODO Handle STMT: {stmt:?}"),
-            mir::StatementKind::ConstEvalCounter => eprintln!("TODO Handle STMT: {stmt:?}"),
+            mir::StatementKind::Assign(_)
+             | mir::StatementKind::SetDiscriminant { .. }
+            |mir::StatementKind::Deinit(_)
+            |mir::StatementKind::PlaceMention(_)
+            |mir::StatementKind::AscribeUserType(_, _)
+            |mir::StatementKind::Intrinsic(_)
+            |mir::StatementKind::ConstEvalCounter => eprintln!("TODO Handle STMT: {stmt:?}"),
 
             // NOOP or basically noop (For now)
             mir::StatementKind::StorageLive(_)
@@ -114,19 +141,19 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         }
     }
 
+    fn accept_event(&mut self, event: Event<'a, 'tcx>) {
+        let next = self.autos[event.local].accept_event(event);
+        if let Some(next_event) = next {
+            self.accept_event(next_event);
+        }
+    }
+
     /// Note: this only handles the usage of `rval`. `lval` should be handled by the caller
     fn do_rvalue(&mut self, lval: mir::Place<'tcx>, rval: &'a mir::Rvalue<'tcx>) {
         match rval {
-            mir::Rvalue::Use(op) => {
-                // Probably check for projections and handle them here/in the value use
-                match op {
-                    mir::Operand::Copy(rplace) => self.vars[rplace.local].uses.push(ValueUse::CopiedTo { from: lval, to: *rplace }),
-                    mir::Operand::Move(rplace) => self.vars[rplace.local].uses.push(ValueUse::MovedTo { from: lval, to: *rplace }),
-                    mir::Operand::Constant(_) => {},
-                }
-            },
+            mir::Rvalue::Use(op) => todo!(),
             // Repeat is the construction of a new value. The value has to be `Copy`,
-            // Probably only interesting if the type has a lifeitme
+            // Probably only interesting if the type has a lifetime
             //
             // Follow up question, is there a semantic difference between `&'a T` and `U<'a>`
             mir::Rvalue::Repeat(_, _) => todo!(),
@@ -149,81 +176,10 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn do_term(&mut self, terminator: &'a Option<mir::Terminator<'tcx>>) -> Vec<mir::BasicBlock> {
         let Some(terminator) = terminator else { return vec![] };
         match &terminator.kind {
-            mir::TerminatorKind::Call {
-                func,
-                args,
-                destination,
-                target,
-                unwind,
-                ..
-            } => {
-                self.vars[destination.local]
-                    .uses
-                    .push(ValueUse::AssignFromCall(&terminator.kind));
-
-                args.iter().map(|x| &x.node).for_each(|op| {
-                    match op {
-                        mir::Operand::Copy(place) => self.vars[place.local].uses.push(ValueUse::CopyArg),
-                        mir::Operand::Move(place) => self.vars[place.local].uses.push(ValueUse::MoveArg),
-                        // Don't care
-                        mir::Operand::Constant(_) => {},
-                    }
-                });
-
-                let mut next = vec![target.unwrap()];
-                if let mir::UnwindAction::Cleanup(bb) = unwind {
-                    next.push(*bb)
-                }
-                next
-            },
-            // The resurn value is modeled as an assignment to the value `_0` and will be
-            // handled by the assign statement. So this is basically a NoOp
-            mir::TerminatorKind::Return
-            | mir::TerminatorKind::UnwindResume
-            | mir::TerminatorKind::UnwindTerminate(_)
-            | mir::TerminatorKind::Unreachable => vec![],
-            mir::TerminatorKind::Goto { target } => vec![*target],
-            mir::TerminatorKind::FalseUnwind { real_target, unwind } => {
-                let mut next = vec![*real_target];
-                if let mir::UnwindAction::Cleanup(bb) = unwind {
-                    next.push(*bb)
-                }
-                next
-            },
-            mir::TerminatorKind::Drop {
-                place,
-                target,
-                unwind,
-                replace,
-            } => {
-                self.vars[place.local].uses.push(ValueUse::Drop {
-                    place: *place,
-                    is_replace: *replace,
-                });
-
-                let mut next = vec![*target];
-                if let mir::UnwindAction::Cleanup(bb) = unwind {
-                    next.push(*bb)
-                }
-                next
-            },
-            mir::TerminatorKind::SwitchInt { discr, targets } => {
-                if let Some(place) = discr.place() {
-                    self.vars[place.local].uses.push(ValueUse::Scrutinee { place, targets });
-                }
-
-                terminator.successors().collect()
-            },
             _ => {
                 println!("TODO: Handle terminator: {terminator:#?}");
-                vec![]
+                terminator.successors().collect()
             },
-            // mir::TerminatorKind::Assert { cond, expected, msg, target, unwind } => todo!(),
-            // mir::TerminatorKind::Yield { value, resume, resume_arg, drop } => todo!(),
-            // mir::TerminatorKind::CoroutineDrop => todo!(),
-            // mir::TerminatorKind::FalseEdge { real_target, imaginary_target } => todo!(),
-            // mir::TerminatorKind::InlineAsm { template, operands, options, line_spans, destination, unwind } =>
-            // todo!(),
         }
     }
 
@@ -336,8 +292,14 @@ enum ValueUse<'a, 'tcx> {
         place: mir::Place<'tcx>,
         targets: &'a mir::SwitchTargets,
     },
-    CopiedTo{from: mir::Place<'tcx>, to: mir::Place<'tcx>},
-    MovedTo{from: mir::Place<'tcx>, to: mir::Place<'tcx>},
+    CopiedTo {
+        from: mir::Place<'tcx>,
+        to: mir::Place<'tcx>,
+    },
+    MovedTo {
+        from: mir::Place<'tcx>,
+        to: mir::Place<'tcx>,
+    },
     /// AKA unhandled for now
     Hmm,
 }
@@ -353,6 +315,106 @@ impl<'a, 'tcx> ValueUse<'a, 'tcx> {
     }
 }
 
+#[derive(Debug)]
+struct Automata<'a, 'tcx> {
+    /// The local that this automata belongs to
+    local: mir::Local,
+    body: &'a mir::Body<'tcx>,
+    state: State<'a, 'tcx>,
+    /// Events handled by this automata, should only be used for debugging
+    /// (Famous last works)
+    events: Vec<Event<'a, 'tcx>>,
+}
+
+impl<'a, 'tcx> Automata<'a, 'tcx> {
+    fn new(local: mir::Local, body: &'a mir::Body<'tcx>) -> Self {
+        Self {
+            local,
+            body,
+            state: State::Init,
+            events: vec![],
+        }
+    }
+
+    fn make_owned_arg(&mut self) {
+        self.state = State::UserOwned;
+    }
+
+    /// This accepts an event and might create a followup event
+    fn accept_event(&mut self, event: Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        let mut result = None;
+
+        match self.state {
+            State::Dummy(_) => unreachable!(),
+            State::Init => todo!(),
+            State::UserOwned => todo!(),
+            State::LocalBorrow(_mut, target) => result = Some(event.followup_event(target)),
+
+            // Should remain uninteresting?
+            State::Generated => {},
+            // TODOs
+            State::Todo => {},
+        }
+
+        self.events.push(event);
+        result
+    }
+}
+
+#[derive(Debug)]
+enum State<'a, 'tcx> {
+    Dummy(&'a &'tcx ()),
+    /// The initial state, this should be short lived, as it's usually only used to directly
+    /// jump to the next state.
+    // TODO: Is this needed?
+    Init,
+    /// A value generated for MIR
+    Generated,
+    /// A user created variable containing owned data.
+    UserOwned,
+    /// An unnamed local borrow. This is usually used for temporary borrows.
+    ///
+    /// This usually doesn't have followup states, but creates events for the originally
+    /// owned value instead.
+    LocalBorrow(Mutability, mir::Local),
+    /// Something needs to be added to handle this pattern correctly
+    Todo,
+}
+
+#[derive(Debug, Clone)]
+struct Event<'a, 'tcx> {
+    /// The basic block this occured in
+    bb: mir::BasicBlock,
+    /// The local that is effected by this event
+    local: mir::Local,
+    /// The kind of the event
+    kind: EventKind<'a, 'tcx>,
+}
+
+impl<'a, 'tcx> Event<'a, 'tcx> {
+    fn followup_event(&self, target: mir::Local) -> Self {
+        let new_kind = match self.kind {
+            EventKind::Dummy(_) => unreachable!(),
+            EventKind::BorrowInto(_, _) => todo!(),
+            EventKind::BorrowFrom(_, _) => todo!(),
+        };
+        Self {
+            bb: self.bb,
+            local: target,
+            kind: new_kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum EventKind<'a, 'tcx> {
+    Dummy(&'a &'tcx ()),
+    /// This value is being borrowed into
+    BorrowInto(Mutability, mir::Local),
+    /// This value was borrowed from
+    BorrowFrom(Mutability, mir::Local),
+}
+
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
         // if in_external_macro(cx.tcx.sess, body.value.span) && is_from_proc_macro(cx, &(&kind, body,
@@ -365,10 +427,11 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let (mir, _) = cx.tcx.mir_promoted(def);
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
-        let mut duck = BorrowAnalysis::new(cx, mir_borrow);
-        duck.do_body();
 
         if cx.tcx.item_name(def.into()).as_str() == "simple_ownership" {
+            let mut duck = BorrowAnalysis::new(cx, mir_borrow);
+            duck.do_body();
+
             println!("{duck:#?}");
             print_body(&mir.borrow());
             print_vars(&duck);
