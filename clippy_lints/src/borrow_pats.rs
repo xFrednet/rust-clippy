@@ -92,7 +92,10 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 todo!("How should this be handled? {info:#?}");
             }
         });
-        autos.iter_mut().filter(|x| matches!(x.local_kind, LocalKind::Unknown)).for_each(|x| x.local_kind = LocalKind::GenVar);
+        autos
+            .iter_mut()
+            .filter(|x| matches!(x.local_kind, LocalKind::Unknown))
+            .for_each(|x| x.local_kind = LocalKind::GenVar);
 
         Self {
             body,
@@ -223,7 +226,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                                 kind: EventKind::CopyFn,
                             });
                             self.vars[place.local].uses.push(ValueUse::CopyArg);
-                        }
+                        },
                         mir::Operand::Move(place) => {
                             self.accept_event(Event {
                                 bb: self.current_bb,
@@ -231,7 +234,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                                 kind: EventKind::MoveFn,
                             });
                             self.vars[place.local].uses.push(ValueUse::MoveArg);
-                        }
+                        },
                         // Don't care
                         mir::Operand::Constant(_) => {},
                     }
@@ -378,6 +381,8 @@ struct Automata<'a, 'tcx> {
     /// Events handled by this automata, should only be used for debugging
     /// (Famous last works)
     events: Vec<Event<'a, 'tcx>>,
+    /// The best pattern that was matched thus far.
+    best_pet: PatternKind,
 }
 
 impl<'a, 'tcx> Automata<'a, 'tcx> {
@@ -388,6 +393,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             body,
             state: State::Start,
             events: vec![],
+            best_pet: PatternKind::None,
         }
     }
 
@@ -418,36 +424,36 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         followup
     }
 
-    fn accept_event_owned(&mut self, event: &Event<'a, 'tcx>)  -> Option<Event<'a, 'tcx>> {
+    fn accept_event_owned(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
         match (&mut self.state, &event.kind) {
             (State::Dummy(_), _) => unreachable!(),
             (State::UserOwned, EventKind::BorrowInto(mutability, borrower, LocalKind::GenVar)) => {
                 self.state = State::TempBorrowed(*mutability, vec![*borrower]);
                 None
-            }
-            (State::TempBorrowed(_old_mut, borrowers), EventKind::BorrowInto(_new_mut, borrower, LocalKind::GenVar)) => {
+            },
+            (
+                State::TempBorrowed(_old_mut, borrowers),
+                EventKind::BorrowInto(_new_mut, borrower, LocalKind::GenVar),
+            ) => {
                 // If we have multiple borrows, they have to be immutable. We keep the mutability
                 // stored in `TempBorrowed` as it might me mutable from a previous iteration
                 borrowers.push(*borrower);
                 None
-            }
-            (State::TempBorrowed(mutability, borrowers),  EventKind::Loan(local, LoanEventKind::MovedToFn)) => {
+            },
+            (State::TempBorrowed(mutability, borrowers), EventKind::Loan(local, LoanEventKind::MovedToFn)) => {
                 // If we have multiple borrows, they have to be immutable. We keep the mutability
                 // stored in `TempBorrowed` as it might me mutable from a previous iteration
                 borrowers.retain(|x| x != local);
                 if borrowers.is_empty() {
-                    self.state = State::PatOwnedTempBorrowed(*mutability);
+                    let pat = match mutability {
+                        Mutability::Not => PatternKind::TempBorrowed,
+                        Mutability::Mut => PatternKind::TempBorrowedMut,
+                    };
+                    self.best_pet = self.best_pet.max(pat);
+                    self.state = State::UserOwned;
                 }
                 None
-            }
-            (State::PatOwnedTempBorrowed(old_mut), EventKind::BorrowInto(new_mut, borrower, LocalKind::GenVar)) => {
-                let mutability = match (*old_mut, *new_mut) {
-                    (_, Mutability::Mut)|(Mutability::Mut, _) => Mutability::Mut,
-                    _ => Mutability::Not,
-                };
-                self.state = State::TempBorrowed(mutability, vec![*borrower]);
-                None
-            }
+            },
             (State::UserOwned, EventKind::AutoDrop) => {
                 self.state = State::Dead;
                 None
@@ -461,7 +467,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         assert_eq!(self.local_kind, LocalKind::GenVar);
         match (&self.state, &event.kind) {
             (State::Dummy(_), _) | (State::UserOwned, _) => unreachable!(),
-            (State::Start, EventKind::BorrowFrom(mutability, target) ) => {
+            (State::Start, EventKind::BorrowFrom(mutability, target)) => {
                 self.state = State::LocalBorrow(*mutability, *target);
                 None
             },
@@ -495,7 +501,6 @@ enum State<'a, 'tcx> {
     /// A user created variable containing owned data.
     UserOwned,
     TempBorrowed(Mutability, Vec<mir::Local>),
-    PatOwnedTempBorrowed(Mutability),
     /// An unnamed local borrow. This is usually used for temporary borrows.
     ///
     /// This usually doesn't have followup states, but creates events for the originally
@@ -547,6 +552,13 @@ enum LocalKind {
     UserVar(Symbol),
     /// Generated variable, i.e. unnamed
     GenVar,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum PatternKind {
+    None,
+    TempBorrowed,
+    TempBorrowedMut,
 }
 
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
