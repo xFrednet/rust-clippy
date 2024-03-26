@@ -1,5 +1,7 @@
 #![expect(unused)]
 
+use std::collections::VecDeque;
+
 use hir::Mutability;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir as hir;
@@ -34,12 +36,51 @@ declare_clippy_lint! {
 
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 
+/// Extending the [`mir::Body`] where needed.
+/// 
+/// This is such a bad name for a trait, sorry.
+trait BodyMagic {
+    fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool;
+}
+
+impl<'tcx> BodyMagic for mir::Body<'tcx> {
+    fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool {
+        if a == b {
+            return false;
+        } else if a > b {
+            return self.are_bbs_exclusive(b, a);
+        }
+
+        let mut visited = Vec::with_capacity(16);
+        let mut queue = VecDeque::with_capacity(16);
+
+        queue.push_back(a);
+        while let Some(bbi) = queue.pop_front() {
+            // Check we don't know the node yet
+            if visited.contains(&bbi) {
+                continue;
+            }
+
+            // Found our connection
+            if bbi == b {
+                return false;
+            }
+
+            self.basic_blocks[bbi].terminator().successors().collect_into(&mut queue);
+            visited.push(bbi);
+        }
+
+        true
+    }
+}
+
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
     body: &'a mir::Body<'tcx>,
     current_bb: BasicBlock,
     edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
     autos: IndexVec<mir::Local, Automata<'a, 'tcx>>,
+    ret_ctn: u32,
 }
 
 impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
@@ -77,6 +118,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             current_bb: BasicBlock::from_u32(0),
             edges: Default::default(),
             autos,
+            ret_ctn: 0,
         }
     }
 
@@ -184,6 +226,25 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
                 terminator.successors().collect()
             },
+            mir::TerminatorKind::SwitchInt { discr, targets } => {
+                if let Some(place) = discr.place() {
+                    todo!();
+                }
+                terminator.successors().collect()
+            }
+            mir::TerminatorKind::Drop { place, replace, .. } => {
+                self.accept_event(Event {
+                    bb: self.current_bb,
+                    local: place.local,
+                    kind: EventKind::Owned(OwnedEventKind::AutoDrop { replace: *replace }),
+                });
+                terminator.successors().collect()
+            },
+            mir::TerminatorKind::Return => {
+                assert_eq!(self.ret_ctn, 0, "is there always at most one return?");
+                self.ret_ctn += 1;
+                vec![]
+            },
             // The resurn value is modeled as an assignment to the value `_0` and will be
             // handled by the assign statement. So this is basically a NoOp
             mir::TerminatorKind::UnwindResume
@@ -228,7 +289,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         let is_owned = !decl.ty.is_ref();
         self.state = match (&self.local_kind, is_owned) {
             (LocalKind::Unknown, _) => unreachable!(),
-            (LocalKind::Return, true) => State::Todo,
+            (LocalKind::Return, _) => State::Todo,
             (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled),
             (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
             (LocalKind::AnonVar, true) => State::Owned(OwnedState::Empty),
@@ -268,6 +329,10 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.best_pet = self.best_pet.max(pat);
                 None
             },
+            (OwnedState::Filled, EventKind::Owned(OwnedEventKind::AutoDrop { replace: false })) => {
+                self.state = State::Owned(OwnedState::Dropped);
+                None
+            },
             (OwnedState::Moved, _) => todo!(),
             (OwnedState::Dropped, _) => todo!(),
             _ => todo!(),
@@ -288,6 +353,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::AnonRef(AnonRefState::Dead);
                 None
             },
+            (_, EventKind::Owned(_)) => unreachable!(),
             _ => {
                 todo!()
             },
@@ -340,6 +406,8 @@ struct Event<'a, 'tcx> {
 enum EventKind<'a, 'tcx> {
     #[expect(dead_code)]
     Dummy(&'a &'tcx ()),
+    /// Events that can only happen to owned values
+    Owned(OwnedEventKind),
     /// This value is being borrowed into
     BorrowInto(Mutability, mir::Local, LocalKind),
     /// This value was borrowed from
@@ -350,8 +418,12 @@ enum EventKind<'a, 'tcx> {
     CopyFn,
     /// Events that happened to a loan (identified by the Local) of this value
     Loan(mir::Local, LoanEventKind),
-    #[expect(dead_code)]
-    AutoDrop,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum OwnedEventKind {
+    /// The value is automatically being dropped
+    AutoDrop { replace: bool },
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -392,11 +464,21 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
 
+        if cx.tcx.item_name(def.into()).as_str() == "print_mir" {
+            println!("# print_mir");
+            println!("\n\n## MIR:");
+            print_body(&mir.borrow());
+        }
         if cx.tcx.item_name(def.into()).as_str() == "simple_ownership" {
+            println!("# simple_ownership");
+            println!("\n\n## MIR:");
+            print_body(&mir.borrow());
+
+            println!("\n\n## Run:");
             let mut duck = BorrowAnalysis::new(mir_borrow);
             duck.do_body();
 
-            print_body(&mir.borrow());
+            println!("\n\n## Analysis:");
             println!("{duck:#?}");
         }
         // println!("========================");
