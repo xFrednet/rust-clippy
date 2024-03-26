@@ -9,7 +9,7 @@ use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::declare_lint_pass;
 
-use rustc_middle::mir::{self, BasicBlock};
+use rustc_middle::mir::{self, BasicBlock, Rvalue};
 use rustc_span::Symbol;
 
 declare_clippy_lint! {
@@ -139,34 +139,8 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn do_stmt(&mut self, stmt: &'a mir::Statement<'tcx>) {
         match &stmt.kind {
             // Handle first
-            mir::StatementKind::Assign(box (dst, mir::Rvalue::Ref(_reg, kind, src))) => {
-                let mutability = match kind {
-                    mir::BorrowKind::Shared => Mutability::Not,
-                    mir::BorrowKind::Mut {..} => Mutability::Mut,
-                    mir::BorrowKind::Fake => return,
-                };
-
-                // _0 should be handled in the automata
-                if dst.projection.len() != 0 {
-                    eprintln!("TODO: Handle src projections {dst:?}");
-                }
-                if src.projection.len() != 0 {
-                    eprintln!("TODO: Handle src projections {src:?}");
-                }
-
-                // self.do_rvalue(*place, rval);
-
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: dst.local,
-                    kind: EventKind::BorrowFrom(mutability, src.local)
-                });
-                let local_kind = self.autos[dst.local].local_kind;
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: src.local,
-                    kind: EventKind::BorrowInto(mutability, dst.local, local_kind)
-                });
+            mir::StatementKind::Assign(box (lval, rval)) => {
+                self.do_assign(lval, rval)
             },
 
             // Accept with TODO prints
@@ -191,6 +165,45 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         }
     }
 
+    fn do_assign(&mut self, lval: &'a mir::Place<'tcx>, rval: &'a mir::Rvalue<'tcx>) {
+        match rval {
+            mir::Rvalue::Ref(_reg, kind, src) => {
+                let mutability = match kind {
+                    mir::BorrowKind::Shared => Mutability::Not,
+                    mir::BorrowKind::Mut {..} => Mutability::Mut,
+                    mir::BorrowKind::Fake => return,
+                };
+
+                // _0 should be handled in the automata
+                if lval.projection.len() != 0 {
+                    eprintln!("TODO: Handle src projections {lval:?}");
+                }
+                if src.projection.len() != 0 {
+                    eprintln!("TODO: Handle src projections {src:?}");
+                }
+
+                // self.do_rvalue(*place, rval);
+
+                self.accept_event(Event {
+                    bb: self.current_bb,
+                    local: lval.local,
+                    kind: EventKind::BorrowFrom(mutability, src.local)
+                });
+                let local_kind = self.autos[lval.local].local_kind;
+                self.accept_event(Event {
+                    bb: self.current_bb,
+                    local: src.local,
+                    kind: EventKind::BorrowInto(mutability, lval.local, local_kind)
+                });
+            },
+            mir::Rvalue::Use(op) => {
+                // This should get the example plane in the air again
+                todo!()
+            }
+            _ => todo!(),
+        }
+    }
+
     fn accept_event(&mut self, event: Event<'a, 'tcx>) {
         let next = self.autos[event.local].accept_event(event);
         if let Some(next_event) = next {
@@ -209,14 +222,14 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                             self.accept_event(Event {
                                 bb: self.current_bb,
                                 local: place.local,
-                                kind: EventKind::CopyFn,
+                                kind: EventKind::Copy((AccessReason::FnArg)),
                             });
                         },
                         mir::Operand::Move(place) => {
                             self.accept_event(Event {
                                 bb: self.current_bb,
                                 local: place.local,
-                                kind: EventKind::MoveFn,
+                                kind: EventKind::Move(AccessReason::FnArg),
                             });
                         },
                         // Don't care
@@ -227,9 +240,21 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 terminator.successors().collect()
             },
             mir::TerminatorKind::SwitchInt { discr, targets } => {
-                if let Some(place) = discr.place() {
-                    todo!();
+                match discr {
+                    mir::Operand::Copy(place) => {
+                        unreachable!("I believe switch statments only move a temp variable");
+                    },
+                    mir::Operand::Move(place) => {
+                        self.accept_event(Event {
+                            bb: self.current_bb,
+                            local: place.local,
+                            kind: EventKind::Move(AccessReason::Switch),
+                        });
+                    },
+                    // Don't care
+                    mir::Operand::Constant(_) => {},
                 }
+
                 terminator.successors().collect()
             }
             mir::TerminatorKind::Drop { place, replace, .. } => {
@@ -333,6 +358,11 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::Owned(OwnedState::Dropped);
                 None
             },
+            (OwnedState::Filled, EventKind::Move(AccessReason::Switch)) => {
+                assert_eq!(self.local_kind, LocalKind::AnonVar);
+                self.state = State::Owned(OwnedState::Moved);
+                None
+            },
             (OwnedState::Moved, _) => todo!(),
             (OwnedState::Dropped, _) => todo!(),
             _ => todo!(),
@@ -349,7 +379,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::AnonRef(AnonRefState::Live);
                 None
             },
-            (AnonRefState::Live, EventKind::MoveFn) => {
+            (AnonRefState::Live, EventKind::Move(AccessReason::FnArg)) => {
                 self.state = State::AnonRef(AnonRefState::Dead);
                 None
             },
@@ -413,11 +443,19 @@ enum EventKind<'a, 'tcx> {
     /// This value was borrowed from
     BorrowFrom(Mutability, mir::Local),
     /// Moved into a function as an argument
-    MoveFn,
+    Move(AccessReason),
     /// Coppied into a function as an argument
-    CopyFn,
+    Copy(AccessReason),
     /// Events that happened to a loan (identified by the Local) of this value
     Loan(mir::Local, LoanEventKind),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum AccessReason {
+    /// The value was accessed as a function argument
+    FnArg,
+    /// The value was accessed for a conditional jump `SwitchInt`
+    Switch,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

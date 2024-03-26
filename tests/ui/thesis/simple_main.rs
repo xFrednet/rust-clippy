@@ -31,19 +31,21 @@ fn print_mir(owned: String, cond: bool) -> u32 {
     18
 }
 
-fn simple_ownership(owned: String) {
-    owned.len();
-}
-
-fn if_fun(a: String, b: String, cond: bool) {
-    if cond {
-        magic_1(&a);
-    } else {
-        magic_1(&b);
+fn simple_ownership(mut owned: Vec<i32>) {
+    if owned.is_empty() {
+        owned.clear();
     }
-
-    magic_1(if cond {&a} else {&b});
 }
+
+// fn if_fun(a: String, b: String, cond: bool) {
+//     if cond {
+//         magic_1(&a);
+//     } else {
+//         magic_1(&b);
+//     }
+// 
+//     magic_1(if cond {&a} else {&b});
+// }
 
 
 

@@ -1,0 +1,88 @@
+# print_mir
+
+
+## MIR:
+bb0:
+    StorageLive(_3)
+    StorageLive(_4)
+    _4 = _2
+    switchInt(move _4) -> [0: bb2, otherwise: bb1]
+
+bb1:
+    _0 = const 16_u32
+    StorageDead(_4)
+    StorageDead(_3)
+    drop(_1) -> [return: bb5, unwind: bb7]
+
+bb2:
+    _3 = const ()
+    StorageDead(_4)
+    StorageDead(_3)
+    StorageLive(_6)
+    _6 = std::string::String::new() -> [return: bb3, unwind: bb6]
+
+bb3:
+    FakeRead(ForLet(None), _6)
+    _0 = const 18_u32
+    drop(_6) -> [return: bb4, unwind: bb6]
+
+bb4:
+    StorageDead(_6)
+    drop(_1) -> [return: bb5, unwind: bb7]
+
+bb5:
+    return
+
+bb6:
+    drop(_1) -> [return: bb7, unwind terminate(cleanup)]
+
+bb7:
+    resume
+
+# simple_ownership
+
+
+## MIR:
+bb0:
+    StorageLive(_2)
+    StorageLive(_3)
+    _3 = &_1
+    _2 = std::vec::Vec::<i32>::is_empty(move _3) -> [return: bb1, unwind: bb7]
+
+bb1:
+    switchInt(move _2) -> [0: bb4, otherwise: bb2]
+
+bb2:
+    StorageDead(_3)
+    StorageLive(_4)
+    StorageLive(_5)
+    _5 = &mut _1
+    _4 = std::vec::Vec::<i32>::clear(move _5) -> [return: bb3, unwind: bb7]
+
+bb3:
+    StorageDead(_5)
+    StorageDead(_4)
+    _0 = const ()
+    goto -> bb5
+
+bb4:
+    StorageDead(_3)
+    _0 = const ()
+    goto -> bb5
+
+bb5:
+    StorageDead(_2)
+    drop(_1) -> [return: bb6, unwind: bb8]
+
+bb6:
+    return
+
+bb7:
+    drop(_1) -> [return: bb8, unwind terminate(cleanup)]
+
+bb8:
+    resume
+
+
+
+## Run:
