@@ -2,6 +2,7 @@
 /.github/deploy_key
 out
 output.txt
+rustc-ice*
 
 # Compiled files
 *.o

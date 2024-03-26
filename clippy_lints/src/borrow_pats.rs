@@ -1,3 +1,5 @@
+#![expect(unused)]
+
 use hir::Mutability;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir as hir;
@@ -49,20 +51,12 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             .map(|(mir_name, _decl)| Automata::new(mir_name, body))
             .collect();
 
-        body.args_iter().for_each(|x| {
-            let decl = &body.local_decls[x];
-            if decl.ty.is_ref() {
-                unimplemented!();
-            } else {
-                autos[x].make_owned_arg();
-            }
-        });
-
         autos[mir::Local::from_u32(0)].local_kind = LocalKind::Return;
         body.var_debug_info.iter().for_each(|info| {
             if let mir::VarDebugInfoContents::Place(place) = info.value {
                 let local = place.local;
-                autos.get_mut(local).unwrap().local_kind = if local < body.arg_count.into() {
+                // +1, since `_0` is used for the return
+                autos.get_mut(local).unwrap().local_kind = if local < (body.arg_count + 1).into() {
                     LocalKind::UserArg(info.name)
                 } else {
                     LocalKind::UserVar(info.name)
@@ -74,7 +68,9 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         autos
             .iter_mut()
             .filter(|x| matches!(x.local_kind, LocalKind::Unknown))
-            .for_each(|x| x.local_kind = LocalKind::GenVar);
+            .for_each(|x| x.local_kind = LocalKind::AnonVar);
+
+        autos.iter_mut().for_each(|x| x.init_state());
 
         Self {
             body,
@@ -85,7 +81,12 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     }
 
     fn do_body(&mut self) {
-        for (bbi, bbd) in self.body.basic_blocks.iter_enumerated().filter(|(_, bbd)| !bbd.is_cleanup) {
+        for (bbi, bbd) in self
+            .body
+            .basic_blocks
+            .iter_enumerated()
+            .filter(|(_, bbd)| !bbd.is_cleanup)
+        {
             self.current_bb = bbi;
             bbd.statements.iter().for_each(|stmt| self.do_stmt(stmt));
             let next = self.do_term(bbd.terminator());
@@ -158,9 +159,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn do_term(&mut self, terminator: &'a mir::Terminator<'tcx>) -> Vec<mir::BasicBlock> {
         match &terminator.kind {
             mir::TerminatorKind::Call {
-                args,
-                destination: _,
-                ..
+                args, destination: _, ..
             } => {
                 args.iter().map(|x| &x.node).for_each(|op| {
                     match op {
@@ -218,100 +217,80 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             local,
             local_kind: LocalKind::Unknown,
             body,
-            state: State::Start,
+            state: State::Init,
             events: vec![],
-            best_pet: PatternKind::None,
+            best_pet: PatternKind::Unknown,
         }
     }
 
-    fn make_owned_arg(&mut self) {
-        self.state = State::UserOwned;
+    fn init_state(&mut self) {
+        let decl = &self.body.local_decls[self.local];
+        let is_owned = !decl.ty.is_ref();
+        self.state = match (&self.local_kind, is_owned) {
+            (LocalKind::Unknown, _) => unreachable!(),
+            (LocalKind::Return, true) => State::Todo,
+            (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled),
+            (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
+            (LocalKind::AnonVar, true) => State::Owned(OwnedState::Empty),
+            (LocalKind::AnonVar, false) => State::AnonRef(AnonRefState::Init),
+            (_, _) => todo!(),
+        };
     }
 
     /// This accepts an event and might create a followup event
     fn accept_event(&mut self, event: Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
-        let followup = match &self.local_kind {
-            LocalKind::Unknown => unreachable!(),
-            LocalKind::Return => {
-                self.state = State::Todo;
-                None
-            },
-            LocalKind::UserArg(_) | LocalKind::UserVar(_) => {
-                if self.body.local_decls[self.local].ty.is_ref() {
-                    self.state = State::Todo;
-                    None
-                } else {
-                    self.accept_event_owned(&event)
-                }
-            },
-            LocalKind::GenVar => self.accept_event_gen_var(&event),
+        let followup = match &self.state {
+            State::Owned(_) => self.update_owned_state(&event),
+            State::AnonRef(_) => self.update_anon_ref_state(&event),
+            State::Todo => None,
+            _ => todo!(),
         };
 
         self.events.push(event);
         followup
     }
 
-    fn accept_event_owned(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
-        match (&mut self.state, &event.kind) {
-            (State::Dummy(_), _) => unreachable!(),
-            (State::UserOwned, EventKind::BorrowInto(mutability, borrower, LocalKind::GenVar)) => {
-                self.state = State::TempBorrowed(*mutability, vec![*borrower]);
+    fn update_owned_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        let State::Owned(state) = &self.state else {
+            unreachable!()
+        };
+
+        match (state, &event.kind) {
+            (OwnedState::Empty, _) => todo!("{self:#?}\n\n{event:#?}"),
+            // Borrowing into an anonymous variable should always result into a
+            // temporary borrow AFAIK. This will be verified by the automata of the
+            // anonymous variable.
+            (OwnedState::Filled, EventKind::BorrowInto(mutability, _borrower, LocalKind::AnonVar)) => {
+                let pat = match mutability {
+                    Mutability::Not => PatternKind::TempBorrowed,
+                    Mutability::Mut => PatternKind::TempBorrowedMut,
+                };
+                self.best_pet = self.best_pet.max(pat);
                 None
             },
-            (
-                State::TempBorrowed(_old_mut, borrowers),
-                EventKind::BorrowInto(_new_mut, borrower, LocalKind::GenVar),
-            ) => {
-                // If we have multiple borrows, they have to be immutable. We keep the mutability
-                // stored in `TempBorrowed` as it might me mutable from a previous iteration
-                borrowers.push(*borrower);
-                None
-            },
-            (State::TempBorrowed(mutability, borrowers), EventKind::Loan(local, LoanEventKind::MovedToFn)) => {
-                // If we have multiple borrows, they have to be immutable. We keep the mutability
-                // stored in `TempBorrowed` as it might me mutable from a previous iteration
-                borrowers.retain(|x| x != local);
-                if borrowers.is_empty() {
-                    let pat = match mutability {
-                        Mutability::Not => PatternKind::TempBorrowed,
-                        Mutability::Mut => PatternKind::TempBorrowedMut,
-                    };
-                    self.best_pet = self.best_pet.max(pat);
-                    self.state = State::UserOwned;
-                }
-                None
-            },
-            (State::UserOwned, EventKind::AutoDrop) => {
-                self.state = State::Dead;
-                None
-            },
-            (State::Todo, _) => None,
-            (_, _) => todo!(),
+            (OwnedState::Moved, _) => todo!(),
+            (OwnedState::Dropped, _) => todo!(),
+            _ => todo!(),
         }
     }
 
-    fn accept_event_gen_var(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
-        assert_eq!(self.local_kind, LocalKind::GenVar);
-        match (&self.state, &event.kind) {
-            (State::Dummy(_), _) | (State::UserOwned, _) => unreachable!(),
-            (State::Start, EventKind::BorrowFrom(mutability, target)) => {
-                self.state = State::LocalBorrow(*mutability, *target);
+    fn update_anon_ref_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        let State::AnonRef(state) = &self.state else {
+            unreachable!()
+        };
+
+        match (state, &event.kind) {
+            (AnonRefState::Init, EventKind::BorrowFrom(_mutability, _target)) => {
+                self.state = State::AnonRef(AnonRefState::Live);
                 None
             },
-            (State::LocalBorrow(_mut, target), EventKind::MoveFn) => {
-                // This should only be called on temporary borrows. Temporary borrows should be
-                // created in the same branch they are used. Therefore we don't need to consider
-                // branching, or so the idea.
-                let target = *target;
-                self.state = State::Dead;
-                Some(Event {
-                    bb: event.bb,
-                    local: target,
-                    kind: EventKind::Loan(self.local, LoanEventKind::MovedToFn),
-                })
+            (AnonRefState::Live, EventKind::MoveFn) => {
+                self.state = State::AnonRef(AnonRefState::Dead);
+                None
             },
-            (State::Todo, _) => None,
-            (_, _) => todo!(),
+            _ => {
+                todo!()
+            },
         }
     }
 }
@@ -322,20 +301,29 @@ enum State<'a, 'tcx> {
     Dummy(&'a &'tcx ()),
     /// The initial state, this should be short lived, as it's usually only used to directly
     /// jump to the next state.
-    // TODO: Is this needed?
-    Start,
-    /// The value has been dropped or moved. It is dead :D
-    Dead,
+    Init,
     /// A user created variable containing owned data.
-    UserOwned,
-    TempBorrowed(Mutability, Vec<mir::Local>),
-    /// An unnamed local borrow. This is usually used for temporary borrows.
-    ///
-    /// This usually doesn't have followup states, but creates events for the originally
-    /// owned value instead.
-    LocalBorrow(Mutability, mir::Local),
+    Owned(OwnedState),
+    AnonRef(AnonRefState),
     /// Something needs to be added to handle this pattern correctly
     Todo,
+}
+
+#[derive(Debug)]
+enum OwnedState {
+    Empty,
+    Filled,
+    Moved,
+    Dropped,
+}
+
+/// The state for a value generated by MIR, that holds a loan. It is unnamed
+/// as the user cannot name this mystical creature.
+#[derive(Debug)]
+enum AnonRefState {
+    Init,
+    Live,
+    Dead,
 }
 
 #[derive(Debug, Clone)]
@@ -381,12 +369,12 @@ enum LocalKind {
     /// User defined variable
     UserVar(Symbol),
     /// Generated variable, i.e. unnamed
-    GenVar,
+    AnonVar,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum PatternKind {
-    None,
+    Unknown,
     TempBorrowed,
     TempBorrowedMut,
 }
@@ -408,8 +396,8 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             let mut duck = BorrowAnalysis::new(mir_borrow);
             duck.do_body();
 
-            println!("{duck:#?}");
             print_body(&mir.borrow());
+            println!("{duck:#?}");
         }
         // println!("========================");
         // let mir = cx.tcx.optimized_mir(def);
