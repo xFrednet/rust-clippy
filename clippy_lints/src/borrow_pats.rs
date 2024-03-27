@@ -188,17 +188,9 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
                 // self.do_rvalue(*place, rval);
 
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: lval.local,
-                    kind: EventKind::BorrowFrom(mutability, src.local),
-                });
+                self.post_event(lval, EventKind::BorrowFrom(mutability, src.local));
                 let local_kind = self.autos[lval.local].local_kind;
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: src.local,
-                    kind: EventKind::BorrowInto(mutability, lval.local, local_kind),
-                });
+                self.post_event(src, EventKind::BorrowInto(mutability, lval.local, local_kind));
             },
             mir::Rvalue::Use(op) => {
                 if lval.projection.len() != 0 {
@@ -220,28 +212,27 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     mir::Operand::Constant(_) => (AssignSourceKind::Const, None),
                 };
                 if let Some((place, event)) = rval_event {
-                    self.accept_event(Event {
-                        bb: self.current_bb,
-                        local: place.local,
-                        kind: event,
-                    });
+                    self.post_event(place, event);
                 }
 
                 // Assigned place
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: lval.local,
-                    kind: EventKind::Assign(assign_src),
-                });
+                self.post_event(lval, EventKind::Assign(assign_src));
             },
             _ => todo!(),
         }
     }
 
-    fn accept_event(&mut self, event: Event<'a, 'tcx>) {
+    fn post_event(&mut self, who: &'a mir::Place<'tcx>, kind: EventKind<'a, 'tcx>) {
+        self.send_event(Event {
+            bb: self.current_bb,
+            local: who.local,
+            kind,
+        });
+    }
+    fn send_event(&mut self, event: Event<'a, 'tcx>) {
         let next = self.autos[event.local].accept_event(event);
         if let Some(next_event) = next {
-            self.accept_event(next_event);
+            self.send_event(next_event);
         }
     }
 
@@ -256,19 +247,11 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                         mir::Operand::Constant(_) => None,
                     };
                     if let Some((place, event)) = arg_event {
-                        self.accept_event(Event {
-                            bb: self.current_bb,
-                            local: place.local,
-                            kind: event,
-                        });
+                        self.post_event(place, event);
                     }
                 });
 
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: destination.local,
-                    kind: EventKind::Assign(AssignSourceKind::FnRes(args)),
-                });
+                self.post_event(destination, EventKind::Assign(AssignSourceKind::FnRes(args)));
 
                 terminator.successors().collect()
             },
@@ -278,11 +261,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                         unreachable!("I believe switch statments only move a temp variable");
                     },
                     mir::Operand::Move(place) => {
-                        self.accept_event(Event {
-                            bb: self.current_bb,
-                            local: place.local,
-                            kind: EventKind::Move(AccessReason::Switch),
-                        });
+                        self.post_event(place, EventKind::Move(AccessReason::Switch));
                     },
                     // Don't care
                     mir::Operand::Constant(_) => {},
@@ -291,11 +270,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 terminator.successors().collect()
             },
             mir::TerminatorKind::Drop { place, replace, .. } => {
-                self.accept_event(Event {
-                    bb: self.current_bb,
-                    local: place.local,
-                    kind: EventKind::Owned(OwnedEventKind::AutoDrop { replace: *replace }),
-                });
+                self.post_event(place, EventKind::Owned(OwnedEventKind::AutoDrop { replace: *replace }));
                 terminator.successors().collect()
             },
             mir::TerminatorKind::Return => {
@@ -600,10 +575,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             println!("\n\n## Results:");
             println!(
                 "| {:>3} | {:<20} | {:<20} | {} |",
-                "Name",
-                "Kind",
-                "Pattern",
-                "Final State",
+                "Name", "Kind", "Pattern", "Final State",
             );
             println!("|---|---|---|---|");
             for auto in duck.autos {
