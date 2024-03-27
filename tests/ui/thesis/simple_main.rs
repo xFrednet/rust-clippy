@@ -33,7 +33,11 @@ fn print_mir(owned: String, cond: bool) -> u32 {
 
 fn simple_ownership(mut owned: Vec<i32>) {
     if owned.is_empty() {
-        owned.clear();
+        let _a = 17;
+    }
+
+    if owned.is_empty() {
+        let _b = 89;
     }
 }
 
@@ -43,10 +47,8 @@ fn simple_ownership(mut owned: Vec<i32>) {
 //     } else {
 //         magic_1(&b);
 //     }
-// 
+//
 //     magic_1(if cond {&a} else {&b});
 // }
-
-
 
 fn main() {}

@@ -10,6 +10,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::declare_lint_pass;
 
 use rustc_middle::mir::{self, BasicBlock, Rvalue};
+use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
 
 declare_clippy_lint! {
@@ -37,7 +38,7 @@ declare_clippy_lint! {
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 
 /// Extending the [`mir::Body`] where needed.
-/// 
+///
 /// This is such a bad name for a trait, sorry.
 trait BodyMagic {
     fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool;
@@ -66,7 +67,10 @@ impl<'tcx> BodyMagic for mir::Body<'tcx> {
                 return false;
             }
 
-            self.basic_blocks[bbi].terminator().successors().collect_into(&mut queue);
+            self.basic_blocks[bbi]
+                .terminator()
+                .successors()
+                .collect_into(&mut queue);
             visited.push(bbi);
         }
 
@@ -170,7 +174,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             mir::Rvalue::Ref(_reg, kind, src) => {
                 let mutability = match kind {
                     mir::BorrowKind::Shared => Mutability::Not,
-                    mir::BorrowKind::Mut {..} => Mutability::Mut,
+                    mir::BorrowKind::Mut { .. } => Mutability::Mut,
                     mir::BorrowKind::Fake => return,
                 };
 
@@ -187,19 +191,49 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 self.accept_event(Event {
                     bb: self.current_bb,
                     local: lval.local,
-                    kind: EventKind::BorrowFrom(mutability, src.local)
+                    kind: EventKind::BorrowFrom(mutability, src.local),
                 });
                 let local_kind = self.autos[lval.local].local_kind;
                 self.accept_event(Event {
                     bb: self.current_bb,
                     local: src.local,
-                    kind: EventKind::BorrowInto(mutability, lval.local, local_kind)
+                    kind: EventKind::BorrowInto(mutability, lval.local, local_kind),
                 });
             },
             mir::Rvalue::Use(op) => {
-                // This should get the example plane in the air again
-                todo!()
-            }
+                if lval.projection.len() != 0 {
+                    eprintln!("TODO: Handle src projections {lval:?}");
+                }
+
+                // Inform accessed placed
+                let reason = AccessReason::Assign {
+                    target: lval,
+                    target_kind: self.autos[lval.local].local_kind.clone(),
+                };
+                let (assign_src, rval_event) = match op {
+                    mir::Operand::Copy(place) => {
+                        (AssignSourceKind::Copy(place), Some((place, EventKind::Copy(reason))))
+                    },
+                    mir::Operand::Move(place) => {
+                        (AssignSourceKind::Move(place), Some((place, EventKind::Move(reason))))
+                    },
+                    mir::Operand::Constant(_) => (AssignSourceKind::Const, None),
+                };
+                if let Some((place, event)) = rval_event {
+                    self.accept_event(Event {
+                        bb: self.current_bb,
+                        local: place.local,
+                        kind: event,
+                    });
+                }
+
+                // Assigned place
+                self.accept_event(Event {
+                    bb: self.current_bb,
+                    local: lval.local,
+                    kind: EventKind::Assign(assign_src),
+                });
+            },
             _ => todo!(),
         }
     }
@@ -213,28 +247,27 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
     fn do_term(&mut self, terminator: &'a mir::Terminator<'tcx>) -> Vec<mir::BasicBlock> {
         match &terminator.kind {
-            mir::TerminatorKind::Call {
-                args, destination: _, ..
-            } => {
+            mir::TerminatorKind::Call { args, destination, .. } => {
                 args.iter().map(|x| &x.node).for_each(|op| {
-                    match op {
-                        mir::Operand::Copy(place) => {
-                            self.accept_event(Event {
-                                bb: self.current_bb,
-                                local: place.local,
-                                kind: EventKind::Copy((AccessReason::FnArg)),
-                            });
-                        },
-                        mir::Operand::Move(place) => {
-                            self.accept_event(Event {
-                                bb: self.current_bb,
-                                local: place.local,
-                                kind: EventKind::Move(AccessReason::FnArg),
-                            });
-                        },
-                        // Don't care
-                        mir::Operand::Constant(_) => {},
+                    let reason = AccessReason::FnArg;
+                    let arg_event = match op {
+                        mir::Operand::Copy(place) => Some((place, EventKind::Copy(reason))),
+                        mir::Operand::Move(place) => Some((place, EventKind::Move(reason))),
+                        mir::Operand::Constant(_) => None,
+                    };
+                    if let Some((place, event)) = arg_event {
+                        self.accept_event(Event {
+                            bb: self.current_bb,
+                            local: place.local,
+                            kind: event,
+                        });
                     }
+                });
+
+                self.accept_event(Event {
+                    bb: self.current_bb,
+                    local: destination.local,
+                    kind: EventKind::Assign(AssignSourceKind::FnRes(args)),
                 });
 
                 terminator.successors().collect()
@@ -256,7 +289,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 }
 
                 terminator.successors().collect()
-            }
+            },
             mir::TerminatorKind::Drop { place, replace, .. } => {
                 self.accept_event(Event {
                     bb: self.current_bb,
@@ -275,6 +308,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             mir::TerminatorKind::UnwindResume
             | mir::TerminatorKind::UnwindTerminate(_)
             | mir::TerminatorKind::Unreachable => vec![],
+            mir::TerminatorKind::Goto { target } => vec![*target],
             _ => {
                 println!("TODO: Handle terminator: {terminator:#?}");
                 terminator.successors().collect()
@@ -315,7 +349,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         self.state = match (&self.local_kind, is_owned) {
             (LocalKind::Unknown, _) => unreachable!(),
             (LocalKind::Return, _) => State::Todo,
-            (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled),
+            (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
             (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
             (LocalKind::AnonVar, true) => State::Owned(OwnedState::Empty),
             (LocalKind::AnonVar, false) => State::AnonRef(AnonRefState::Init),
@@ -342,11 +376,29 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         };
 
         match (state, &event.kind) {
-            (OwnedState::Empty, _) => todo!("{self:#?}\n\n{event:#?}"),
+            (
+                OwnedState::Empty,
+                EventKind::Assign(AssignSourceKind::Const | AssignSourceKind::Copy(_) | AssignSourceKind::FnRes(_)),
+            ) => {
+                self.state = State::Owned(OwnedState::Filled(InitKind::Single(event.bb)));
+                None
+            },
+            (
+                OwnedState::Filled(InitKind::Single(bb)),
+                EventKind::Assign(AssignSourceKind::Const | AssignSourceKind::Copy(_) | AssignSourceKind::FnRes(_)),
+            ) => {
+                if self.body.are_bbs_exclusive(*bb, event.bb) {
+                    self.state = State::Owned(OwnedState::Filled(InitKind::Conditional(vec![*bb, event.bb])));
+                } else {
+                    todo!();
+                }
+                None
+            },
+
             // Borrowing into an anonymous variable should always result into a
             // temporary borrow AFAIK. This will be verified by the automata of the
             // anonymous variable.
-            (OwnedState::Filled, EventKind::BorrowInto(mutability, _borrower, LocalKind::AnonVar)) => {
+            (OwnedState::Filled(_), EventKind::BorrowInto(mutability, _borrower, LocalKind::AnonVar)) => {
                 let pat = match mutability {
                     Mutability::Not => PatternKind::TempBorrowed,
                     Mutability::Mut => PatternKind::TempBorrowedMut,
@@ -354,18 +406,18 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.best_pet = self.best_pet.max(pat);
                 None
             },
-            (OwnedState::Filled, EventKind::Owned(OwnedEventKind::AutoDrop { replace: false })) => {
+            (OwnedState::Filled(_), EventKind::Owned(OwnedEventKind::AutoDrop { replace: false })) => {
                 self.state = State::Owned(OwnedState::Dropped);
                 None
             },
-            (OwnedState::Filled, EventKind::Move(AccessReason::Switch)) => {
+            (OwnedState::Filled(_), EventKind::Move(AccessReason::Switch)) => {
                 assert_eq!(self.local_kind, LocalKind::AnonVar);
                 self.state = State::Owned(OwnedState::Moved);
                 None
             },
-            (OwnedState::Moved, _) => todo!(),
-            (OwnedState::Dropped, _) => todo!(),
-            _ => todo!(),
+            (OwnedState::Moved, _) => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
+            (OwnedState::Dropped, _) => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
+            _ => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
         }
     }
 
@@ -408,9 +460,16 @@ enum State<'a, 'tcx> {
 #[derive(Debug)]
 enum OwnedState {
     Empty,
-    Filled,
+    Filled(InitKind),
     Moved,
     Dropped,
+}
+
+#[derive(Debug)]
+enum InitKind {
+    Arg,
+    Single(BasicBlock),
+    Conditional(Vec<BasicBlock>),
 }
 
 /// The state for a value generated by MIR, that holds a loan. It is unnamed
@@ -432,30 +491,49 @@ struct Event<'a, 'tcx> {
     kind: EventKind<'a, 'tcx>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone)]
 enum EventKind<'a, 'tcx> {
-    #[expect(dead_code)]
-    Dummy(&'a &'tcx ()),
     /// Events that can only happen to owned values
     Owned(OwnedEventKind),
+    Assign(AssignSourceKind<'a, 'tcx>),
     /// This value is being borrowed into
     BorrowInto(Mutability, mir::Local, LocalKind),
     /// This value was borrowed from
     BorrowFrom(Mutability, mir::Local),
     /// Moved into a function as an argument
-    Move(AccessReason),
+    Move(AccessReason<'a, 'tcx>),
     /// Coppied into a function as an argument
-    Copy(AccessReason),
+    Copy(AccessReason<'a, 'tcx>),
     /// Events that happened to a loan (identified by the Local) of this value
     Loan(mir::Local, LoanEventKind),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum AccessReason {
+/// Something is being assigned to this value
+#[derive(Debug, Clone)]
+enum AssignSourceKind<'a, 'tcx> {
+    /// The value of a place is being copied
+    Copy(&'a mir::Place<'tcx>),
+    /// The value of a place is being moved
+    Move(&'a mir::Place<'tcx>),
+    /// A constant value is being assigned, this can be a constant literal or
+    /// a value determined at compile time like `size_of::<T>()`
+    Const,
+
+    /// The places are the arguments used for the function
+    FnRes(&'a Vec<Spanned<mir::Operand<'tcx>>>),
+}
+
+#[derive(Debug, Copy, Clone)]
+enum AccessReason<'a, 'tcx> {
     /// The value was accessed as a function argument
     FnArg,
     /// The value was accessed for a conditional jump `SwitchInt`
     Switch,
+    /// Assign to Local
+    Assign {
+        target: &'a mir::Place<'tcx>,
+        target_kind: LocalKind,
+    },
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -518,6 +596,25 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
             println!("\n\n## Analysis:");
             println!("{duck:#?}");
+
+            println!("\n\n## Results:");
+            println!(
+                "| {:>3} | {:<20} | {:<20} | {} |",
+                "Name",
+                "Kind",
+                "Pattern",
+                "Final State",
+            );
+            println!("|---|---|---|---|");
+            for auto in duck.autos {
+                println!(
+                    "| {:>3} | {:<20} | {:<20} | {} |",
+                    format!("{:?}", auto.local),
+                    format!("{:?}", auto.local_kind),
+                    format!("{:?}", auto.best_pet),
+                    format!("[{:?}]", auto.state),
+                );
+            }
         }
         // println!("========================");
         // let mir = cx.tcx.optimized_mir(def);
