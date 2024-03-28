@@ -22,13 +22,16 @@ fn maybe_simple() {
 fn magic_1(b: &B) {}
 fn magic_2(b: &B, c: &B) {}
 
-fn print_mir(owned: String, cond: bool) -> u32 {
-    if cond {
-        return 16;
-    }
-
-    let _b = String::new();
-    18
+fn print_mir() {
+    let a = if true {
+        let mut x = Vec::new();
+        x.push(1);
+        x
+    } else {
+        let mut y = Vec::new();
+        y.push(89);
+        y
+    };
 }
 
 fn simple_ownership(mut owned: Vec<i32>) {

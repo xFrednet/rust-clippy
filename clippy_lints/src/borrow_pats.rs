@@ -1,7 +1,20 @@
 #![expect(unused)]
+//! # TODOs
+//! - Refactor events to have places instead of locals.
+//! - Refactor patterns to be made up of:
+//!     - Init
+//!     - Use
+//!     - Death
+//! - Add more patterns and states to the automata
+//! - Add basic support for testing in uitests
+//! - Handle or abort on feature use
+//!
+//! # Optional and good todos:
+//! - Investigate the `explicit_outlives_requirements` lint
 
 use std::collections::VecDeque;
 
+use clippy_utils::is_lint_allowed;
 use hir::Mutability;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir as hir;
@@ -31,9 +44,6 @@ declare_clippy_lint! {
     nursery,
     "default lint description"
 }
-
-// TODO: Abort on feature use
-// TODO: What fun is: explicit_outlives_requirements
 
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 
@@ -297,7 +307,7 @@ struct Automata<'a, 'tcx> {
     /// The local that this automata belongs to
     local: mir::Local,
     local_kind: LocalKind,
-    body: &'a mir::Body<'tcx>,
+    body: PrintPrevent<&'a mir::Body<'tcx>>,
     state: State<'a, 'tcx>,
     /// Events handled by this automata, should only be used for debugging
     /// (Famous last works)
@@ -306,20 +316,32 @@ struct Automata<'a, 'tcx> {
     best_pet: PatternKind,
 }
 
+struct PrintPrevent<T>(T);
+
+impl<T: std::fmt::Debug> std::fmt::Debug for PrintPrevent<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("PrintPrevent").finish()
+    }
+}
+
 impl<'a, 'tcx> Automata<'a, 'tcx> {
     fn new(local: mir::Local, body: &'a mir::Body<'tcx>) -> Self {
         Self {
             local,
             local_kind: LocalKind::Unknown,
-            body,
+            body: PrintPrevent(body),
             state: State::Init,
             events: vec![],
             best_pet: PatternKind::Unknown,
         }
     }
 
+    fn body(&self) -> &'a mir::Body<'tcx> {
+        self.body.0
+    }
+
     fn init_state(&mut self) {
-        let decl = &self.body.local_decls[self.local];
+        let decl = &self.body().local_decls[self.local];
         let is_owned = !decl.ty.is_ref();
         self.state = match (&self.local_kind, is_owned) {
             (LocalKind::Unknown, _) => unreachable!(),
@@ -362,7 +384,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 OwnedState::Filled(InitKind::Single(bb)),
                 EventKind::Assign(AssignSourceKind::Const | AssignSourceKind::Copy(_) | AssignSourceKind::FnRes(_)),
             ) => {
-                if self.body.are_bbs_exclusive(*bb, event.bb) {
+                if self.body().are_bbs_exclusive(*bb, event.bb) {
                     self.state = State::Owned(OwnedState::Filled(InitKind::Conditional(vec![*bb, event.bb])));
                 } else {
                     todo!();
@@ -535,6 +557,15 @@ enum LocalKind {
     AnonVar,
 }
 
+impl LocalKind {
+    fn user_name(&self) -> Option<Symbol> {
+        match self {
+            Self::UserArg(name) | Self::UserVar(name) => Some(*name),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum PatternKind {
     Unknown,
@@ -542,25 +573,54 @@ enum PatternKind {
     TempBorrowedMut,
 }
 
+fn run_analysis(body: &mir::Body<'_>, body_name: &str) {
+    let mut brock = BorrowAnalysis::new(body);
+    brock.do_body();
+
+    println!("- {body_name}");
+    brock
+        .autos
+        .iter_enumerated()
+        .filter_map(|(local, auto)| {
+            if local.as_u32() == 0 {
+                return Some(("Return [_0]".to_string(), auto));
+            }
+
+            let name = auto.local_kind.user_name()?;
+            Some((format!("{:?} [{:?}]", name, local), auto))
+        })
+        .for_each(|(name, auto)| {
+            println!("    - {name}: {:?}", auto.best_pet);
+        });
+}
+
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
-        // if in_external_macro(cx.tcx.sess, body.value.span) && is_from_proc_macro(cx, &(&kind, body,
-        // body.value.hir_id, body.value.span)) {     return;
-        // }
-
-        // TODO: Check what happens for closures
+        // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
 
         let (mir, _) = cx.tcx.mir_promoted(def);
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
 
-        if cx.tcx.item_name(def.into()).as_str() == "print_mir" {
+        let body_name = cx.tcx.item_name(def.into());
+        let body_name = body_name.as_str();
+
+        // Run analysis
+        if !is_lint_allowed(cx, BORROW_PATS, cx.tcx.local_def_id_to_hir_id(def)) {
+            run_analysis(&mir.borrow(), body_name);
+        }
+
+        // Testing and development magic
+        if body_name == "print_mir" {
             println!("# print_mir");
             println!("\n\n## MIR:");
             print_body(&mir.borrow());
+            println!("\n\n## Body:");
+            println!("{mir_borrow:#?}");
         }
-        if cx.tcx.item_name(def.into()).as_str() == "simple_ownership" {
+
+        if body_name == "simple_ownership" {
             println!("# simple_ownership");
             println!("\n\n## MIR:");
             print_body(&mir.borrow());
@@ -588,9 +648,6 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
                 );
             }
         }
-        // println!("========================");
-        // let mir = cx.tcx.optimized_mir(def);
-        // print_body(mir);
     }
 }
 

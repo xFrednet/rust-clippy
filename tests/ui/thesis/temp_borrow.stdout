@@ -1,0 +1,26 @@
+- temp_borrow_arg_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowed
+- temp_borrow_mut_arg_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowedMut
+- temp_borrow_mixed_arg_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowedMut
+- temp_borrow_local_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowed
+- temp_borrow_mut_local_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowedMut
+- temp_borrow_mixed_local_1
+    - Return [_0]: Unknown
+    - "owned" [_1]: TempBorrowedMut
+- temp_borrow_mixed_mutltiple_1
+    - Return [_0]: Unknown
+    - "a" [_1]: TempBorrowed
+    - "b" [_2]: TempBorrowedMut
+    - "c" [_3]: TempBorrowed
+    - "d" [_4]: TempBorrowedMut
+- main
+    - Return [_0]: Unknown
