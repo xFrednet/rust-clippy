@@ -1,0 +1,255 @@
+# print_mir
+
+
+## MIR:
+bb0:
+    _0 = _1
+    return
+
+
+
+## Body:
+Body {
+    basic_blocks: BasicBlocks {
+        basic_blocks: [
+            BasicBlockData {
+                statements: [
+                    _0 = _1,
+                ],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:8:6: 8:6 (#0),
+                            scope: scope[0],
+                        },
+                        kind: return,
+                    },
+                ),
+                is_cleanup: false,
+            },
+        ],
+        cache: Cache {
+            predecessors: OnceLock(
+                <uninit>,
+            ),
+            switch_sources: OnceLock(
+                <uninit>,
+            ),
+            is_cyclic: OnceLock(
+                <uninit>,
+            ),
+            reverse_postorder: OnceLock(
+                <uninit>,
+            ),
+            dominators: OnceLock(
+                <uninit>,
+            ),
+        },
+    },
+    phase: Analysis(
+        Initial,
+    ),
+    pass_count: 1,
+    source: MirSource {
+        instance: Item(
+            DefId(0:6 ~ borrow_fields[bdca]::{impl#0}::borrow_self),
+        ),
+        promoted: None,
+    },
+    source_scopes: [
+        SourceScopeData {
+            span: tests/ui/thesis/borrow_fields.rs:6:5: 8:6 (#0),
+            parent_scope: None,
+            inlined: None,
+            inlined_parent_scope: None,
+            local_data: Set(
+                SourceScopeLocalData {
+                    lint_root: HirId(DefId(0:6 ~ borrow_fields[bdca]::{impl#0}::borrow_self).0),
+                    safety: Safe,
+                },
+            ),
+        },
+    ],
+    coroutine: None,
+    local_decls: [
+        LocalDecl {
+            mutability: Mut,
+            local_info: Set(
+                Boring,
+            ),
+            ty: &ReErased A,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:6:30: 6:32 (#0),
+                scope: scope[0],
+            },
+        },
+        LocalDecl {
+            mutability: Not,
+            local_info: Set(
+                User(
+                    ImplicitSelf(
+                        ImmRef,
+                    ),
+                ),
+            ),
+            ty: &ReErased A,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:6:20: 6:25 (#0),
+                scope: scope[0],
+            },
+        },
+    ],
+    user_type_annotations: [],
+    arg_count: 1,
+    spread_arg: None,
+    var_debug_info: [
+        self => _1,
+    ],
+    span: tests/ui/thesis/borrow_fields.rs:6:5: 8:6 (#0),
+    required_consts: [],
+    is_polymorphic: false,
+    injection_phase: None,
+    tainted_by_errors: None,
+    function_coverage_info: None,
+}
+# print_mir
+
+
+## MIR:
+bb0:
+    StorageLive(_2)
+    _2 = &((*_1).0: std::string::String)
+    _0 = &(*_2)
+    StorageDead(_2)
+    return
+
+
+
+## Body:
+Body {
+    basic_blocks: BasicBlocks {
+        basic_blocks: [
+            BasicBlockData {
+                statements: [
+                    StorageLive(_2),
+                    _2 = &((*_1).0: std::string::String),
+                    _0 = &(*_2),
+                    StorageDead(_2),
+                ],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:13:6: 13:6 (#0),
+                            scope: scope[0],
+                        },
+                        kind: return,
+                    },
+                ),
+                is_cleanup: false,
+            },
+        ],
+        cache: Cache {
+            predecessors: OnceLock(
+                <uninit>,
+            ),
+            switch_sources: OnceLock(
+                <uninit>,
+            ),
+            is_cyclic: OnceLock(
+                <uninit>,
+            ),
+            reverse_postorder: OnceLock(
+                <uninit>,
+            ),
+            dominators: OnceLock(
+                <uninit>,
+            ),
+        },
+    },
+    phase: Analysis(
+        Initial,
+    ),
+    pass_count: 1,
+    source: MirSource {
+        instance: Item(
+            DefId(0:7 ~ borrow_fields[bdca]::{impl#0}::borrow_field_direct),
+        ),
+        promoted: None,
+    },
+    source_scopes: [
+        SourceScopeData {
+            span: tests/ui/thesis/borrow_fields.rs:11:5: 13:6 (#0),
+            parent_scope: None,
+            inlined: None,
+            inlined_parent_scope: None,
+            local_data: Set(
+                SourceScopeLocalData {
+                    lint_root: HirId(DefId(0:7 ~ borrow_fields[bdca]::{impl#0}::borrow_field_direct).0),
+                    safety: Safe,
+                },
+            ),
+        },
+    ],
+    coroutine: None,
+    local_decls: [
+        LocalDecl {
+            mutability: Mut,
+            local_info: Set(
+                Boring,
+            ),
+            ty: &ReErased std::string::String,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:11:38: 11:45 (#0),
+                scope: scope[0],
+            },
+        },
+        LocalDecl {
+            mutability: Not,
+            local_info: Set(
+                User(
+                    ImplicitSelf(
+                        ImmRef,
+                    ),
+                ),
+            ),
+            ty: &ReErased A,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:11:28: 11:33 (#0),
+                scope: scope[0],
+            },
+        },
+        LocalDecl {
+            mutability: Not,
+            local_info: Set(
+                BlockTailTemp(
+                    BlockTailInfo {
+                        tail_result_is_ignored: false,
+                        span: tests/ui/thesis/borrow_fields.rs:12:9: 12:20 (#0),
+                    },
+                ),
+            ),
+            ty: &ReErased std::string::String,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:12:9: 12:20 (#0),
+                scope: scope[0],
+            },
+        },
+    ],
+    user_type_annotations: [],
+    arg_count: 1,
+    spread_arg: None,
+    var_debug_info: [
+        self => _1,
+    ],
+    span: tests/ui/thesis/borrow_fields.rs:11:5: 13:6 (#0),
+    required_consts: [],
+    is_polymorphic: false,
+    injection_phase: None,
+    tainted_by_errors: None,
+    function_coverage_info: None,
+}

@@ -1,26 +1,7 @@
 #![allow(unused)]
 
-struct B<'a>(&'a String);
-
-impl Drop for B<'_> {
-    fn drop(&mut self) {}
-}
-
-fn maybe_simple() {
-    let data = String::new();
-    let c = B(&data);
-    let b = &c;
-
-    magic_1(b);
-    1;
-    magic_2(b, b);
-
-    //drop(b);
-    //drop(data);
-}
-
-fn magic_1(b: &B) {}
-fn magic_2(b: &B, c: &B) {}
+fn magic_1<T>(b: &T) {}
+fn magic_2<T>(b: &T, c: &T) {}
 
 fn print_mir() {
     let a = if true {
@@ -34,15 +15,33 @@ fn print_mir() {
     };
 }
 
-fn simple_ownership(mut owned: Vec<i32>) {
-    if owned.is_empty() {
-        let _a = 17;
+struct A {
+    field: String,
+}
+
+impl A {
+    fn borrow_field_direct(&self) -> &String {
+        &self.field
     }
 
-    if owned.is_empty() {
-        let _b = 89;
+    fn borrow_field_deref(&self) -> &str {
+        &self.field
     }
 }
+
+// fn simple_ownership(cond: bool) {
+//     let a = String::new();
+//     let b = String::new();
+//
+//     let x;
+//     if cond {
+//         x = &a;
+//     } else {
+//         x = &b;
+//     }
+//
+//     magic_1(x);
+// }
 
 // fn if_fun(a: String, b: String, cond: bool) {
 //     if cond {

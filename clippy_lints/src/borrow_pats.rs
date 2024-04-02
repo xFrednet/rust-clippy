@@ -88,6 +88,26 @@ impl<'tcx> BodyMagic for mir::Body<'tcx> {
     }
 }
 
+trait PlaceMagic {
+    /// This returns true, if this is only a part of the local. A field or array
+    /// element would be a part of a local.
+    fn is_part(&self) -> bool;
+}
+
+impl PlaceMagic for mir::Place<'_> {
+    fn is_part(&self) -> bool {
+        self.projection.iter().any(|x| {
+            matches!(
+                x,
+                mir::PlaceElem::Field(_, _)
+                    | mir::PlaceElem::Index(_)
+                    | mir::PlaceElem::ConstantIndex { .. }
+                    | mir::PlaceElem::Subslice { .. }
+            )
+        })
+    }
+}
+
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
     body: &'a mir::Body<'tcx>,
@@ -190,21 +210,45 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
                 // _0 should be handled in the automata
                 if lval.projection.len() != 0 {
-                    eprintln!("TODO: Handle src projections {lval:?}");
+                    eprintln!("TODO: Handle lval projections {lval:?} (mir::Rvalue::Ref 1)");
                 }
-                if src.projection.len() != 0 {
-                    eprintln!("TODO: Handle src projections {src:?}");
+
+                let lval_kind = self.autos[lval.local].local_kind;
+                match src.projection.as_slice() {
+                    [mir::PlaceElem::Deref] => {
+                        // &(*_1) = Copy
+                        self.post_event(lval, EventKind::Assign(AssignSourceKind::Copy(src)));
+                        self.post_event(
+                            src,
+                            EventKind::Copy(AccessReason::Assign {
+                                target: lval,
+                                target_kind: lval_kind,
+                            }),
+                        );
+                    },
+                    [] => {
+                        self.post_event(lval, EventKind::Assign(AssignSourceKind::Lone(src, mutability)));
+                        self.post_event(
+                            src,
+                            EventKind::Loan(
+                                lval.local,
+                                LoanEventKind::Created {
+                                    borrower: lval,
+                                    borrower_kind: lval_kind,
+                                    mutability,
+                                },
+                            ),
+                        );
+                    },
+                    _ => {},
+                    _ => eprintln!("TODO: Handle src projections {src:?} (mir::Rvalue::Ref 2)"),
                 }
 
                 // self.do_rvalue(*place, rval);
-
-                self.post_event(lval, EventKind::BorrowFrom(mutability, src.local));
-                let local_kind = self.autos[lval.local].local_kind;
-                self.post_event(src, EventKind::BorrowInto(mutability, lval.local, local_kind));
             },
             mir::Rvalue::Use(op) => {
                 if lval.projection.len() != 0 {
-                    eprintln!("TODO: Handle src projections {lval:?}");
+                    eprintln!("TODO: Handle lval projections {lval:?} (mir::Rvalue::Use)");
                 }
 
                 // Inform accessed placed
@@ -228,7 +272,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 // Assigned place
                 self.post_event(lval, EventKind::Assign(assign_src));
             },
-            _ => todo!(),
+            _ => todo!("\n{lval:#?}\n\n{rval:#?}\n"),
         }
     }
 
@@ -347,11 +391,24 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             (LocalKind::Unknown, _) => unreachable!(),
             (LocalKind::Return, _) => State::Todo,
             (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
+            (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
+                brokers: vec![RefBrokerInfo::Arg(self.local, *symbol)],
+                state: NamedRefState::Life,
+            }),
             (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
+            (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
+                brokers: vec![],
+                state: NamedRefState::Empty,
+            }),
             (LocalKind::AnonVar, true) => State::Owned(OwnedState::Empty),
             (LocalKind::AnonVar, false) => State::AnonRef(AnonRefState::Init),
-            (_, _) => todo!(),
+            (_, _) => todo!("{:#?}\n\n{:#?}\n\n{:#?}", self.local_kind, is_owned, self),
         };
+    }
+
+    /// This adds a detected pattern to this automata.
+    fn add_pat(&mut self, pat: PatternKind) {
+        self.best_pet = self.best_pet.max(pat);
     }
 
     /// This accepts an event and might create a followup event
@@ -359,8 +416,9 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         let followup = match &self.state {
             State::Owned(_) => self.update_owned_state(&event),
             State::AnonRef(_) => self.update_anon_ref_state(&event),
+            State::NamedRef(_) => self.update_named_ref_state(&event),
             State::Todo => None,
-            _ => todo!(),
+            _ => todo!("{:#?}\n\n{:#?}\n\n{:#?}", self.local_kind, event, self),
         };
 
         self.events.push(event);
@@ -395,12 +453,22 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             // Borrowing into an anonymous variable should always result into a
             // temporary borrow AFAIK. This will be verified by the automata of the
             // anonymous variable.
-            (OwnedState::Filled(_), EventKind::BorrowInto(mutability, _borrower, LocalKind::AnonVar)) => {
+            (
+                OwnedState::Filled(_),
+                EventKind::Loan(
+                    _,
+                    LoanEventKind::Created {
+                        borrower_kind: LocalKind::AnonVar,
+                        mutability,
+                        ..
+                    },
+                ),
+            ) => {
                 let pat = match mutability {
                     Mutability::Not => PatternKind::TempBorrowed,
                     Mutability::Mut => PatternKind::TempBorrowedMut,
                 };
-                self.best_pet = self.best_pet.max(pat);
+                self.add_pat(pat);
                 None
             },
             (OwnedState::Filled(_), EventKind::Owned(OwnedEventKind::AutoDrop { replace: false })) => {
@@ -414,7 +482,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             },
             (OwnedState::Moved, _) => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
             (OwnedState::Dropped, _) => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
-            _ => todo!("({state:?}, {:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
+            _ => todo!("({state:?}\n\n{:?})\n\n{self:#?}\n\n{event:#?}", event.kind),
         }
     }
 
@@ -424,17 +492,56 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         };
 
         match (state, &event.kind) {
-            (AnonRefState::Init, EventKind::BorrowFrom(_mutability, _target)) => {
-                self.state = State::AnonRef(AnonRefState::Live);
+            // A line into an anonymous reference should always be just a temporaty borrow
+            (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Lone(place, _))) => {
+                self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
                 None
             },
-            (AnonRefState::Live, EventKind::Move(AccessReason::FnArg)) => {
+            (AnonRefState::Live(..), EventKind::Move(AccessReason::FnArg)) => {
                 self.state = State::AnonRef(AnonRefState::Dead);
                 None
             },
             (_, EventKind::Owned(_)) => unreachable!(),
             _ => {
-                todo!()
+                todo!("{:#?}\n\n{:#?}", self, event);
+            },
+        }
+    }
+
+    fn update_named_ref_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        let State::NamedRef(info) = &self.state else {
+            unreachable!()
+        };
+        match (&info.state, &event.kind) {
+            // We're not interested in the borrow itself, but the way the anon variable
+            // is used. The anon var takes responsibility of informing this named ref
+            // about how it was used
+            (
+                NamedRefState::Life,
+                EventKind::Loan(
+                    _,
+                    LoanEventKind::Created {
+                        borrower_kind: LocalKind::AnonVar,
+                        ..
+                    },
+                )
+                | EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::AnonVar,
+                    ..
+                }),
+            ) => None,
+            (
+                NamedRefState::Life,
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::Return,
+                    ..
+                }),
+            ) => {
+                self.add_pat(PatternKind::ReturnLoan);
+                None
+            },
+            _ => {
+                todo!("{:#?}\n\n{:#?}", self, event);
             },
         }
     }
@@ -442,14 +549,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
 #[derive(Debug)]
 enum State<'a, 'tcx> {
-    #[expect(dead_code)]
-    Dummy(&'a &'tcx ()),
     /// The initial state, this should be short lived, as it's usually only used to directly
     /// jump to the next state.
     Init,
     /// A user created variable containing owned data.
     Owned(OwnedState),
-    AnonRef(AnonRefState),
+    NamedRef(NamedRefInfo<'a, 'tcx>),
+    AnonRef(AnonRefState<'a, 'tcx>),
     /// Something needs to be added to handle this pattern correctly
     Todo,
 }
@@ -469,12 +575,34 @@ enum InitKind {
     Conditional(Vec<BasicBlock>),
 }
 
+#[derive(Debug)]
+struct NamedRefInfo<'a, 'tcx> {
+    /// "A pawnbroker is an individual or business (pawnshop or pawn shop) that offers secured loans
+    /// to people"
+    brokers: Vec<RefBrokerInfo<'a, 'tcx>>,
+    state: NamedRefState,
+}
+
+#[derive(Debug)]
+enum RefBrokerInfo<'a, 'tcx> {
+    Arg(mir::Local, Symbol),
+    Borrowed(&'a mir::Place<'tcx>),
+}
+
+#[derive(Debug)]
+enum NamedRefState {
+    Empty,
+    Life,
+    Filled,
+    Dead,
+}
+
 /// The state for a value generated by MIR, that holds a loan. It is unnamed
 /// as the user cannot name this mystical creature.
 #[derive(Debug)]
-enum AnonRefState {
+enum AnonRefState<'a, 'tcx> {
     Init,
-    Live,
+    Live(Vec<(&'a mir::Place<'tcx>, BasicBlock)>),
     Dead,
 }
 
@@ -493,16 +621,12 @@ enum EventKind<'a, 'tcx> {
     /// Events that can only happen to owned values
     Owned(OwnedEventKind),
     Assign(AssignSourceKind<'a, 'tcx>),
-    /// This value is being borrowed into
-    BorrowInto(Mutability, mir::Local, LocalKind),
-    /// This value was borrowed from
-    BorrowFrom(Mutability, mir::Local),
     /// Moved into a function as an argument
     Move(AccessReason<'a, 'tcx>),
     /// Coppied into a function as an argument
     Copy(AccessReason<'a, 'tcx>),
     /// Events that happened to a loan (identified by the Local) of this value
-    Loan(mir::Local, LoanEventKind),
+    Loan(mir::Local, LoanEventKind<'a, 'tcx>),
 }
 
 /// Something is being assigned to this value
@@ -512,6 +636,8 @@ enum AssignSourceKind<'a, 'tcx> {
     Copy(&'a mir::Place<'tcx>),
     /// The value of a place is being moved
     Move(&'a mir::Place<'tcx>),
+    /// Create a lone to a place or a part of a place
+    Lone(&'a mir::Place<'tcx>, Mutability),
     /// A constant value is being assigned, this can be a constant literal or
     /// a value determined at compile time like `size_of::<T>()`
     Const,
@@ -533,14 +659,20 @@ enum AccessReason<'a, 'tcx> {
     },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone)]
 enum OwnedEventKind {
     /// The value is automatically being dropped
     AutoDrop { replace: bool },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum LoanEventKind {
+#[derive(Debug, Copy, Clone)]
+enum LoanEventKind<'a, 'tcx> {
+    Created {
+        /// The place it's being loaned into
+        borrower: &'a mir::Place<'tcx>,
+        borrower_kind: LocalKind,
+        mutability: Mutability,
+    },
     MovedToFn,
 }
 
@@ -571,6 +703,10 @@ enum PatternKind {
     Unknown,
     TempBorrowed,
     TempBorrowedMut,
+    /// The value might be returned, is it was assigned to `_0`
+    ReturnLoan,
+    /// A part of the value might be returned. THis includes fiel
+    ReturnLoanedPart,
 }
 
 fn run_analysis(body: &mir::Body<'_>, body_name: &str) {
@@ -606,18 +742,18 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let body_name = cx.tcx.item_name(def.into());
         let body_name = body_name.as_str();
 
-        // Run analysis
-        if !is_lint_allowed(cx, BORROW_PATS, cx.tcx.local_def_id_to_hir_id(def)) {
-            run_analysis(&mir.borrow(), body_name);
-        }
-
         // Testing and development magic
-        if body_name == "print_mir" {
+        if body_name.starts_with("borrow_field") | body_name.starts_with("borrow_self") {
             println!("# print_mir");
             println!("\n\n## MIR:");
             print_body(&mir.borrow());
             println!("\n\n## Body:");
             println!("{mir_borrow:#?}");
+        }
+
+        // Run analysis
+        if !is_lint_allowed(cx, BORROW_PATS, cx.tcx.local_def_id_to_hir_id(def)) {
+            run_analysis(&mir.borrow(), body_name);
         }
 
         if body_name == "simple_ownership" {
