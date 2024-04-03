@@ -280,12 +280,12 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     fn post_event(&mut self, who: &'a mir::Place<'tcx>, kind: EventKind<'a, 'tcx>) {
         self.send_event(Event {
             bb: self.current_bb,
-            local: who.local,
+            place: *who,
             kind,
         });
     }
     fn send_event(&mut self, event: Event<'a, 'tcx>) {
-        let next = self.autos[event.local].accept_event(event);
+        let next = self.autos[event.place.local].accept_event(event);
         if let Some(next_event) = next {
             self.send_event(next_event);
         }
@@ -519,7 +519,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 if let &[(broker, _)] = brokers.as_slice() {
                     Some(Event {
                         bb: event.bb,
-                        local: broker.local,
+                        place: *broker,
                         kind: EventKind::Loan(self.local, LoanEventKind::Return),
                     })
                 } else {
@@ -640,7 +640,7 @@ struct Event<'a, 'tcx> {
     /// The basic block this occured in
     bb: mir::BasicBlock,
     /// The local that is effected by this event
-    local: mir::Local,
+    place: mir::Place<'tcx>,
     /// The kind of the event
     kind: EventKind<'a, 'tcx>,
 }
