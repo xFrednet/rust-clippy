@@ -200,6 +200,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     }
 
     fn do_assign(&mut self, lval: &'a mir::Place<'tcx>, rval: &'a mir::Rvalue<'tcx>) {
+        eprintln!("{lval:#?} -- {rval:#?}");
         match rval {
             mir::Rvalue::Ref(_reg, kind, src) => {
                 let mutability = match kind {
@@ -226,7 +227,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                             }),
                         );
                     },
-                    [] => {
+                    _ => {
                         self.post_event(lval, EventKind::Assign(AssignSourceKind::Lone(src, mutability)));
                         self.post_event(
                             src,
@@ -240,7 +241,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                             ),
                         );
                     },
-                    _ => {},
                     _ => eprintln!("TODO: Handle src projections {src:?} (mir::Rvalue::Ref 2)"),
                 }
 
@@ -270,6 +270,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 }
 
                 // Assigned place
+                eprintln!("This should be triggers!");
                 self.post_event(lval, EventKind::Assign(assign_src));
             },
             _ => todo!("\n{lval:#?}\n\n{rval:#?}\n"),
@@ -427,7 +428,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
     fn update_owned_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
         let State::Owned(state) = &self.state else {
-            unreachable!()
+            unreachable!();
         };
 
         match (state, &event.kind) {
@@ -488,7 +489,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
     fn update_anon_ref_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
         let State::AnonRef(state) = &self.state else {
-            unreachable!()
+            unreachable!();
         };
 
         match (state, &event.kind) {
@@ -497,9 +498,33 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
                 None
             },
+            // // Just forward the event unless it's move
+            // (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(place))) => {
+            //     self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
+            //     None
+            // },
             (AnonRefState::Live(..), EventKind::Move(AccessReason::FnArg)) => {
+                // TODO: change this and the owned value thing, to determine the temporary
+                // borrrow here and not in the owned automata
                 self.state = State::AnonRef(AnonRefState::Dead);
                 None
+            },
+            (
+                AnonRefState::Live(brokers),
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::Return,
+                    ..
+                }),
+            ) => {
+                if let &[(broker, _)] = brokers.as_slice() {
+                    Some(Event {
+                        bb: event.bb,
+                        local: broker.local,
+                        kind: EventKind::Loan(self.local, LoanEventKind::Return),
+                    })
+                } else {
+                    todo!("\n{self:#?}\n\n{event:#?}\n\n")
+                }
             },
             (_, EventKind::Owned(_)) => unreachable!(),
             _ => {
@@ -510,7 +535,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
     fn update_named_ref_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
         let State::NamedRef(info) = &self.state else {
-            unreachable!()
+            unreachable!();
         };
         match (&info.state, &event.kind) {
             // We're not interested in the borrow itself, but the way the anon variable
@@ -602,6 +627,10 @@ enum NamedRefState {
 #[derive(Debug)]
 enum AnonRefState<'a, 'tcx> {
     Init,
+    /// This is just a copy of another reference, all events should be forwarded.
+    /// The events might need some modifications. For example, a move of this
+    /// anonymous reference should be perceived as a copy on the other reference.
+    Copy(mir::Local),
     Live(Vec<(&'a mir::Place<'tcx>, BasicBlock)>),
     Dead,
 }
@@ -674,6 +703,8 @@ enum LoanEventKind<'a, 'tcx> {
         mutability: Mutability,
     },
     MovedToFn,
+    /// The loan is being returned (i.e. assigned to _0 or a part of _0)
+    Return,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
