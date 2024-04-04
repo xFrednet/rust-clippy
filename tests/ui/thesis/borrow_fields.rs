@@ -2,7 +2,12 @@ struct A {
     field: String,
 }
 
+struct Magic<'a> {
+    a: &'a String,
+}
+
 impl A {
+    #[warn(clippy::borrow_pats)]
     fn borrow_self(&self) -> &A {
         self
     }
@@ -12,6 +17,7 @@ impl A {
         &self.field
     }
 
+    #[forbid(clippy::borrow_pats)]
     fn borrow_field_deref(&self) -> &str {
         &self.field
     }
@@ -22,6 +28,10 @@ impl A {
         } else {
             &self.field
         }
+    }
+
+    fn borrow_field_into_mut_arg<'a>(&'a self, magic: &mut Magic<'a>) {
+        magic.a = &self.field;
     }
 }
 

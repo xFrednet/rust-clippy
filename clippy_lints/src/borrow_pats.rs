@@ -1,6 +1,5 @@
 #![expect(unused)]
 //! # TODOs
-//! - Refactor events to have places instead of locals.
 //! - Refactor patterns to be made up of:
 //!     - Init
 //!     - Use
@@ -8,6 +7,12 @@
 //! - Add more patterns and states to the automata
 //! - Add basic support for testing in uitests
 //! - Handle or abort on feature use
+//! - Insight: Loans are basically just special dependent typed
+//!     - Rename some `Loan` to `Dep`
+//!     - Handle Deps like loans
+//!
+//! # Done
+//! - [x] Refactor events to have places instead of locals.
 //!
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
@@ -19,7 +24,8 @@ use hir::Mutability;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir as hir;
 use rustc_index::IndexVec;
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, Level};
+use rustc_middle::ty::{List, TyCtxt};
 use rustc_session::declare_lint_pass;
 
 use rustc_middle::mir::{self, BasicBlock, Rvalue};
@@ -110,6 +116,7 @@ impl PlaceMagic for mir::Place<'_> {
 
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
+    tcx: PrintPrevent<TyCtxt<'tcx>>,
     body: &'a mir::Body<'tcx>,
     current_bb: BasicBlock,
     edges: FxHashMap<mir::BasicBlock, Vec<mir::BasicBlock>>,
@@ -118,7 +125,11 @@ struct BorrowAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
-    fn new(body: &'a mir::Body<'tcx>) -> Self {
+    fn tcx(&self) -> TyCtxt<'tcx> {
+        self.tcx.0
+    }
+
+    fn new(tcx: TyCtxt<'tcx>, body: &'a mir::Body<'tcx>) -> Self {
         // Create Automatas
         let mut autos: IndexVec<_, _> = body
             .local_decls
@@ -148,6 +159,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         autos.iter_mut().for_each(|x| x.init_state());
 
         Self {
+            tcx: PrintPrevent(tcx),
             body,
             current_bb: BasicBlock::from_u32(0),
             edges: Default::default(),
@@ -200,7 +212,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
     }
 
     fn do_assign(&mut self, lval: &'a mir::Place<'tcx>, rval: &'a mir::Rvalue<'tcx>) {
-        eprintln!("{lval:#?} -- {rval:#?}");
         match rval {
             mir::Rvalue::Ref(_reg, kind, src) => {
                 let mutability = match kind {
@@ -270,7 +281,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 }
 
                 // Assigned place
-                eprintln!("This should be triggers!");
                 self.post_event(lval, EventKind::Assign(assign_src));
             },
             _ => todo!("\n{lval:#?}\n\n{rval:#?}\n"),
@@ -293,7 +303,14 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
 
     fn do_term(&mut self, terminator: &'a mir::Terminator<'tcx>) -> Vec<mir::BasicBlock> {
         match &terminator.kind {
-            mir::TerminatorKind::Call { args, destination, .. } => {
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination,
+                ..
+            } => {
+                eprintln!("FN TY: {:#?}", func.ty(self.body, self.tcx()).fn_sig(self.tcx()));
+
                 args.iter().map(|x| &x.node).for_each(|op| {
                     let reason = AccessReason::FnArg;
                     let arg_event = match op {
@@ -363,7 +380,7 @@ struct Automata<'a, 'tcx> {
 
 struct PrintPrevent<T>(T);
 
-impl<T: std::fmt::Debug> std::fmt::Debug for PrintPrevent<T> {
+impl<T> std::fmt::Debug for PrintPrevent<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("PrintPrevent").finish()
     }
@@ -498,16 +515,39 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
                 None
             },
+            (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(copy_src))) => {
+                self.state = State::AnonRef(AnonRefState::Copy(copy_src.local));
+                None
+            },
             // // Just forward the event unless it's move
-            // (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(place))) => {
+            // (AnonRefState::Copy, EventKind::Assign(AssignSourceKind::Copy(place))) => {
             //     self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
             //     None
             // },
-            (AnonRefState::Live(..), EventKind::Move(AccessReason::FnArg)) => {
-                // TODO: change this and the owned value thing, to determine the temporary
-                // borrrow here and not in the owned automata
-                self.state = State::AnonRef(AnonRefState::Dead);
-                None
+            // The copy will forward all events too us, so we don't have to do anything
+            // on the assignment here.
+            (
+                AnonRefState::Live(..),
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::AnonVar,
+                    ..
+                }),
+            ) => None,
+            (
+                AnonRefState::Live(brokers),
+                EventKind::Move(AccessReason::FnArg) | EventKind::Copy(AccessReason::FnArg),
+            ) => {
+                let mut events: Vec<_> = brokers
+                    .iter()
+                    .map(|(place, bb)| Event {
+                        bb: event.bb,
+                        place: **place,
+                        kind: EventKind::Loan(self.local, LoanEventKind::FnArg),
+                    })
+                    .collect();
+                assert_eq!(events.len(), 1, "Handle larger events");
+                let x = events.drain(..).next();
+                x
             },
             (
                 AnonRefState::Live(brokers),
@@ -526,6 +566,14 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                     todo!("\n{self:#?}\n\n{event:#?}\n\n")
                 }
             },
+            (AnonRefState::Copy(parent), EventKind::Move(reason)) => Some(Event {
+                bb: event.bb,
+                place: mir::Place {
+                    local: *parent,
+                    projection: List::empty(),
+                },
+                kind: EventKind::Copy(*reason),
+            }),
             (_, EventKind::Owned(_)) => unreachable!(),
             _ => {
                 todo!("{:#?}\n\n{:#?}", self, event);
@@ -537,10 +585,29 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         let State::NamedRef(info) = &self.state else {
             unreachable!();
         };
-        match (&info.state, &event.kind) {
+        match (&info.state, &event.kind, event.place.is_part()) {
             // We're not interested in the borrow itself, but the way the anon variable
             // is used. The anon var takes responsibility of informing this named ref
             // about how it was used
+            (
+                NamedRefState::Life,
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::AnonVar,
+                    ..
+                }),
+                false,
+            ) => None,
+            (
+                NamedRefState::Life,
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::Return,
+                    ..
+                }),
+                false,
+            ) => {
+                self.add_pat(PatternKind::ReturnLoan);
+                None
+            },
             (
                 NamedRefState::Life,
                 EventKind::Loan(
@@ -549,20 +616,14 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                         borrower_kind: LocalKind::AnonVar,
                         ..
                     },
-                )
-                | EventKind::Copy(AccessReason::Assign {
-                    target_kind: LocalKind::AnonVar,
-                    ..
-                }),
-            ) => None,
-            (
-                NamedRefState::Life,
-                EventKind::Copy(AccessReason::Assign {
-                    target_kind: LocalKind::Return,
-                    ..
-                }),
+                ),
+                true,
             ) => {
-                self.add_pat(PatternKind::ReturnLoan);
+                self.add_pat(PatternKind::PartBorrowedTodoPat);
+                None
+            },
+            (NamedRefState::Life, EventKind::Loan(_, LoanEventKind::Return), true) => {
+                self.add_pat(PatternKind::ReturnLoanedPart);
                 None
             },
             _ => {
@@ -702,7 +763,9 @@ enum LoanEventKind<'a, 'tcx> {
         borrower_kind: LocalKind,
         mutability: Mutability,
     },
-    MovedToFn,
+    /// The loan is used as a function argument. Lones are usually first copied and
+    /// then moved into the function.
+    FnArg,
     /// The loan is being returned (i.e. assigned to _0 or a part of _0)
     Return,
 }
@@ -734,14 +797,16 @@ enum PatternKind {
     Unknown,
     TempBorrowed,
     TempBorrowedMut,
+    /// A part of the value was borrowed
+    PartBorrowedTodoPat,
     /// The value might be returned, is it was assigned to `_0`
     ReturnLoan,
     /// A part of the value might be returned. THis includes fiel
     ReturnLoanedPart,
 }
 
-fn run_analysis(body: &mir::Body<'_>, body_name: &str) {
-    let mut brock = BorrowAnalysis::new(body);
+fn run_analysis<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, body_name: &str) {
+    let mut brock = BorrowAnalysis::new(tcx, body);
     brock.do_body();
 
     println!("- {body_name}");
@@ -773,47 +838,19 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let body_name = cx.tcx.item_name(def.into());
         let body_name = body_name.as_str();
 
-        // Testing and development magic
-        if body_name.starts_with("borrow_field") | body_name.starts_with("borrow_self") {
-            println!("# print_mir");
-            println!("\n\n## MIR:");
+        let body_hir = cx.tcx.local_def_id_to_hir_id(def);
+        let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+        if lint_level == Level::Forbid {
+            println!("# fn {body_name}");
+            println!("## MIR:");
             print_body(&mir.borrow());
-            println!("\n\n## Body:");
+            println!("## Body:");
             println!("{mir_borrow:#?}");
         }
 
         // Run analysis
-        if !is_lint_allowed(cx, BORROW_PATS, cx.tcx.local_def_id_to_hir_id(def)) {
-            run_analysis(&mir.borrow(), body_name);
-        }
-
-        if body_name == "simple_ownership" {
-            println!("# simple_ownership");
-            println!("\n\n## MIR:");
-            print_body(&mir.borrow());
-
-            println!("\n\n## Run:");
-            let mut duck = BorrowAnalysis::new(mir_borrow);
-            duck.do_body();
-
-            println!("\n\n## Analysis:");
-            println!("{duck:#?}");
-
-            println!("\n\n## Results:");
-            println!(
-                "| {:>3} | {:<20} | {:<20} | {} |",
-                "Name", "Kind", "Pattern", "Final State",
-            );
-            println!("|---|---|---|---|");
-            for auto in duck.autos {
-                println!(
-                    "| {:>3} | {:<20} | {:<20} | {} |",
-                    format!("{:?}", auto.local),
-                    format!("{:?}", auto.local_kind),
-                    format!("{:?}", auto.best_pet),
-                    format!("[{:?}]", auto.state),
-                );
-            }
+        if lint_level != Level::Allow {
+            run_analysis(cx.tcx, &mir.borrow(), body_name);
         }
     }
 }
