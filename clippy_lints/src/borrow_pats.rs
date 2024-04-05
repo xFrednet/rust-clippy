@@ -18,10 +18,12 @@
 //! - Investigate the `explicit_outlives_requirements` lint
 
 use std::collections::VecDeque;
+use std::ops::ControlFlow;
 
 use clippy_utils::is_lint_allowed;
+use clippy_utils::ty::{for_each_region, for_each_top_level_late_bound_region};
 use hir::Mutability;
-use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir as hir;
 use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass, Level};
@@ -116,6 +118,7 @@ impl PlaceMagic for mir::Place<'_> {
 
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
+    cx: PrintPrevent<&'a LateContext<'tcx>>,
     tcx: PrintPrevent<TyCtxt<'tcx>>,
     body: &'a mir::Body<'tcx>,
     current_bb: BasicBlock,
@@ -125,11 +128,14 @@ struct BorrowAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
+    fn cx(&self) -> &'a LateContext<'tcx> {
+        self.cx.0
+    }
     fn tcx(&self) -> TyCtxt<'tcx> {
         self.tcx.0
     }
 
-    fn new(tcx: TyCtxt<'tcx>, body: &'a mir::Body<'tcx>) -> Self {
+    fn new(cx: &'a LateContext<'tcx>, tcx: TyCtxt<'tcx>, body: &'a mir::Body<'tcx>) -> Self {
         // Create Automatas
         let mut autos: IndexVec<_, _> = body
             .local_decls
@@ -159,6 +165,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
         autos.iter_mut().for_each(|x| x.init_state());
 
         Self {
+            cx: PrintPrevent(cx),
             tcx: PrintPrevent(tcx),
             body,
             current_bb: BasicBlock::from_u32(0),
@@ -309,8 +316,28 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 destination,
                 ..
             } => {
-                eprintln!("FN TY: {:#?}", func.ty(self.body, self.tcx()).fn_sig(self.tcx()));
+                // let func_sig = self.tcx().fn_sig(self.body.source.def_id()).instantiate_identity();
+                // eprintln!("FN TY: {:#?}", func_sig);
+                
+                // eprintln!("01 ============");
+                // let func_ty = func.ty(self.body, self.tcx());
+                // let fn_sig = func_ty.fn_sig(self.tcx());
+                // eprintln!("FN TY: {:#?}", fn_sig);
+                // eprintln!("02 ============");
 
+
+                // let ret_ty = fn_sig.output();
+                // let ret_ty_2 = self.tcx().liberate_late_bound_regions(self.body.source.def_id(), ret_ty);
+                // eprintln!("What is this return: {ret_ty_2:#?}");
+                // let ret_ty_2 = self.tcx().try_normalize_erasing_regions(self.cx().param_env, ret_ty);
+                // eprintln!("What is this return: {ret_ty_2:#?}");
+                // for in_idx in 0..fn_sig.inputs().skip_binder().len() {
+                //     let in_ty = fn_sig.input(in_idx);
+                //     let something_ty = self.tcx().try_normalize_erasing_regions(self.cx().param_env, in_ty);
+                //     eprintln!("What is this muteny: {something_ty:#?}");
+                //     eprintln!("Relation: in_ty is {:#?} than ret_ty", (in_ty.cmp(&ret_ty)));
+                // }
+                self.get_parents_of_return(func);
                 args.iter().map(|x| &x.node).for_each(|op| {
                     let reason = AccessReason::FnArg;
                     let arg_event = match op {
@@ -360,6 +387,45 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 println!("TODO: Handle terminator: {terminator:#?}");
                 terminator.successors().collect()
             },
+        }
+    }
+
+    /// This function takes an operand, that identifies a function and returns the
+    /// indices of the arguments that might be parents of the return type.
+    /// 
+    /// ```
+    /// fn example<'c, 'a: 'c, 'b: 'c>(cond: bool, a: &'a u32, b: &'b u32) -> &'c u32 {
+    /// #    todo!()
+    /// }
+    /// ```
+    /// This would return [1, 2], since the types in position 1 and 2 are related
+    /// to the return type.
+    fn get_parents_of_return(&self, op: &mir::Operand<'tcx>) {
+        if let Some((def_id, generic_args)) = op.const_fn_def() {
+            // TODO: The proper and long therm solution would be to use HIR
+            // to find the call with generics that still have valid region markers.
+            // However, for now I need to get this zombie in the air and not pefect
+            let fn_sig = self.tcx().fn_sig(def_id).instantiate_identity();
+
+            // On other functions this shouldn't matter. Even if they have late bounds
+            // in their signature. We don't know how it's used and more imporantly,
+            // The input and return types still need to follow Rust's type rules
+            if !fn_sig.bound_vars().is_empty() {
+                todo!("Non empty depressing bounds: {fn_sig:#?}");
+            }
+            let fn_sig = fn_sig.skip_binder();
+
+            let mut output_regions = FxHashSet::default();
+            for_each_region(fn_sig.output(), |region| {
+                output_regions.insert(region);
+            });
+
+            eprintln!("Found retrun regions {output_regions:#?}")
+
+            // TODO Compute all relevant regions for the output
+            // TODO check inputs for these regions
+        } else {
+            todo!("{op:#?}\n\n{self:#?}")
         }
     }
 }
@@ -805,8 +871,8 @@ enum PatternKind {
     ReturnLoanedPart,
 }
 
-fn run_analysis<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, body_name: &str) {
-    let mut brock = BorrowAnalysis::new(tcx, body);
+fn run_analysis<'tcx>(cx: &LateContext<'tcx>, tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, body_name: &str) {
+    let mut brock = BorrowAnalysis::new(cx, tcx, body);
     brock.do_body();
 
     println!("- {body_name}");
@@ -850,7 +916,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         // Run analysis
         if lint_level != Level::Allow {
-            run_analysis(cx.tcx, &mir.borrow(), body_name);
+            run_analysis(cx, cx.tcx, &mir.borrow(), body_name);
         }
     }
 }

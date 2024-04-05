@@ -19,7 +19,7 @@ impl A {
 
     #[forbid(clippy::borrow_pats)]
     fn borrow_field_deref(&self) -> &str {
-        &self.field
+        manual_deref(&self.field, &self.field)
     }
 
     fn borrow_field_or_default(&self) -> &str {
@@ -32,6 +32,14 @@ impl A {
 
     fn borrow_field_into_mut_arg<'a>(&'a self, magic: &mut Magic<'a>) {
         magic.a = &self.field;
+    }
+}
+
+fn manual_deref<'c, 'a: 'c, 'b: 'c>(a: &'a String, b: &'b String) -> &'c str {
+    if a.is_empty() {
+        a
+    } else {
+        b
     }
 }
 

@@ -640,7 +640,7 @@ pub fn all_predicates_of(tcx: TyCtxt<'_>, id: DefId) -> impl Iterator<Item = &(t
 }
 
 /// A signature for a function like type.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum ExprFnSig<'tcx> {
     Sig(Binder<'tcx, FnSig<'tcx>>, Option<DefId>),
     Closure(Option<&'tcx FnDecl<'tcx>>, Binder<'tcx, FnSig<'tcx>>),
@@ -934,6 +934,22 @@ pub fn for_each_top_level_late_bound_region<B>(
         }
     }
     ty.visit_with(&mut V { index: 0, f })
+}
+
+pub fn for_each_region<'tcx>(
+    ty: Ty<'tcx>,
+    f: impl FnMut(Region<'tcx>),
+) {
+    struct V<F> {
+        f: F,
+    }
+    impl<'tcx, F: FnMut(Region<'tcx>)> TypeVisitor<TyCtxt<'tcx>> for V<F> {
+        fn visit_region(&mut self, region: Region<'tcx>) -> ControlFlow<Self::BreakTy> {
+            (self.f)(region);
+            ControlFlow::Continue(())
+        }
+    }
+    ty.visit_with(&mut V { f });
 }
 
 pub struct AdtVariantInfo {

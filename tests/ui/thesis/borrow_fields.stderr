@@ -1,16 +1,7 @@
-FN TY: Binder {
-    value: fn(
-        &ReBound(DebruijnIndex(0), BoundRegion { var: 0, kind: BrNamed(DefId(2:53276 ~ core[a9f5]::ops::deref::Deref::deref::'_), '_) }) std::string::String
-        ) -> 
-            &ReBound(DebruijnIndex(0), BoundRegion { var: 0, kind: BrNamed(DefId(2:53276 ~ core[a9f5]::ops::deref::Deref::deref::'_), '_) })
-            Alias(Projection, AliasTy { args: [std::string::String], def_id: DefId(2:3262 ~ core[a9f5]::ops::deref::Deref::Target) }),
-    bound_vars: [
-        Region(
-            BrNamed(DefId(2:53276 ~ core[a9f5]::ops::deref::Deref::deref::'_), '_),
-        ),
-    ],
+Found retrun regions {
+    ReEarlyParam(DefId(0:16 ~ borrow_fields[bdca]::manual_deref::'c), 0, 'c),
 }
-thread 'rustc' panicked at clippy_lints/src/borrow_pats.rs:630:17:
+thread 'rustc' panicked at clippy_lints/src/borrow_pats.rs:696:17:
 not yet implemented: Automata {
     local: _1,
     local_kind: UserArg(
@@ -41,6 +32,18 @@ not yet implemented: Automata {
                 },
             ),
         },
+        Event {
+            bb: bb0,
+            place: ((*_1).0: std::string::String),
+            kind: Loan(
+                _6,
+                Created {
+                    borrower: _6,
+                    borrower_kind: AnonVar,
+                    mutability: Not,
+                },
+            ),
+        },
     ],
     best_pet: PartBorrowedTodoPat,
 }
@@ -54,93 +57,93 @@ Event {
     ),
 }
 stack backtrace:
-   0:     0x721d945d4af6 - std::backtrace_rs::backtrace::libunwind::trace::hf298c77755f5b12e
+   0:     0x79eec738caf6 - std::backtrace_rs::backtrace::libunwind::trace::hf298c77755f5b12e
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/../../backtrace/src/backtrace/libunwind.rs:104:5
-   1:     0x721d945d4af6 - std::backtrace_rs::backtrace::trace_unsynchronized::h4da6a489ce2db74e
+   1:     0x79eec738caf6 - std::backtrace_rs::backtrace::trace_unsynchronized::h4da6a489ce2db74e
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/../../backtrace/src/backtrace/mod.rs:66:5
-   2:     0x721d945d4af6 - std::sys_common::backtrace::_print_fmt::h051beca4a6f5cb98
+   2:     0x79eec738caf6 - std::sys_common::backtrace::_print_fmt::h051beca4a6f5cb98
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys_common/backtrace.rs:68:5
-   3:     0x721d945d4af6 - <std::sys_common::backtrace::_print::DisplayBacktrace as core::fmt::Display>::fmt::hcb86488900881a45
+   3:     0x79eec738caf6 - <std::sys_common::backtrace::_print::DisplayBacktrace as core::fmt::Display>::fmt::hcb86488900881a45
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys_common/backtrace.rs:44:22
-   4:     0x721d94625a7c - core::fmt::rt::Argument::fmt::haf43875fa4a971bb
+   4:     0x79eec73dda7c - core::fmt::rt::Argument::fmt::haf43875fa4a971bb
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/fmt/rt.rs:142:9
-   5:     0x721d94625a7c - core::fmt::write::h44c7f32ae3be5535
+   5:     0x79eec73dda7c - core::fmt::write::h44c7f32ae3be5535
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/fmt/mod.rs:1120:17
-   6:     0x721d945c94bf - std::io::Write::write_fmt::hc3fec0223f64c010
+   6:     0x79eec73814bf - std::io::Write::write_fmt::hc3fec0223f64c010
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/io/mod.rs:1846:15
-   7:     0x721d945d48a4 - std::sys_common::backtrace::_print::h7c03376d42fd745a
+   7:     0x79eec738c8a4 - std::sys_common::backtrace::_print::h7c03376d42fd745a
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys_common/backtrace.rs:47:5
-   8:     0x721d945d48a4 - std::sys_common::backtrace::print::h9ff10455f68b06c1
+   8:     0x79eec738c8a4 - std::sys_common::backtrace::print::h9ff10455f68b06c1
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys_common/backtrace.rs:34:9
-   9:     0x721d945d75eb - std::panicking::default_hook::{{closure}}::he4f9865f1b72b2d5
-  10:     0x721d945d7339 - std::panicking::default_hook::h3d59f13a05d49fe6
+   9:     0x79eec738f5eb - std::panicking::default_hook::{{closure}}::he4f9865f1b72b2d5
+  10:     0x79eec738f339 - std::panicking::default_hook::h3d59f13a05d49fe6
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/panicking.rs:292:9
-  11:     0x721d912731ec - std[19d33715048712a6]::panicking::update_hook::<alloc[6fc58ab69ba746fe]::boxed::Box<rustc_driver_impl[4c01069949ad96dd]::install_ice_hook::{closure#0}>>::{closure#0}
-  12:     0x721d945d7d50 - <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call::hf41c577e6ac4b0df
+  11:     0x79eeca2731ec - std[19d33715048712a6]::panicking::update_hook::<alloc[6fc58ab69ba746fe]::boxed::Box<rustc_driver_impl[4c01069949ad96dd]::install_ice_hook::{closure#0}>>::{closure#0}
+  12:     0x79eec738fd50 - <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call::hf41c577e6ac4b0df
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/alloc/src/boxed.rs:2030:9
-  13:     0x721d945d7d50 - std::panicking::rust_panic_with_hook::h70f59ab226ae2c5c
+  13:     0x79eec738fd50 - std::panicking::rust_panic_with_hook::h70f59ab226ae2c5c
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/panicking.rs:786:13
-  14:     0x721d945d7a92 - std::panicking::begin_panic_handler::{{closure}}::h47fc7126fa960711
+  14:     0x79eec738fa92 - std::panicking::begin_panic_handler::{{closure}}::h47fc7126fa960711
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/panicking.rs:660:13
-  15:     0x721d945d4fd6 - std::sys_common::backtrace::__rust_end_short_backtrace::h5b94f863278adeaf
+  15:     0x79eec738cfd6 - std::sys_common::backtrace::__rust_end_short_backtrace::h5b94f863278adeaf
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys_common/backtrace.rs:171:18
-  16:     0x721d945d77c4 - rust_begin_unwind
+  16:     0x79eec738f7c4 - rust_begin_unwind
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/panicking.rs:648:5
-  17:     0x721d94621f95 - core::panicking::panic_fmt::h96a33d9be4ce8c0f
+  17:     0x79eec73d9f95 - core::panicking::panic_fmt::h96a33d9be4ce8c0f
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/panicking.rs:72:14
-  18:     0x62ed2ce4afa7 - clippy_lints::borrow_pats::Automata::update_named_ref_state::hb85743410e29e585
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:630:17
-  19:     0x62ed2ce47f2b - clippy_lints::borrow_pats::Automata::accept_event::h73e021f47dcadfdd
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:437:35
-  20:     0x62ed2ce4676b - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h2effae99585da2fd
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:298:20
-  21:     0x62ed2ce467a3 - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h2effae99585da2fd
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:300:13
-  22:     0x62ed2ce467a3 - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h2effae99585da2fd
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:300:13
-  23:     0x62ed2ce46711 - clippy_lints::borrow_pats::BorrowAnalysis::post_event::h27590660aeb7c737
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:291:9
-  24:     0x62ed2c916dbb - clippy_lints::borrow_pats::BorrowAnalysis::do_term::{{closure}}::he6c9054ec4b05f82
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:322:25
-  25:     0x62ed2cc2fead - core::iter::traits::iterator::Iterator::for_each::call::{{closure}}::he1bde776fef88892
+  18:     0x568d79486e07 - clippy_lints::borrow_pats::Automata::update_named_ref_state::hb85743410e29e585
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:696:17
+  19:     0x568d79483d8b - clippy_lints::borrow_pats::Automata::accept_event::h73e021f47dcadfdd
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:503:35
+  20:     0x568d79481dfb - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h43d8771083434c1d
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:305:20
+  21:     0x568d79481e33 - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h43d8771083434c1d
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:307:13
+  22:     0x568d79481e33 - clippy_lints::borrow_pats::BorrowAnalysis::send_event::h43d8771083434c1d
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:307:13
+  23:     0x568d79481da1 - clippy_lints::borrow_pats::BorrowAnalysis::post_event::h0bb9ad65f4617a49
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:298:9
+  24:     0x568d798d1bbb - clippy_lints::borrow_pats::BorrowAnalysis::do_term::{{closure}}::ha326803aac2292e2
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:349:25
+  25:     0x568d79263c5d - core::iter::traits::iterator::Iterator::for_each::call::{{closure}}::h801852d0c33163e1
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/iter/traits/iterator.rs:845:29
-  26:     0x62ed2c9d89ad - core::iter::adapters::map::map_fold::{{closure}}::hfb4c74fd3af07803
+  26:     0x568d78fcb24d - core::iter::adapters::map::map_fold::{{closure}}::h60739ba3c733f2e8
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/iter/adapters/map.rs:89:21
-  27:     0x62ed2ca05b2a - <core::slice::iter::Iter<T> as core::iter::traits::iterator::Iterator>::fold::h1952dd06ed380264
+  27:     0x568d7900556a - <core::slice::iter::Iter<T> as core::iter::traits::iterator::Iterator>::fold::ha37595e72e03e17c
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/slice/iter/macros.rs:232:27
-  28:     0x62ed2c9c3043 - <core::iter::adapters::map::Map<I,F> as core::iter::traits::iterator::Iterator>::fold::h3343b7a192ba3d0b
+  28:     0x568d78fbaa43 - <core::iter::adapters::map::Map<I,F> as core::iter::traits::iterator::Iterator>::fold::hff160d1920a115d2
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/iter/adapters/map.rs:129:9
-  29:     0x62ed2c9cf2c3 - core::iter::traits::iterator::Iterator::for_each::h7acbcbe90901987c
+  29:     0x568d78fc4de3 - core::iter::traits::iterator::Iterator::for_each::h7b85cf8cb92b8a6f
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/core/src/iter/traits/iterator.rs:848:9
-  30:     0x62ed2ce46dd9 - clippy_lints::borrow_pats::BorrowAnalysis::do_term::hf54b6fa06c55d59a
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:314:17
-  31:     0x62ed2ce45a11 - clippy_lints::borrow_pats::BorrowAnalysis::do_body::haa9854ca9fc95075
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:180:24
-  32:     0x62ed2ce4b183 - clippy_lints::borrow_pats::run_analysis::h36f2755371023727
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:810:5
-  33:     0x62ed2ce4ba52 - <clippy_lints::borrow_pats::BorrowPats as rustc_lint::passes::LateLintPass>::check_body::h60fafd0dd93c4fe9
-                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:853:13
-  34:     0x721d915fa83b - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_nested_body
-  35:     0x721d915fb6e4 - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_fn
-  36:     0x721d915ea927 - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_nested_item
-  37:     0x721d9322d473 - rustc_lint[a04349e93729da6f]::late::check_crate::{closure#0}
-  38:     0x721d9322d6d1 - rustc_lint[a04349e93729da6f]::late::check_crate
-  39:     0x721d930a39c9 - rustc_interface[3868b2f10de3354]::passes::analysis
-  40:     0x721d930a2669 - rustc_query_impl[80d5b36ddf5440ab]::plumbing::__rust_begin_short_backtrace::<rustc_query_impl[80d5b36ddf5440ab]::query_impl::analysis::dynamic_query::{closure#2}::{closure#0}, rustc_middle[3375709bf24a03bb]::query::erase::Erased<[u8; 1usize]>>
-  41:     0x721d93333ce5 - rustc_query_system[3c4b6c562f3523cb]::query::plumbing::try_execute_query::<rustc_query_impl[80d5b36ddf5440ab]::DynamicConfig<rustc_query_system[3c4b6c562f3523cb]::query::caches::SingleCache<rustc_middle[3375709bf24a03bb]::query::erase::Erased<[u8; 1usize]>>, false, false, false>, rustc_query_impl[80d5b36ddf5440ab]::plumbing::QueryCtxt, false>
-  42:     0x721d93333a49 - rustc_query_impl[80d5b36ddf5440ab]::query_impl::analysis::get_query_non_incr::__rust_end_short_backtrace
-  43:     0x721d93342f59 - rustc_interface[3868b2f10de3354]::interface::run_compiler::<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}
-  44:     0x721d935bdc45 - std[19d33715048712a6]::sys_common::backtrace::__rust_begin_short_backtrace::<rustc_interface[3868b2f10de3354]::util::run_in_thread_with_globals<rustc_interface[3868b2f10de3354]::util::run_in_thread_pool_with_globals<rustc_interface[3868b2f10de3354]::interface::run_compiler<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>
-  45:     0x721d935bda72 - <<std[19d33715048712a6]::thread::Builder>::spawn_unchecked_<rustc_interface[3868b2f10de3354]::util::run_in_thread_with_globals<rustc_interface[3868b2f10de3354]::util::run_in_thread_pool_with_globals<rustc_interface[3868b2f10de3354]::interface::run_compiler<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#1} as core[a9f526eb09c6e7cd]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
-  46:     0x721d945e1725 - <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once::h79a9e4aa91d71737
+  30:     0x568d7948226f - clippy_lints::borrow_pats::BorrowAnalysis::do_term::h40f83a9ff07c459e
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:341:17
+  31:     0x568d794810a1 - clippy_lints::borrow_pats::BorrowAnalysis::do_body::h4f8cc8f7a9aeea64
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:187:24
+  32:     0x568d79486fee - clippy_lints::borrow_pats::run_analysis::h7b63939cf19ded69
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:876:5
+  33:     0x568d794878ca - <clippy_lints::borrow_pats::BorrowPats as rustc_lint::passes::LateLintPass>::check_body::h60fafd0dd93c4fe9
+                               at /home/xfrednet/workspace/rust/rust-clippy/clippy_lints/src/borrow_pats.rs:919:13
+  34:     0x79eeca5fa83b - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_nested_body
+  35:     0x79eeca5fb6e4 - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_fn
+  36:     0x79eeca5ea927 - <rustc_lint[a04349e93729da6f]::late::LateContextAndPass<rustc_lint[a04349e93729da6f]::late::RuntimeCombinedLateLintPass> as rustc_hir[9ace93772c87fb15]::intravisit::Visitor>::visit_nested_item
+  37:     0x79eecc22d473 - rustc_lint[a04349e93729da6f]::late::check_crate::{closure#0}
+  38:     0x79eecc22d6d1 - rustc_lint[a04349e93729da6f]::late::check_crate
+  39:     0x79eecc0a39c9 - rustc_interface[3868b2f10de3354]::passes::analysis
+  40:     0x79eecc0a2669 - rustc_query_impl[80d5b36ddf5440ab]::plumbing::__rust_begin_short_backtrace::<rustc_query_impl[80d5b36ddf5440ab]::query_impl::analysis::dynamic_query::{closure#2}::{closure#0}, rustc_middle[3375709bf24a03bb]::query::erase::Erased<[u8; 1usize]>>
+  41:     0x79eecc333ce5 - rustc_query_system[3c4b6c562f3523cb]::query::plumbing::try_execute_query::<rustc_query_impl[80d5b36ddf5440ab]::DynamicConfig<rustc_query_system[3c4b6c562f3523cb]::query::caches::SingleCache<rustc_middle[3375709bf24a03bb]::query::erase::Erased<[u8; 1usize]>>, false, false, false>, rustc_query_impl[80d5b36ddf5440ab]::plumbing::QueryCtxt, false>
+  42:     0x79eecc333a49 - rustc_query_impl[80d5b36ddf5440ab]::query_impl::analysis::get_query_non_incr::__rust_end_short_backtrace
+  43:     0x79eecc342f59 - rustc_interface[3868b2f10de3354]::interface::run_compiler::<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}
+  44:     0x79eecc5bdc45 - std[19d33715048712a6]::sys_common::backtrace::__rust_begin_short_backtrace::<rustc_interface[3868b2f10de3354]::util::run_in_thread_with_globals<rustc_interface[3868b2f10de3354]::util::run_in_thread_pool_with_globals<rustc_interface[3868b2f10de3354]::interface::run_compiler<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>
+  45:     0x79eecc5bda72 - <<std[19d33715048712a6]::thread::Builder>::spawn_unchecked_<rustc_interface[3868b2f10de3354]::util::run_in_thread_with_globals<rustc_interface[3868b2f10de3354]::util::run_in_thread_pool_with_globals<rustc_interface[3868b2f10de3354]::interface::run_compiler<core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>, rustc_driver_impl[4c01069949ad96dd]::run_compiler::{closure#0}>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#0}::{closure#0}, core[a9f526eb09c6e7cd]::result::Result<(), rustc_span[a2e62ba9c1d34a9a]::ErrorGuaranteed>>::{closure#1} as core[a9f526eb09c6e7cd]::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+  46:     0x79eec7399725 - <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once::h79a9e4aa91d71737
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/alloc/src/boxed.rs:2016:9
-  47:     0x721d945e1725 - <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once::h6eabe626cfdc74a5
+  47:     0x79eec7399725 - <alloc::boxed::Box<F,A> as core::ops::function::FnOnce<Args>>::call_once::h6eabe626cfdc74a5
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/alloc/src/boxed.rs:2016:9
-  48:     0x721d945e1725 - std::sys::pal::unix::thread::Thread::new::thread_start::h8428b71c070d7cf2
+  48:     0x79eec7399725 - std::sys::pal::unix::thread::Thread::new::thread_start::h8428b71c070d7cf2
                                at /rustc/3406ada96f8e16e49e947a91db3eba0db45245fa/library/std/src/sys/pal/unix/thread.rs:108:17
-  49:     0x721d86a94ac3 - start_thread
+  49:     0x79eebf894ac3 - start_thread
                                at ./nptl/pthread_create.c:442:8
-  50:     0x721d86b26850 - __GI___clone3
+  50:     0x79eebf926850 - __GI___clone3
                                at ./misc/../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
   51:                0x0 - <unknown>
 
@@ -148,7 +151,7 @@ error: the compiler unexpectedly panicked. this is a bug.
 
 note: we would appreciate a bug report: https://github.com/rust-lang/rust-clippy/issues/new?template=ice.yml
 
-note: please attach the file at `/home/xfrednet/workspace/rust/rust-clippy/rustc-ice-2024-04-04T14_30_31-667416.txt` to your bug report
+note: please attach the file at `/home/xfrednet/workspace/rust/rust-clippy/rustc-ice-2024-04-05T15_30_31-821581.txt` to your bug report
 
 note: compiler flags: -Z ui-testing -Z deduplicate-diagnostics=no
 
