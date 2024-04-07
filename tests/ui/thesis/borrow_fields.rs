@@ -35,12 +35,8 @@ impl A {
     }
 }
 
-fn manual_deref<'c, 'a: 'c, 'b: 'c>(a: &'a String, b: &'b String) -> &'c str {
-    if a.is_empty() {
-        a
-    } else {
-        b
-    }
+fn manual_deref<'c, 'x: 'c, 'a: 'x, 'b: 'x>(a: &'a String, b: &'b String) -> &'c str {
+    if a.is_empty() { a } else { b }
 }
 
 fn main() {}

@@ -16,7 +16,7 @@ bb0:
     StorageLive(_6)
     _6 = &((*_1).0: std::string::String)
     _5 = &(*_6)
-    _2 = manual_deref::<'_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2]
+    _2 = manual_deref::<'_, '_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2]
 
 bb1:
     _0 = &(*_2)
@@ -52,7 +52,7 @@ Body {
                             span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
                             scope: scope[0],
                         },
-                        kind: _2 = manual_deref::<'_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2],
+                        kind: _2 = manual_deref::<'_, '_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2],
                     },
                 ),
                 is_cleanup: false,
