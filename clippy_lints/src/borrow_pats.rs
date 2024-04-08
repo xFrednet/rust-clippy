@@ -498,7 +498,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             (LocalKind::Return, _) => State::Todo,
             (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
             (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
-                brokers: vec![RefBrokerInfo::Arg(self.local, *symbol)],
+                brokers: vec![BrokerInfo::Arg(self.local, *symbol)],
                 state: NamedRefState::Life,
             }),
             (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
@@ -507,7 +507,10 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 state: NamedRefState::Empty,
             }),
             (LocalKind::AnonVar, true) => State::Owned(OwnedState::Empty),
-            (LocalKind::AnonVar, false) => State::AnonRef(AnonRefState::Init),
+            (LocalKind::AnonVar, false) => State::AnonRef(AnonRefInfo {
+                brokers: vec![],
+                state: AnonRefState::Init,
+            }),
             (_, _) => todo!("{:#?}\n\n{:#?}\n\n{:#?}", self.local_kind, is_owned, self),
         };
     }
@@ -593,49 +596,50 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
     }
 
     fn update_anon_ref_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
-        let State::AnonRef(state) = &self.state else {
+        let State::AnonRef(info) = &mut self.state else {
             unreachable!();
         };
 
-        match (state, &event.kind) {
+        match (&info.state, &event.kind) {
             // A line into an anonymous reference should always be just a temporaty borrow
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Lone(place, _))) => {
-                self.state = State::AnonRef(AnonRefState::Live(vec![(**place, event.bb)]));
+                info.brokers.push(BrokerInfo::Borrowed(**place));
+                info.state = AnonRefState::Live;
                 None
             },
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::FnRes(args))) => {
-                self.state = State::AnonRef(AnonRefState::Live(
-                    args.iter().map(|place| (*place, event.bb)).collect(),
-                ));
+                info.brokers
+                    .extend(args.iter().map(|place| BrokerInfo::Borrowed(*place)));
+                info.state = AnonRefState::Live;
                 None
             },
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(copy_src))) => {
-                self.state = State::AnonRef(AnonRefState::Copy(copy_src.local));
+                info.state = AnonRefState::Copy(copy_src.local);
                 None
             },
-            // // Just forward the event unless it's move
-            // (AnonRefState::Copy, EventKind::Assign(AssignSourceKind::Copy(place))) => {
-            //     self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
-            //     None
-            // },
             // The copy will forward all events too us, so we don't have to do anything
             // on the assignment here.
             (
-                AnonRefState::Live(..),
+                AnonRefState::Live,
                 EventKind::Copy(AccessReason::Assign {
                     target_kind: LocalKind::AnonVar,
                     ..
                 }),
             ) => None,
             (
-                AnonRefState::Live(brokers),
+                AnonRefState::Live,
                 EventKind::Move(AccessReason::FnArg { lenders }) | EventKind::Copy(AccessReason::FnArg { lenders }),
             ) => {
-                let mut events: Vec<_> = brokers
+                let mut events: Vec<_> = info.brokers
                     .iter()
-                    .map(|(place, bb)| Event {
+                    .filter_map(|brocker| if let BrokerInfo::Borrowed(place) = brocker {
+                        Some(*place)
+                    } else {
+                        None
+                    })
+                    .map(|place| Event {
                         bb: event.bb,
-                        place: *place,
+                        place,
                         kind: EventKind::Loan(
                             self.local,
                             LoanEventKind::FnArg {
@@ -649,13 +653,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 x
             },
             (
-                AnonRefState::Live(brokers),
+                AnonRefState::Live,
                 EventKind::Copy(AccessReason::Assign {
                     target_kind: LocalKind::Return,
                     ..
                 }),
             ) => {
-                if let &[(broker, _)] = brokers.as_slice() {
+                if let &[BrokerInfo::Borrowed(broker)] = &info.brokers[..] {
                     Some(Event {
                         bb: event.bb,
                         place: broker,
@@ -665,8 +669,8 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                     todo!("Multiple Brokers: \n{self:#?}\n\n{event:#?}\n\n")
                 }
             },
-            (AnonRefState::Live(brokers), EventKind::Loan(_prev_loan, loan_event)) => {
-                if let &[(broker, _)] = brokers.as_slice() {
+            (AnonRefState::Live, EventKind::Loan(_prev_loan, loan_event)) => {
+                if let &[BrokerInfo::Borrowed(broker)] = &info.brokers[..] {
                     Some(Event {
                         bb: event.bb,
                         place: broker,
@@ -677,13 +681,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 }
             },
             (
-                AnonRefState::Live(brokers),
+                AnonRefState::Live,
                 EventKind::Copy(AccessReason::Assign {
                     target_kind: LocalKind::Return,
                     ..
                 }),
             ) => {
-                if let &[(broker, _)] = brokers.as_slice() {
+                if let &[BrokerInfo::Borrowed(broker)] = &info.brokers[..] {
                     Some(Event {
                         bb: event.bb,
                         place: broker,
@@ -780,13 +784,14 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
 
 #[derive(Debug)]
 enum State<'a, 'tcx> {
+    Dummy(&'a &'tcx ()),
     /// The initial state, this should be short lived, as it's usually only used to directly
     /// jump to the next state.
     Init,
     /// A user created variable containing owned data.
     Owned(OwnedState),
-    NamedRef(NamedRefInfo<'a, 'tcx>),
-    AnonRef(AnonRefState<'a, 'tcx>),
+    NamedRef(NamedRefInfo<'tcx>),
+    AnonRef(AnonRefInfo<'tcx>),
     /// Something needs to be added to handle this pattern correctly
     Todo,
 }
@@ -807,17 +812,17 @@ enum InitKind {
 }
 
 #[derive(Debug)]
-struct NamedRefInfo<'a, 'tcx> {
-    /// "A pawnbroker is an individual or business (pawnshop or pawn shop) that offers secured loans
-    /// to people"
-    brokers: Vec<RefBrokerInfo<'a, 'tcx>>,
+struct NamedRefInfo<'tcx> {
+    /// "A pawnbroker is an individual or business [..] that offers secured loans to people"
+    brokers: Vec<BrokerInfo<'tcx>>,
     state: NamedRefState,
 }
 
 #[derive(Debug)]
-enum RefBrokerInfo<'a, 'tcx> {
+enum BrokerInfo<'tcx> {
     Arg(mir::Local, Symbol),
-    Borrowed(&'a mir::Place<'tcx>),
+    Borrowed(mir::Place<'tcx>),
+    Const,
 }
 
 #[derive(Debug)]
@@ -828,18 +833,23 @@ enum NamedRefState {
     Dead,
 }
 
+#[derive(Debug)]
+struct AnonRefInfo<'tcx> {
+    /// "A pawnbroker is an individual or business [..] that offers secured loans to people"
+    brokers: Vec<BrokerInfo<'tcx>>,
+    state: AnonRefState,
+}
+
 /// The state for a value generated by MIR, that holds a loan. It is unnamed
 /// as the user cannot name this mystical creature.
 #[derive(Debug)]
-enum AnonRefState<'a, 'tcx> {
-    #[expect(unused)]
-    Dummy(&'a ()),
+enum AnonRefState {
     Init,
     /// This is just a copy of another reference, all events should be forwarded.
     /// The events might need some modifications. For example, a move of this
     /// anonymous reference should be perceived as a copy on the other reference.
     Copy(mir::Local),
-    Live(Vec<(mir::Place<'tcx>, BasicBlock)>),
+    Live,
     Dead,
 }
 
