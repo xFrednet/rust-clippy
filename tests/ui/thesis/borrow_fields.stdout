@@ -357,3 +357,6 @@ Body {
     tainted_by_errors: None,
     function_coverage_info: None,
 }
+- borrow_field_or_default
+    - Return [_0]: Unknown
+    - "self" [_1]: ReturnLoanedPart

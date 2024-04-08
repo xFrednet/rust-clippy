@@ -240,6 +240,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                         self.post_event(
                             src,
                             EventKind::Copy(AccessReason::Assign {
+                                // TODO: This place has to be corrected to remove the deref projection
                                 target: lval,
                                 target_kind: lval_kind,
                             }),
@@ -613,6 +614,12 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 info.state = AnonRefState::Live;
                 None
             },
+            (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Const)) => {
+                info.brokers.push(BrokerInfo::Const);
+                info.state = AnonRefState::Live;
+                self.local_kind = LocalKind::AnonConst;
+                None
+            },
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(copy_src))) => {
                 info.state = AnonRefState::Copy(copy_src.local);
                 None
@@ -630,13 +637,10 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 AnonRefState::Live,
                 EventKind::Move(AccessReason::FnArg { lenders }) | EventKind::Copy(AccessReason::FnArg { lenders }),
             ) => {
-                let mut events: Vec<_> = info.brokers
+                let mut events: Vec<_> = info
+                    .brokers
                     .iter()
-                    .filter_map(|brocker| if let BrokerInfo::Borrowed(place) = brocker {
-                        Some(*place)
-                    } else {
-                        None
-                    })
+                    .filter_map(|brocker| brocker.owner())
                     .map(|place| Event {
                         bb: event.bb,
                         place,
@@ -648,7 +652,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                         ),
                     })
                     .collect();
-                assert_eq!(events.len(), 1, "Handle larger events");
+                assert!(events.len() <= 1, "Handle larger events");
                 let x = events.drain(..).next();
                 x
             },
@@ -659,26 +663,32 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                     ..
                 }),
             ) => {
-                if let &[BrokerInfo::Borrowed(broker)] = &info.brokers[..] {
-                    Some(Event {
+                let events: Vec<_> = info
+                    .brokers
+                    .iter()
+                    .filter_map(BrokerInfo::owner)
+                    .map(|place| Event {
                         bb: event.bb,
-                        place: broker,
+                        place,
                         kind: EventKind::Loan(self.local, LoanEventKind::Return),
                     })
-                } else {
-                    todo!("Multiple Brokers: \n{self:#?}\n\n{event:#?}\n\n")
-                }
+                    .collect();
+                assert!(events.len() <= 1, "Multiple Brokers");
+                events.into_iter().next()
             },
             (AnonRefState::Live, EventKind::Loan(_prev_loan, loan_event)) => {
-                if let &[BrokerInfo::Borrowed(broker)] = &info.brokers[..] {
-                    Some(Event {
+                let events: Vec<_> = info
+                    .brokers
+                    .iter()
+                    .filter_map(BrokerInfo::owner)
+                    .map(|place| Event {
                         bb: event.bb,
-                        place: broker,
+                        place,
                         kind: EventKind::Loan(self.local, loan_event.clone()),
                     })
-                } else {
-                    todo!("Multiple Brokers: \n{self:#?}\n\n{event:#?}\n\n")
-                }
+                    .collect();
+                assert!(events.len() <= 1, "Multiple Brokers");
+                events.into_iter().next()
             },
             (
                 AnonRefState::Live,
@@ -825,6 +835,17 @@ enum BrokerInfo<'tcx> {
     Const,
 }
 
+impl<'tcx> BrokerInfo<'tcx> {
+    /// This returns the owning place, if it is accessible. Constants and external loans
+    /// will return none.
+    fn owner(&self) -> Option<mir::Place<'tcx>> {
+        match self {
+            BrokerInfo::Borrowed(place) => Some(*place),
+            BrokerInfo::Arg(_, _) | BrokerInfo::Const => None,
+        }
+    }
+}
+
 #[derive(Debug)]
 enum NamedRefState {
     Empty,
@@ -953,6 +974,8 @@ enum LocalKind {
     UserVar(Symbol),
     /// Generated variable, i.e. unnamed
     AnonVar,
+    /// An anonymous constant value
+    AnonConst,
 }
 
 impl LocalKind {
@@ -977,7 +1000,7 @@ enum PatternKind {
     PartAsFnArgWithDepLoan,
     /// The value might be returned, is it was assigned to `_0`
     ReturnLoan,
-    /// A part of the value might be returned. THis includes fiel
+    /// A part of the value might be returned. This includes field
     ReturnLoanedPart,
 }
 
