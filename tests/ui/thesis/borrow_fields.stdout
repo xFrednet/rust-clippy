@@ -4,30 +4,49 @@
 - borrow_field_direct
     - Return [_0]: Unknown
     - "self" [_1]: ReturnLoanedPart
-# fn borrow_field_deref
+- borrow_field_deref
+    - Return [_0]: Unknown
+    - "self" [_1]: ReturnLoanedPart
+# fn borrow_field_or_default
 ## MIR:
 bb0:
     StorageLive(_2)
     StorageLive(_3)
-    StorageLive(_4)
-    _4 = &((*_1).0: std::string::String)
-    _3 = &(*_4)
-    StorageLive(_5)
-    StorageLive(_6)
-    _6 = &((*_1).0: std::string::String)
-    _5 = &(*_6)
-    _2 = manual_deref::<'_, '_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2]
+    _3 = &((*_1).0: std::string::String)
+    _2 = std::string::String::is_empty(move _3) -> [return: bb1, unwind: bb6]
 
 bb1:
-    _0 = &(*_2)
-    StorageDead(_5)
+    switchInt(move _2) -> [0: bb3, otherwise: bb2]
+
+bb2:
     StorageDead(_3)
-    StorageDead(_6)
+    StorageLive(_4)
+    _4 = const "Here be defaults"
+    _0 = &(*_4)
     StorageDead(_4)
+    goto -> bb5
+
+bb3:
+    StorageDead(_3)
+    StorageLive(_5)
+    StorageLive(_6)
+    StorageLive(_7)
+    _7 = &((*_1).0: std::string::String)
+    _6 = &(*_7)
+    _5 = <std::string::String as std::ops::Deref>::deref(move _6) -> [return: bb4, unwind: bb6]
+
+bb4:
+    _0 = &(*_5)
+    StorageDead(_6)
+    StorageDead(_7)
+    StorageDead(_5)
+    goto -> bb5
+
+bb5:
     StorageDead(_2)
     return
 
-bb2:
+bb6:
     resume
 
 ## Body:
@@ -38,38 +57,97 @@ Body {
                 statements: [
                     StorageLive(_2),
                     StorageLive(_3),
-                    StorageLive(_4),
-                    _4 = &((*_1).0: std::string::String),
-                    _3 = &(*_4),
-                    StorageLive(_5),
-                    StorageLive(_6),
-                    _6 = &((*_1).0: std::string::String),
-                    _5 = &(*_6),
+                    _3 = &((*_1).0: std::string::String),
                 ],
                 terminator: Some(
                     Terminator {
                         source_info: SourceInfo {
-                            span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
+                            span: tests/ui/thesis/borrow_fields.rs:27:12: 27:33 (#0),
                             scope: scope[0],
                         },
-                        kind: _2 = manual_deref::<'_, '_, '_, '_>(move _3, move _5) -> [return: bb1, unwind: bb2],
+                        kind: _2 = std::string::String::is_empty(move _3) -> [return: bb1, unwind: bb6],
+                    },
+                ),
+                is_cleanup: false,
+            },
+            BasicBlockData {
+                statements: [],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:27:12: 27:33 (#0),
+                            scope: scope[0],
+                        },
+                        kind: switchInt(move _2) -> [0: bb3, otherwise: bb2],
                     },
                 ),
                 is_cleanup: false,
             },
             BasicBlockData {
                 statements: [
-                    _0 = &(*_2),
-                    StorageDead(_5),
                     StorageDead(_3),
-                    StorageDead(_6),
+                    StorageLive(_4),
+                    _4 = const "Here be defaults",
+                    _0 = &(*_4),
                     StorageDead(_4),
+                ],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:27:9: 31:10 (#0),
+                            scope: scope[0],
+                        },
+                        kind: goto -> bb5,
+                    },
+                ),
+                is_cleanup: false,
+            },
+            BasicBlockData {
+                statements: [
+                    StorageDead(_3),
+                    StorageLive(_5),
+                    StorageLive(_6),
+                    StorageLive(_7),
+                    _7 = &((*_1).0: std::string::String),
+                    _6 = &(*_7),
+                ],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
+                            scope: scope[0],
+                        },
+                        kind: _5 = <std::string::String as std::ops::Deref>::deref(move _6) -> [return: bb4, unwind: bb6],
+                    },
+                ),
+                is_cleanup: false,
+            },
+            BasicBlockData {
+                statements: [
+                    _0 = &(*_5),
+                    StorageDead(_6),
+                    StorageDead(_7),
+                    StorageDead(_5),
+                ],
+                terminator: Some(
+                    Terminator {
+                        source_info: SourceInfo {
+                            span: tests/ui/thesis/borrow_fields.rs:27:9: 31:10 (#0),
+                            scope: scope[0],
+                        },
+                        kind: goto -> bb5,
+                    },
+                ),
+                is_cleanup: false,
+            },
+            BasicBlockData {
+                statements: [
                     StorageDead(_2),
                 ],
                 terminator: Some(
                     Terminator {
                         source_info: SourceInfo {
-                            span: tests/ui/thesis/borrow_fields.rs:23:6: 23:6 (#0),
+                            span: tests/ui/thesis/borrow_fields.rs:32:6: 32:6 (#0),
                             scope: scope[0],
                         },
                         kind: return,
@@ -82,7 +160,7 @@ Body {
                 terminator: Some(
                     Terminator {
                         source_info: SourceInfo {
-                            span: tests/ui/thesis/borrow_fields.rs:21:5: 23:6 (#0),
+                            span: tests/ui/thesis/borrow_fields.rs:26:5: 32:6 (#0),
                             scope: scope[0],
                         },
                         kind: resume,
@@ -115,19 +193,19 @@ Body {
     pass_count: 1,
     source: MirSource {
         instance: Item(
-            DefId(0:11 ~ borrow_fields[bdca]::{impl#0}::borrow_field_deref),
+            DefId(0:12 ~ borrow_fields[bdca]::{impl#0}::borrow_field_or_default),
         ),
         promoted: None,
     },
     source_scopes: [
         SourceScopeData {
-            span: tests/ui/thesis/borrow_fields.rs:21:5: 23:6 (#0),
+            span: tests/ui/thesis/borrow_fields.rs:26:5: 32:6 (#0),
             parent_scope: None,
             inlined: None,
             inlined_parent_scope: None,
             local_data: Set(
                 SourceScopeLocalData {
-                    lint_root: HirId(DefId(0:11 ~ borrow_fields[bdca]::{impl#0}::borrow_field_deref).0),
+                    lint_root: HirId(DefId(0:12 ~ borrow_fields[bdca]::{impl#0}::borrow_field_or_default).0),
                     safety: Safe,
                 },
             ),
@@ -143,7 +221,7 @@ Body {
             ty: &ReErased str,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:21:37: 21:41 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:26:42: 26:46 (#0),
                 scope: scope[0],
             },
         },
@@ -159,7 +237,41 @@ Body {
             ty: &ReErased A,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:21:27: 21:32 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:26:32: 26:37 (#0),
+                scope: scope[0],
+            },
+        },
+        LocalDecl {
+            mutability: Mut,
+            local_info: Set(
+                BlockTailTemp(
+                    BlockTailInfo {
+                        tail_result_is_ignored: false,
+                        span: tests/ui/thesis/borrow_fields.rs:27:9: 31:10 (#0),
+                    },
+                ),
+            ),
+            ty: bool,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:27:12: 27:33 (#0),
+                scope: scope[0],
+            },
+        },
+        LocalDecl {
+            mutability: Mut,
+            local_info: Set(
+                BlockTailTemp(
+                    BlockTailInfo {
+                        tail_result_is_ignored: false,
+                        span: tests/ui/thesis/borrow_fields.rs:27:9: 31:10 (#0),
+                    },
+                ),
+            ),
+            ty: &ReErased std::string::String,
+            user_ty: None,
+            source_info: SourceInfo {
+                span: tests/ui/thesis/borrow_fields.rs:27:12: 27:22 (#0),
                 scope: scope[0],
             },
         },
@@ -169,31 +281,14 @@ Body {
                 BlockTailTemp(
                     BlockTailInfo {
                         tail_result_is_ignored: false,
-                        span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
+                        span: tests/ui/thesis/borrow_fields.rs:28:13: 28:31 (#0),
                     },
                 ),
             ),
             ty: &ReErased str,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
-                scope: scope[0],
-            },
-        },
-        LocalDecl {
-            mutability: Mut,
-            local_info: Set(
-                BlockTailTemp(
-                    BlockTailInfo {
-                        tail_result_is_ignored: false,
-                        span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
-                    },
-                ),
-            ),
-            ty: &ReErased std::string::String,
-            user_ty: None,
-            source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:22:22: 22:33 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:28:13: 28:31 (#0),
                 scope: scope[0],
             },
         },
@@ -203,14 +298,14 @@ Body {
                 BlockTailTemp(
                     BlockTailInfo {
                         tail_result_is_ignored: false,
-                        span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
+                        span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                     },
                 ),
             ),
-            ty: &ReErased std::string::String,
+            ty: &ReErased str,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:22:22: 22:33 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                 scope: scope[0],
             },
         },
@@ -220,14 +315,14 @@ Body {
                 BlockTailTemp(
                     BlockTailInfo {
                         tail_result_is_ignored: false,
-                        span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
+                        span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                     },
                 ),
             ),
             ty: &ReErased std::string::String,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:22:35: 22:46 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                 scope: scope[0],
             },
         },
@@ -237,14 +332,14 @@ Body {
                 BlockTailTemp(
                     BlockTailInfo {
                         tail_result_is_ignored: false,
-                        span: tests/ui/thesis/borrow_fields.rs:22:9: 22:47 (#0),
+                        span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                     },
                 ),
             ),
             ty: &ReErased std::string::String,
             user_ty: None,
             source_info: SourceInfo {
-                span: tests/ui/thesis/borrow_fields.rs:22:35: 22:46 (#0),
+                span: tests/ui/thesis/borrow_fields.rs:30:13: 30:24 (#0),
                 scope: scope[0],
             },
         },
@@ -255,7 +350,7 @@ Body {
     var_debug_info: [
         self => _1,
     ],
-    span: tests/ui/thesis/borrow_fields.rs:21:5: 23:6 (#0),
+    span: tests/ui/thesis/borrow_fields.rs:26:5: 32:6 (#0),
     required_consts: [],
     is_polymorphic: false,
     injection_phase: None,

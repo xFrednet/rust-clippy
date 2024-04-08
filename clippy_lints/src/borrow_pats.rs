@@ -317,8 +317,13 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 ..
             } => {
                 let dep_args = self.get_parents_of_return(func);
-                args.iter().map(|x| &x.node).for_each(|op| {
-                    let reason = AccessReason::FnArg;
+                args.iter().map(|x| &x.node).enumerate().for_each(|(index, op)| {
+                    let lenders = if dep_args.contains(&index) {
+                        vec![*destination]
+                    } else {
+                        vec![]
+                    };
+                    let reason = AccessReason::FnArg { lenders };
                     let arg_event = match op {
                         mir::Operand::Copy(place) => {
                             // Some((place, EventKind::Copy(reason)))
@@ -332,7 +337,8 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                     }
                 });
 
-                self.post_event(destination, EventKind::Assign(AssignSourceKind::FnRes(args)));
+                let broker_places = dep_args.iter().filter_map(|idx| args[*idx].node.place()).collect();
+                self.post_event(destination, EventKind::Assign(AssignSourceKind::FnRes(broker_places)));
 
                 terminator.successors().collect()
             },
@@ -394,9 +400,6 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
             // On other functions this shouldn't matter. Even if they have late bounds
             // in their signature. We don't know how it's used and more imporantly,
             // The input and return types still need to follow Rust's type rules
-            if !fn_sig.bound_vars().is_empty() {
-                todo!("Non empty depressing bounds 1: {fn_sig:#?}");
-            }
             let fn_sig = fn_sig.skip_binder();
 
             let mut ret_regions = vec![];
@@ -441,8 +444,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 });
             }
 
-            eprintln!("Dependent inputs: {input_indices:#?}");
-
+            // eprintln!("Dependent inputs: {input_indices:#?}");
             input_indices
         } else {
             todo!("{op:#?}\n\n{self:#?}")
@@ -598,7 +600,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         match (state, &event.kind) {
             // A line into an anonymous reference should always be just a temporaty borrow
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Lone(place, _))) => {
-                self.state = State::AnonRef(AnonRefState::Live(vec![(place, event.bb)]));
+                self.state = State::AnonRef(AnonRefState::Live(vec![(**place, event.bb)]));
+                None
+            },
+            (AnonRefState::Init, EventKind::Assign(AssignSourceKind::FnRes(args))) => {
+                self.state = State::AnonRef(AnonRefState::Live(
+                    args.iter().map(|place| (*place, event.bb)).collect(),
+                ));
                 None
             },
             (AnonRefState::Init, EventKind::Assign(AssignSourceKind::Copy(copy_src))) => {
@@ -621,14 +629,19 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             ) => None,
             (
                 AnonRefState::Live(brokers),
-                EventKind::Move(AccessReason::FnArg) | EventKind::Copy(AccessReason::FnArg),
+                EventKind::Move(AccessReason::FnArg { lenders }) | EventKind::Copy(AccessReason::FnArg { lenders }),
             ) => {
                 let mut events: Vec<_> = brokers
                     .iter()
                     .map(|(place, bb)| Event {
                         bb: event.bb,
-                        place: **place,
-                        kind: EventKind::Loan(self.local, LoanEventKind::FnArg),
+                        place: *place,
+                        kind: EventKind::Loan(
+                            self.local,
+                            LoanEventKind::FnArg {
+                                lenders: lenders.clone(),
+                            },
+                        ),
                     })
                     .collect();
                 assert_eq!(events.len(), 1, "Handle larger events");
@@ -645,7 +658,35 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 if let &[(broker, _)] = brokers.as_slice() {
                     Some(Event {
                         bb: event.bb,
-                        place: *broker,
+                        place: broker,
+                        kind: EventKind::Loan(self.local, LoanEventKind::Return),
+                    })
+                } else {
+                    todo!("Multiple Brokers: \n{self:#?}\n\n{event:#?}\n\n")
+                }
+            },
+            (AnonRefState::Live(brokers), EventKind::Loan(_prev_loan, loan_event)) => {
+                if let &[(broker, _)] = brokers.as_slice() {
+                    Some(Event {
+                        bb: event.bb,
+                        place: broker,
+                        kind: EventKind::Loan(self.local, loan_event.clone()),
+                    })
+                } else {
+                    todo!("Multiple Brokers: \n{self:#?}\n\n{event:#?}\n\n")
+                }
+            },
+            (
+                AnonRefState::Live(brokers),
+                EventKind::Copy(AccessReason::Assign {
+                    target_kind: LocalKind::Return,
+                    ..
+                }),
+            ) => {
+                if let &[(broker, _)] = brokers.as_slice() {
+                    Some(Event {
+                        bb: event.bb,
+                        place: broker,
                         kind: EventKind::Loan(self.local, LoanEventKind::Return),
                     })
                 } else {
@@ -658,7 +699,15 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                     local: *parent,
                     projection: List::empty(),
                 },
-                kind: EventKind::Copy(*reason),
+                kind: EventKind::Copy(reason.clone()),
+            }),
+            (AnonRefState::Copy(parent), EventKind::Loan(_prev_loan, loan_event)) => Some(Event {
+                bb: event.bb,
+                place: mir::Place {
+                    local: *parent,
+                    projection: List::empty(),
+                },
+                kind: EventKind::Loan(self.local, loan_event.clone()),
             }),
             (_, EventKind::Owned(_)) => unreachable!(),
             _ => {
@@ -705,11 +754,21 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 ),
                 true,
             ) => {
-                self.add_pat(PatternKind::PartBorrowedTodoPat);
+                self.add_pat(PatternKind::PartTodoPat);
                 None
             },
             (NamedRefState::Life, EventKind::Loan(_, LoanEventKind::Return), true) => {
                 self.add_pat(PatternKind::ReturnLoanedPart);
+                None
+            },
+            (NamedRefState::Life, EventKind::Loan(_, LoanEventKind::FnArg { lenders }), true) => {
+                // Unoptimized MIR should never directly store fn results into _0
+                debug_assert!(lenders.iter().find(|place| place.local.as_u32() == 0).is_none());
+                if lenders.is_empty() {
+                    self.add_pat(PatternKind::PartAsFnArg);
+                } else {
+                    self.add_pat(PatternKind::PartAsFnArgWithDepLoan);
+                }
                 None
             },
             _ => {
@@ -773,12 +832,14 @@ enum NamedRefState {
 /// as the user cannot name this mystical creature.
 #[derive(Debug)]
 enum AnonRefState<'a, 'tcx> {
+    #[expect(unused)]
+    Dummy(&'a ()),
     Init,
     /// This is just a copy of another reference, all events should be forwarded.
     /// The events might need some modifications. For example, a move of this
     /// anonymous reference should be perceived as a copy on the other reference.
     Copy(mir::Local),
-    Live(Vec<(&'a mir::Place<'tcx>, BasicBlock)>),
+    Live(Vec<(mir::Place<'tcx>, BasicBlock)>),
     Dead,
 }
 
@@ -819,13 +880,16 @@ enum AssignSourceKind<'a, 'tcx> {
     Const,
 
     /// The places are the arguments used for the function
-    FnRes(&'a Vec<Spanned<mir::Operand<'tcx>>>),
+    FnRes(Vec<mir::Place<'tcx>>),
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 enum AccessReason<'a, 'tcx> {
     /// The value was accessed as a function argument
-    FnArg,
+    FnArg {
+        // See: [`LoanEventKind::FnArg`]
+        lenders: Vec<mir::Place<'tcx>>,
+    },
     /// The value was accessed for a conditional jump `SwitchInt`
     Switch,
     /// Assign to Local
@@ -841,7 +905,7 @@ enum OwnedEventKind {
     AutoDrop { replace: bool },
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 enum LoanEventKind<'a, 'tcx> {
     Created {
         /// The place it's being loaned into
@@ -851,7 +915,19 @@ enum LoanEventKind<'a, 'tcx> {
     },
     /// The loan is used as a function argument. Lones are usually first copied and
     /// then moved into the function.
-    FnArg,
+    FnArg {
+        /// Values which might now hold a loan that depends on this input argument.
+        ///
+        /// For example:
+        /// ```
+        /// let a: Option<&u32> = slice::get(val, 1);
+        /// //            ^^^^               ^^^
+        /// // The output contains a loan depending on `val` but not on `1`.
+        /// // Only loans are tracked, potentual clones and copies can't be determined
+        /// // from the outside.
+        /// ```
+        lenders: Vec<mir::Place<'tcx>>,
+    },
     /// The loan is being returned (i.e. assigned to _0 or a part of _0)
     Return,
 }
@@ -883,8 +959,12 @@ enum PatternKind {
     Unknown,
     TempBorrowed,
     TempBorrowedMut,
-    /// A part of the value was borrowed
-    PartBorrowedTodoPat,
+    /// A part of the value was borrowed.
+    PartTodoPat,
+    /// A part is used as a function argument.
+    PartAsFnArg,
+    /// A part is used as a function arguent and a dependent loan might escape the function.
+    PartAsFnArgWithDepLoan,
     /// The value might be returned, is it was assigned to `_0`
     ReturnLoan,
     /// A part of the value might be returned. THis includes fiel
