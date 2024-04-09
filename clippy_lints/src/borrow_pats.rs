@@ -496,7 +496,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         let is_owned = !decl.ty.is_ref();
         self.state = match (&self.local_kind, is_owned) {
             (LocalKind::Unknown, _) => unreachable!(),
-            (LocalKind::Return, _) => State::Todo,
+            (LocalKind::Return, _) => State::Return(ReturnState::Init),
             (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
             (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
                 brokers: vec![BrokerInfo::Arg(self.local, *symbol)],
@@ -527,6 +527,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             State::Owned(_) => self.update_owned_state(&event),
             State::AnonRef(_) => self.update_anon_ref_state(&event),
             State::NamedRef(_) => self.update_named_ref_state(&event),
+            State::Return(_) => self.update_return_state(&event),
             State::Todo => None,
             _ => todo!("{:#?}\n\n{:#?}\n\n{:#?}", self.local_kind, event, self),
         };
@@ -790,6 +791,40 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             },
         }
     }
+    
+    fn update_return_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
+        let State::Return(ret_state) = &mut self.state else {
+            unreachable!();
+        };
+        let EventKind::Assign(ass_event) = &event.kind else {
+            unreachable!()
+        };
+        match (&ret_state, &ass_event) {
+            (ReturnState::Init, AssignSourceKind::Const) => {
+                *ret_state = ReturnState::Const;
+                self.add_pat(PatternKind::ReturnConst);
+            },
+            (ReturnState::Init, AssignSourceKind::Lone(broker_places, _mutability)) => {
+                *ret_state = ReturnState::Loan;
+                self.add_pat(PatternKind::ReturnLoan);
+            },
+            (ReturnState::Loan, AssignSourceKind::Const)
+            | (ReturnState::Const, AssignSourceKind::Lone(_, _)) => {
+                *ret_state = ReturnState::LoanOrConst;
+                self.add_pat(PatternKind::ReturnLoanOrConst);
+            },
+            (ReturnState::LoanOrConst, AssignSourceKind::Const | AssignSourceKind::Lone(_, _))  => {
+                // Noop
+            }
+            (_, AssignSourceKind::FnRes(_)) => {
+                unreachable!("Function results are always first stored in another local")
+            },
+            _ => {
+                todo!("{:#?}\n\n{:#?}", self, event);
+            },
+        }
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -802,6 +837,7 @@ enum State<'a, 'tcx> {
     Owned(OwnedState),
     NamedRef(NamedRefInfo<'tcx>),
     AnonRef(AnonRefInfo<'tcx>),
+    Return(ReturnState),
     /// Something needs to be added to handle this pattern correctly
     Todo,
 }
@@ -872,6 +908,14 @@ enum AnonRefState {
     Copy(mir::Local),
     Live,
     Dead,
+}
+
+#[derive(Debug)]
+enum ReturnState {
+    Init,
+    Loan,
+    Const,
+    LoanOrConst,
 }
 
 #[derive(Debug, Clone)]
@@ -998,10 +1042,15 @@ enum PatternKind {
     PartAsFnArg,
     /// A part is used as a function arguent and a dependent loan might escape the function.
     PartAsFnArgWithDepLoan,
+    /// A constant value is returned. This can only be used by `_0`
+    ReturnConst,
     /// The value might be returned, is it was assigned to `_0`
     ReturnLoan,
     /// A part of the value might be returned. This includes field
     ReturnLoanedPart,
+    /// The function either returns a loan or a constant value. The function `unwrap_or_default()` is
+    /// a good example for this.
+    ReturnLoanOrConst,
 }
 
 fn run_analysis<'tcx>(cx: &LateContext<'tcx>, tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, body_name: &str) {
