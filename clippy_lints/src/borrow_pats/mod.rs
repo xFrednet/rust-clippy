@@ -24,6 +24,7 @@ use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_
 use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
 use hir::def_id::LocalDefId;
 use hir::{HirId, Mutability};
+use mid::mir::visit::Visitor;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
@@ -73,6 +74,16 @@ struct AnalysisInfo<'tcx> {
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
 }
 
+impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnalysisInfo")
+            .field("body", &self.body)
+            .field("def_id", &self.def_id)
+            .field("local_kinds", &self.local_kinds)
+            .finish()
+    }
+}
+
 impl<'tcx> AnalysisInfo<'tcx> {
     fn new(cx: &LateContext<'tcx>, def_id: LocalDefId) -> Self {
         // This is totally unsafe and I will not pretend it isn't.
@@ -98,7 +109,9 @@ impl<'tcx> AnalysisInfo<'tcx> {
     }
 
     fn determine_local_kinds(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, LocalKind> {
-        let mut kinds: IndexVec<Local, LocalKind> = IndexVec::with_capacity(body.local_decls.len());
+        let mut kinds = IndexVec::default();
+        kinds.resize(body.local_decls.len(), LocalKind::AnonVar);
+
         kinds[mir::Local::from_u32(0)] = LocalKind::Return;
         body.var_debug_info.iter().for_each(|info| {
             if let mir::VarDebugInfoContents::Place(place) = info.value {
@@ -115,10 +128,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
                 todo!("How should this be handled? {info:#?}");
             }
         });
-        kinds
-            .iter_mut()
-            .filter(|x| matches!(x, LocalKind::Unknown))
-            .for_each(|x| *x = LocalKind::AnonVar);
 
         kinds
     }
@@ -1036,7 +1045,7 @@ enum LocalKind {
 }
 
 impl LocalKind {
-    fn user_name(&self) -> Option<Symbol> {
+    fn name(&self) -> Option<Symbol> {
         match self {
             Self::UserArg(name) | Self::UserVar(name) => Some(*name),
             _ => None,
@@ -1079,7 +1088,7 @@ fn run_analysis<'tcx>(cx: &LateContext<'tcx>, tcx: TyCtxt<'tcx>, body: &mir::Bod
                 return Some(("Return [_0]".to_string(), auto));
             }
 
-            let name = auto.local_kind.user_name()?;
+            let name = auto.local_kind.name()?;
             Some((format!("{:?} [{:?}]", name, local), auto))
         })
         .for_each(|(name, auto)| {
@@ -1109,12 +1118,25 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         if lint_level == Level::Forbid {
             // eprintln!("{body:#?}");
             print_debug_info(cx, body, def);
-            return;
         }
 
         if lint_level != Level::Allow {
             let info = AnalysisInfo::new(cx, def);
+            for (local, kind) in info.local_kinds.iter_enumerated() {
+                // We're only interested in named trash
+                if kind.name().is_some() {
+                    let decl = &info.body.local_decls[local];
+                    let is_owned = !decl.ty.is_ref();
+                    if is_owned {
+                        let mut analysis = owned::OwnedAnalysis::new(&info, local);
+                        analysis.visit_body(&info.body);
+                        println!("{analysis}");
+                    }
+                }
+            }
         }
+
+        return;
 
         // ===========================================================
         // Old Analysis

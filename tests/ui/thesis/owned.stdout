@@ -1,0 +1,11 @@
+=====
+bb0:
+    _0 = move _1
+    return
+
+=====
+location_map: {}
+activation_map: {}
+local_map: {}
+locals_state_at_exit: AllAreInvalidated
+"animal": [State: Filled] Patterns: {Arg, Return}
