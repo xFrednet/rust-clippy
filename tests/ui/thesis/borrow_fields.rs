@@ -6,15 +6,11 @@ struct Magic<'a> {
     a: &'a String,
 }
 
-const DUCK:u32 = 10;
+const DUCK: u32 = 10;
 
 #[forbid(clippy::borrow_pats)]
-fn magic(input: String) -> usize {
-    if input.is_empty() {
-        19
-    } else {
-        input.len()
-    }
+fn magic(input: &A, cond: bool) -> &str {
+    if cond { "default" } else { &input.field }
 }
 
 impl A {

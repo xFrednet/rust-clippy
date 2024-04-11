@@ -17,26 +17,30 @@
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
 
-mod data_info;
-
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 
-use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
 use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_late_bound_region};
+use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
+use hir::def_id::LocalDefId;
 use hir::{HirId, Mutability};
+use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir as hir;
-use rustc_middle as mid;
 use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass, Level};
+use rustc_middle::mir;
+use rustc_middle::mir::{BasicBlock, FakeReadCause, Local, Place, Rvalue};
 use rustc_middle::ty::{Clause, List, TyCtxt};
 use rustc_session::declare_lint_pass;
-
-
-use rustc_middle::mir::{self, BasicBlock, FakeReadCause, Rvalue};
 use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
+use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
+
+mod owned;
+mod rustc_extention;
+mod util;
+pub use rustc_extention::*;
+pub use util::*;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -59,66 +63,80 @@ declare_clippy_lint! {
 
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
 
-/// Extending the [`mir::Body`] where needed.
-///
-/// This is such a bad name for a trait, sorry.
-trait BodyMagic {
-    fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool;
+struct AnalysisInfo<'tcx> {
+    cx: &'tcx LateContext<'tcx>,
+    tcx: TyCtxt<'tcx>,
+    body: mir::Body<'tcx>,
+    def_id: LocalDefId,
+    local_kinds: IndexVec<mir::Local, LocalKind>,
+    // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
+    // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
 }
 
-impl<'tcx> BodyMagic for mir::Body<'tcx> {
-    fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool {
-        if a == b {
-            return false;
-        } else if a > b {
-            return self.are_bbs_exclusive(b, a);
+impl<'tcx> AnalysisInfo<'tcx> {
+    fn new(cx: &LateContext<'tcx>, def_id: LocalDefId) -> Self {
+        // This is totally unsafe and I will not pretend it isn't.
+        // In this context it is safe, this struct will never outlive `cx`
+        let cx = unsafe { core::mem::transmute::<&LateContext<'tcx>, &'tcx LateContext<'tcx>>(cx) };
+
+        let borrowck::consumers::BodyWithBorrowckFacts {
+            body,
+            // borrow_set, location_table
+            ..
+        } = get_body_with_borrowck_facts(cx.tcx, def_id, ConsumerOptions::RegionInferenceContext);
+
+        // Maybe check: borrowck::dataflow::calculate_borrows_out_of_scope_at_location
+
+        let local_kinds = Self::determine_local_kinds(&body);
+        Self {
+            cx,
+            tcx: cx.tcx,
+            body,
+            def_id,
+            local_kinds,
         }
+    }
 
-        let mut visited = Vec::with_capacity(16);
-        let mut queue = VecDeque::with_capacity(16);
-
-        queue.push_back(a);
-        while let Some(bbi) = queue.pop_front() {
-            // Check we don't know the node yet
-            if visited.contains(&bbi) {
-                continue;
+    fn determine_local_kinds(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, LocalKind> {
+        let mut kinds: IndexVec<Local, LocalKind> = IndexVec::with_capacity(body.local_decls.len());
+        kinds[mir::Local::from_u32(0)] = LocalKind::Return;
+        body.var_debug_info.iter().for_each(|info| {
+            if let mir::VarDebugInfoContents::Place(place) = info.value {
+                let local = place.local;
+                // +1, since `_0` is used for the return
+                kinds.get_mut(local).map(|kind| {
+                    *kind = if local < (body.arg_count + 1).into() {
+                        LocalKind::UserArg(info.name)
+                    } else {
+                        LocalKind::UserVar(info.name)
+                    }
+                });
+            } else {
+                todo!("How should this be handled? {info:#?}");
             }
+        });
+        kinds
+            .iter_mut()
+            .filter(|x| matches!(x, LocalKind::Unknown))
+            .for_each(|x| *x = LocalKind::AnonVar);
 
-            // Found our connection
-            if bbi == b {
-                return false;
-            }
+        kinds
+    }
 
-            self.basic_blocks[bbi]
-                .terminator()
-                .successors()
-                .collect_into(&mut queue);
-            visited.push(bbi);
-        }
-
-        true
+    fn places_conflict(&self, a: Place<'tcx>, b: Place<'tcx>) -> bool {
+        borrowck::consumers::places_conflict(
+            self.tcx,
+            &self.body,
+            a,
+            b,
+            borrowck::consumers::PlaceConflictBias::NoOverlap,
+        )
     }
 }
 
-trait PlaceMagic {
-    /// This returns true, if this is only a part of the local. A field or array
-    /// element would be a part of a local.
-    fn is_part(&self) -> bool;
-}
-
-impl PlaceMagic for mir::Place<'_> {
-    fn is_part(&self) -> bool {
-        self.projection.iter().any(|x| {
-            matches!(
-                x,
-                mir::PlaceElem::Field(_, _)
-                    | mir::PlaceElem::Index(_)
-                    | mir::PlaceElem::ConstantIndex { .. }
-                    | mir::PlaceElem::Subslice { .. }
-            )
-        })
-    }
-}
+// ===========================================================
+// Old Analysis
+// ===========================================================
 
 #[derive(Debug)]
 struct BorrowAnalysis<'a, 'tcx> {
@@ -471,14 +489,6 @@ struct Automata<'a, 'tcx> {
     best_pet: PatternKind,
 }
 
-struct PrintPrevent<T>(T);
-
-impl<T> std::fmt::Debug for PrintPrevent<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("PrintPrevent").finish()
-    }
-}
-
 impl<'a, 'tcx> Automata<'a, 'tcx> {
     fn new(local: mir::Local, body: &'a mir::Body<'tcx>) -> Self {
         Self {
@@ -795,7 +805,7 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
             },
         }
     }
-    
+
     fn update_return_state(&mut self, event: &Event<'a, 'tcx>) -> Option<Event<'a, 'tcx>> {
         let State::Return(ret_state) = &mut self.state else {
             unreachable!();
@@ -812,14 +822,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
                 *ret_state = ReturnState::Loan;
                 self.add_pat(PatternKind::ReturnLoan);
             },
-            (ReturnState::Loan, AssignSourceKind::Const)
-            | (ReturnState::Const, AssignSourceKind::Lone(_, _)) => {
+            (ReturnState::Loan, AssignSourceKind::Const) | (ReturnState::Const, AssignSourceKind::Lone(_, _)) => {
                 *ret_state = ReturnState::LoanOrConst;
                 self.add_pat(PatternKind::ReturnLoanOrConst);
             },
-            (ReturnState::LoanOrConst, AssignSourceKind::Const | AssignSourceKind::Lone(_, _))  => {
+            (ReturnState::LoanOrConst, AssignSourceKind::Const | AssignSourceKind::Lone(_, _)) => {
                 // Noop
-            }
+            },
             (_, AssignSourceKind::FnRes(_)) => {
                 unreachable!("Function results are always first stored in another local")
             },
@@ -1052,8 +1061,8 @@ enum PatternKind {
     ReturnLoan,
     /// A part of the value might be returned. This includes field
     ReturnLoanedPart,
-    /// The function either returns a loan or a constant value. The function `unwrap_or_default()` is
-    /// a good example for this.
+    /// The function either returns a loan or a constant value. The function `unwrap_or_default()`
+    /// is a good example for this.
     ReturnLoanOrConst,
 }
 
@@ -1078,6 +1087,10 @@ fn run_analysis<'tcx>(cx: &LateContext<'tcx>, tcx: TyCtxt<'tcx>, body: &mir::Bod
         });
 }
 
+// ===========================================================
+// Old Analysis
+// ===========================================================
+
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
         // FIXME: Check what happens for closures
@@ -1086,31 +1099,33 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         // TODO: Mention in report that const can't be considered due to rustc internals
         match cx.tcx.def_kind(def) {
             hir::def::DefKind::Const => return,
-            hir::def::DefKind::Fn | hir::def::DefKind::AssocFn if fn_has_unsatisfiable_preds(cx, def.into()) => 
-                return,
-            _ => {}
+            hir::def::DefKind::Fn | hir::def::DefKind::AssocFn if fn_has_unsatisfiable_preds(cx, def.into()) => return,
+            _ => {},
         }
-        
+
         let body_hir = cx.tcx.local_def_id_to_hir_id(def);
         let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+
+        if lint_level == Level::Forbid {
+            // eprintln!("{body:#?}");
+            print_debug_info(cx, body, def);
+            return;
+        }
+
+        if lint_level != Level::Allow {
+            let info = AnalysisInfo::new(cx, def);
+        }
+
+        // ===========================================================
+        // Old Analysis
+        // ===========================================================
 
         let (mir, _) = cx.tcx.mir_promoted(def);
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
-        
+
         let body_name = cx.tcx.item_name(def.into());
         let body_name = body_name.as_str();
-        
-        if lint_level == Level::Forbid {
-            eprintln!("{body:#?}");
-            try_visitor(cx, body, def);
-            // println!("# fn {body_name}");
-            println!("## MIR:");
-            print_body(&mir.borrow());
-            //eprintln!("## Body:");
-            //eprintln!("{mir_borrow:#?}");
-            return;
-        }
 
         // Run analysis
         if lint_level != Level::Allow {
@@ -1119,55 +1134,23 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     }
 }
 
-fn try_visitor<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
-    use rustc_hir_typeck::expr_use_visitor as euv;
-    use rustc_infer::infer::TyCtxtInferExt;
-    #[derive(Default)]
-    struct TestCtxt {}
-    
-    impl<'tcx> euv::Delegate<'tcx> for TestCtxt {
-        fn consume(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId) {
-            eprintln!("consume:   {place:#?}");
-            eprintln!("===");
-        }
-
-        fn borrow(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId, kind: mid::ty::BorrowKind) {
-            eprintln!("borrow:    {place:#?}{kind:#?}");
-            eprintln!("===");
-        }
-
-        fn mutate(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId) {
-            eprintln!("mutate:    {place:#?}");
-            eprintln!("===");
-        }
-
-        fn fake_read(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: FakeReadCause, _: HirId) {
-            eprintln!("fake_read: {place:#?}");
-            eprintln!("===");
-        }
-        
-        fn copy(&mut self, place: &euv::PlaceWithHirId<'tcx>, diag_expr_id: hir::HirId) {
-            eprintln!("copy:      {place:#?}");
-            eprintln!("===");
-            
-        }
-    }
-
-    let mut ctx = TestCtxt::default();
-    let infcx = cx.tcx.infer_ctxt().build();
-    euv::ExprUseVisitor::new(&mut ctx, &infcx, def, cx.param_env, cx.typeck_results()).consume_body(body);
-}
-
-fn print_body(body: &mir::Body<'_>) {
-    for (idx, data) in body.basic_blocks.iter_enumerated() {
-        println!("bb{}:", idx.index());
-        for stmt in &data.statements {
-            println!("    {stmt:#?}");
-        }
-        println!("    {:#?}", data.terminator().kind);
-
-        println!();
-    }
-
-    //println!("{body:#?}");
+fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
+    let borrowck = get_body_with_borrowck_facts(cx.tcx, def, ConsumerOptions::RegionInferenceContext);
+    println!("=====");
+    print_body(&borrowck.body);
+    println!("=====");
+    println!("location_map: {:#?}", borrowck.borrow_set.location_map);
+    println!("activation_map: {:#?}", borrowck.borrow_set.activation_map);
+    println!("local_map: {:#?}", borrowck.borrow_set.local_map);
+    match &borrowck.borrow_set.locals_state_at_exit {
+        rustc_borrowck::borrow_set::LocalsStateAtExit::AllAreInvalidated => {
+            println!("locals_state_at_exit: AllAreInvalidated")
+        },
+        rustc_borrowck::borrow_set::LocalsStateAtExit::SomeAreInvalidated {
+            has_storage_dead_or_moved,
+        } => println!(
+            "locals_state_at_exit: SomeAreInvalidated {:#?}",
+            has_storage_dead_or_moved
+        ),
+    };
 }
