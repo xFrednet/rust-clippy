@@ -17,20 +17,24 @@
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
 
+mod data_info;
+
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 
-use clippy_utils::is_lint_allowed;
+use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
 use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_late_bound_region};
-use hir::Mutability;
+use hir::{HirId, Mutability};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir as hir;
+use rustc_middle as mid;
 use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass, Level};
 use rustc_middle::ty::{Clause, List, TyCtxt};
 use rustc_session::declare_lint_pass;
 
-use rustc_middle::mir::{self, BasicBlock, Rvalue};
+
+use rustc_middle::mir::{self, BasicBlock, FakeReadCause, Rvalue};
 use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
 
@@ -1079,21 +1083,33 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
 
+        // TODO: Mention in report that const can't be considered due to rustc internals
+        match cx.tcx.def_kind(def) {
+            hir::def::DefKind::Const => return,
+            hir::def::DefKind::Fn | hir::def::DefKind::AssocFn if fn_has_unsatisfiable_preds(cx, def.into()) => 
+                return,
+            _ => {}
+        }
+        
+        let body_hir = cx.tcx.local_def_id_to_hir_id(def);
+        let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+
         let (mir, _) = cx.tcx.mir_promoted(def);
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
-
+        
         let body_name = cx.tcx.item_name(def.into());
         let body_name = body_name.as_str();
-
-        let body_hir = cx.tcx.local_def_id_to_hir_id(def);
-        let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+        
         if lint_level == Level::Forbid {
-            println!("# fn {body_name}");
+            eprintln!("{body:#?}");
+            try_visitor(cx, body, def);
+            // println!("# fn {body_name}");
             println!("## MIR:");
             print_body(&mir.borrow());
-            println!("## Body:");
-            println!("{mir_borrow:#?}");
+            //eprintln!("## Body:");
+            //eprintln!("{mir_borrow:#?}");
+            return;
         }
 
         // Run analysis
@@ -1101,6 +1117,45 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             run_analysis(cx, cx.tcx, &mir.borrow(), body_name);
         }
     }
+}
+
+fn try_visitor<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
+    use rustc_hir_typeck::expr_use_visitor as euv;
+    use rustc_infer::infer::TyCtxtInferExt;
+    #[derive(Default)]
+    struct TestCtxt {}
+    
+    impl<'tcx> euv::Delegate<'tcx> for TestCtxt {
+        fn consume(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId) {
+            eprintln!("consume:   {place:#?}");
+            eprintln!("===");
+        }
+
+        fn borrow(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId, kind: mid::ty::BorrowKind) {
+            eprintln!("borrow:    {place:#?}{kind:#?}");
+            eprintln!("===");
+        }
+
+        fn mutate(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: HirId) {
+            eprintln!("mutate:    {place:#?}");
+            eprintln!("===");
+        }
+
+        fn fake_read(&mut self, place: &euv::PlaceWithHirId<'tcx>, _: FakeReadCause, _: HirId) {
+            eprintln!("fake_read: {place:#?}");
+            eprintln!("===");
+        }
+        
+        fn copy(&mut self, place: &euv::PlaceWithHirId<'tcx>, diag_expr_id: hir::HirId) {
+            eprintln!("copy:      {place:#?}");
+            eprintln!("===");
+            
+        }
+    }
+
+    let mut ctx = TestCtxt::default();
+    let infcx = cx.tcx.infer_ctxt().build();
+    euv::ExprUseVisitor::new(&mut ctx, &infcx, def, cx.param_env, cx.typeck_results()).consume_body(body);
 }
 
 fn print_body(body: &mir::Body<'_>) {

@@ -6,23 +6,33 @@ struct Magic<'a> {
     a: &'a String,
 }
 
+const DUCK:u32 = 10;
+
+#[forbid(clippy::borrow_pats)]
+fn magic(input: String) -> usize {
+    if input.is_empty() {
+        19
+    } else {
+        input.len()
+    }
+}
+
 impl A {
-    #[warn(clippy::borrow_pats)]
+    // #[warn(clippy::borrow_pats)]
     fn borrow_self(&self) -> &A {
         self
     }
 
-    #[warn(clippy::borrow_pats)]
+    // #[warn(clippy::borrow_pats)]
     fn borrow_field_direct(&self) -> &String {
         &self.field
     }
 
-    #[warn(clippy::borrow_pats)]
+    // #[warn(clippy::borrow_pats)]
     fn borrow_field_deref(&self) -> &str {
         &self.field
     }
 
-    #[forbid(clippy::borrow_pats)]
     fn borrow_field_or_default(&self) -> &str {
         if self.field.is_empty() {
             "Here be defaults"
