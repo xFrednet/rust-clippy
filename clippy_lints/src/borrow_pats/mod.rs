@@ -38,6 +38,7 @@ use rustc_span::Symbol;
 use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
 mod owned;
+mod ret;
 mod rustc_extention;
 mod util;
 pub use rustc_extention::*;
@@ -141,6 +142,28 @@ impl<'tcx> AnalysisInfo<'tcx> {
             borrowck::consumers::PlaceConflictBias::NoOverlap,
         )
     }
+}
+
+#[derive(Debug)]
+enum CfgInfo {
+    /// The basic block is linear or almost linear. This is also the
+    /// value used for function calls which could result in unwinds.
+    Linear(BasicBlock),
+    /// The control flow can diverge after this block and will join
+    /// together at `join`
+    Condition {
+        branches: Vec<BasicBlock>,
+        join: BasicBlock,
+    },
+    /// This basic block starts a loop
+    Loop {
+        /// The last basic block that returns to this one
+        end: BasicBlock,
+    },
+    /// This branch doesn't have any successors
+    None,
+    /// Let's see if we can detect this
+    Return,
 }
 
 // ===========================================================
@@ -1122,6 +1145,13 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         if lint_level != Level::Allow {
             let info = AnalysisInfo::new(cx, def);
+
+            let mut return_analysis = ret::ReturnAnalysis::new(&info);
+            return_analysis.run();
+            println!("{return_analysis:#?}");
+            println!("{return_analysis}");
+            return_analysis.update_info();
+
             for (local, kind) in info.local_kinds.iter_enumerated() {
                 // We're only interested in named trash
                 if kind.name().is_some() {

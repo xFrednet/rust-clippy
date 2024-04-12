@@ -15,13 +15,19 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     local: Local,
     name: Symbol,
     state: State,
+    /// A list of all invalidation.
+    invals: Vec<mir::Location>,
     borrows: FxHashMap<(Place<'tcx>, mir::Location), (Place<'tcx>, Mutability, mir::Location)>,
-    pats: FxHashSet<Pets>
+    pats: FxHashSet<Pets>,
 }
 
 impl<'a, 'tcx> std::fmt::Display for OwnedAnalysis<'a, 'tcx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}: [State: {:?}] Patterns: {:?}", self.name, self.state, self.pats)
+        write!(
+            f,
+            "{:?}: [State: {:?}] Patterns: {:?}",
+            self.name, self.state, self.pats
+        )
     }
 }
 
@@ -32,6 +38,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             local,
             name: rustc_span::symbol::kw::Empty,
             state: State::Empty,
+            invals: vec![],
             borrows: FxHashMap::default(),
             pats: FxHashSet::default(),
         }
@@ -68,7 +75,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     // is nice but context is better. Imagine `_0 = move X`. So at last, I need
     // to write these things with other visitors.
 
-    fn visit_assign(&mut self,target: &Place<'tcx>,rvalue: &Rvalue<'tcx>,location:mir::Location,) {
+    fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: mir::Location) {
         // TODO Ensure that moves always invalidate all borrows. IE. that the current
         // borrow check is really CFG insensitive.
 
@@ -80,31 +87,15 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
             && let Some(place) = op.place()
             && place.local == self.local
         {
+            if op.is_move() {
+                self.invals.push(loc);
+            }
+
             if target.local.as_u32() == 0 {
                 self.pats.insert(Pets::Return);
-                if op.is_move() {
-                    self.state = State::Moved;
-                }
             } else {
                 todo!();
             }
-        }
-        match &rvalue {
-            Rvalue::Use(_) => {},
-            Rvalue::Repeat(_, _) => todo!(),
-            Rvalue::Ref(_, _, _) => todo!(),
-            Rvalue::ThreadLocalRef(_) => todo!(),
-            Rvalue::AddressOf(_, _) => todo!(),
-            Rvalue::Len(_) => todo!(),
-            Rvalue::Cast(_, _, _) => todo!(),
-            Rvalue::BinaryOp(_, _) => todo!(),
-            Rvalue::CheckedBinaryOp(_, _) => todo!(),
-            Rvalue::NullaryOp(_, _) => todo!(),
-            Rvalue::UnaryOp(_, _) => todo!(),
-            Rvalue::Discriminant(_) => todo!(),
-            Rvalue::Aggregate(_, _) => todo!(),
-            Rvalue::ShallowInitBox(_, _) => todo!(),
-            Rvalue::CopyForDeref(_) => todo!(),
         }
     }
 }
