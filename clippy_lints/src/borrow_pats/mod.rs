@@ -155,11 +155,10 @@ enum CfgInfo {
         branches: Vec<BasicBlock>,
         join: BasicBlock,
     },
-    /// This basic block starts a loop
-    Loop {
-        /// The last basic block that returns to this one
-        end: BasicBlock,
-    },
+    /// This basic block breaks loop. It could also be the first condition.
+    /// This includes the loop conditions at the start. However, it doesn't
+    /// have to be the first block of the loop.
+    Break { next: BasicBlock, brea: BasicBlock },
     /// This branch doesn't have any successors
     None,
     /// Let's see if we can detect this
