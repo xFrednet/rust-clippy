@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-use super::{AnalysisInfo, CfgInfo};
+use super::{calc_call_local_relations, AnalysisInfo, CfgInfo};
 
 use hir::Mutability;
 use mid::mir::visit::Visitor;
@@ -10,7 +10,6 @@ use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::bit_set::BitSet;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, FakeReadCause, Local, Place, Rvalue};
-use rustc_span::Symbol;
 use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
 /// This analysis is special as it is always the first one to run. It collects
@@ -26,6 +25,7 @@ pub struct ReturnAnalysis<'a, 'tcx> {
     visited: BitSet<BasicBlock>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
+    pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
 }
 
 impl<'a, 'tcx> std::fmt::Display for ReturnAnalysis<'a, 'tcx> {
@@ -46,9 +46,6 @@ enum Pets {
     Argument,
 }
 
-#[derive(Debug)]
-struct CfgJoinInfo(BasicBlock, usize);
-
 impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
     pub fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
         let bbs_len = info.body.basic_blocks.len();
@@ -59,6 +56,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             cfg: Default::default(),
             visited: BitSet::new_empty(bbs_len),
             loops: Default::default(),
+            terms: Default::default(),
         }
     }
 
@@ -112,6 +110,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
 
         // Here we also have to traverse everything in reverse order
         let bbd = &self.info.body.basic_blocks[bb];
+        self.visit_terminator_for_terms(bbd.terminator(), bb);
         self.visit_terminator_for_locals(bbd.terminator(), bb);
         self.visit_terminator_for_cfg(bbd.terminator(), bb);
 
@@ -138,7 +137,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
-                if let Some((loop_set, loop_bb)) = self.find_loop(bb)
+                if let Some((loop_set, _loop_bb)) = self.find_loop(bb)
                     && let Some((next, brea)) = match targets.all_targets() {
                         [a, b] | [b, a] if !loop_set.contains(*b) => Some((*a, *b)),
                         _ => None,
@@ -168,12 +167,25 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
         self.cfg.insert(bb, cfg_info);
     }
 
+    fn visit_terminator_for_terms(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
+        match &term.kind {
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination,
+                ..
+            } => {
+                assert!(destination.projection.is_empty());
+                let dest = destination.local;
+                self.terms
+                    .insert(bb, calc_call_local_relations(self.info.tcx, func, dest, args));
+            },
+            _ => {},
+        }
+    }
+
     pub fn take_info(self) -> (BTreeMap<BasicBlock, CfgInfo>, Vec<(BitSet<BasicBlock>, BasicBlock)>) {
-        let Self {
-            cfg,
-            loops,
-            ..
-        } = self;
+        let Self { cfg, loops, .. } = self;
         (cfg, loops)
     }
 }

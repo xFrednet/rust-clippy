@@ -28,6 +28,7 @@ use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
 use hir::def_id::LocalDefId;
 use hir::{HirId, Mutability};
 use mid::mir::visit::Visitor;
+use mid::mir::Location;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::bit_set::BitSet;
@@ -81,6 +82,7 @@ struct AnalysisInfo<'tcx> {
     cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
+    terms: BTreeMap<Location, BTreeMap<Local, Vec<Local>>>,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -116,6 +118,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             local_kinds,
             cfg: Default::default(),
             loops: Default::default(),
+            terms: Default::default(),
         }
     }
 
@@ -1154,6 +1157,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
             let mut return_analysis = ret::ReturnAnalysis::new(&info);
             return_analysis.run();
+            println!("{:#?}", return_analysis.terms);
             println!("{return_analysis}");
             let (cfg, loops) = return_analysis.take_info();
             info.cfg = cfg;
