@@ -10,6 +10,7 @@
 //! - Insight: Loans are basically just special dependent typed
 //!     - Rename some `Loan` to `Dep`
 //!     - Handle Deps like loans
+//! - Checkout: `rvalue_locals`
 //!
 //! # Done
 //! - [x] Refactor events to have places instead of locals.
@@ -151,10 +152,7 @@ enum CfgInfo {
     Linear(BasicBlock),
     /// The control flow can diverge after this block and will join
     /// together at `join`
-    Condition {
-        branches: Vec<BasicBlock>,
-        join: BasicBlock,
-    },
+    Condition { branches: Vec<BasicBlock> },
     /// This basic block breaks loop. It could also be the first condition.
     /// This includes the loop conditions at the start. However, it doesn't
     /// have to be the first block of the loop.

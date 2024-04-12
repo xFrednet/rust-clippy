@@ -23,11 +23,9 @@ pub struct ReturnAnalysis<'a, 'tcx> {
     inputs: FxHashSet<Local>,
     pats: FxHashSet<Pets>,
     cfg: BTreeMap<BasicBlock, CfgInfo>,
-    cfg_stack: Vec<CfgJoinInfo>,
     visited: BitSet<BasicBlock>,
-    /// All found loops with the start points in decending order
-    /// Example `[6..8, 3..5, 1..9]`
-    loops: Vec<Range<BasicBlock>>,
+    /// The set defines the loop bbs, and the basic block determines the end of the loop
+    loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
 }
 
 impl<'a, 'tcx> std::fmt::Display for ReturnAnalysis<'a, 'tcx> {
@@ -59,7 +57,6 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             inputs: Default::default(),
             pats: Default::default(),
             cfg: Default::default(),
-            cfg_stack: Default::default(),
             visited: BitSet::new_empty(bbs_len),
             loops: Default::default(),
         }
@@ -79,26 +76,32 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
     }
 
     fn collect_loops(&mut self) {
+        let predecessors = self.info.body.basic_blocks.predecessors();
         for (bb, bbd) in self.info.body.basic_blocks.iter_enumerated() {
             if let TerminatorKind::Goto { target } = bbd.terminator().kind {
                 if target < bb {
-                    // I want to have `Ranges` instead of `InclusiveRanges`
-                    let stop = BasicBlock::from_u32(bb.as_u32() + 1);
-                    self.loops.push(target..stop);
+                    let mut loop_set = BitSet::new_empty(self.info.body.basic_blocks.len());
+                    loop_set.insert(target);
+
+                    let mut queue = vec![bb];
+                    while let Some(pred) = queue.pop() {
+                        if !loop_set.contains(pred) {
+                            loop_set.insert(pred);
+                            queue.extend_from_slice(&predecessors[pred]);
+                        }
+                    }
+
+                    self.loops.push((loop_set, bb));
                 }
             }
         }
-
-        // Reverse order for cache performence during search :D
-        self.loops.sort_by(|a, b| b.start.cmp(&a.start));
     }
 
-    fn find_loop(&self, bb: BasicBlock) -> Option<&Range<BasicBlock>> {
-        // Example `[6..8, 3..5, 1..9]`
-        //  7 -> Some(6..8)
-        //  2 -> Some(1..9)
-        // 10 -> None
-        self.loops.iter().find(|l| l.contains(&bb))
+    fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
+        self.loops
+            .iter()
+            .filter(|(set, _)| set.contains(bb))
+            .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
     }
 
     fn walk_block(&mut self, bb: BasicBlock) {
@@ -110,20 +113,10 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
 
         // Here we also have to traverse everything in reverse order
         let bbd = &self.info.body.basic_blocks[bb];
-        self.visit_terminator_for_cfg(bbd.terminator(), bb);
         self.visit_terminator_for_locals(bbd.terminator(), bb);
+        self.visit_terminator_for_cfg(bbd.terminator(), bb);
 
-        // A bias is added to the
         let pre_bbs = &self.info.body.basic_blocks.predecessors()[bb];
-        // let loop_bias = self
-        //     .find_loop(bb)
-        //     .map(|l| pre_bbs.iter().filter(|pre_bb| l.contains(pre_bb)).count())
-        //     .unwrap_or_default();
-        let incoming_bbs_ctn = pre_bbs.iter().filter(|pre_bb| **pre_bb < bb).count();
-        match incoming_bbs_ctn {
-            0 | 1 => {},
-            len => self.cfg_stack.push(CfgJoinInfo(bb, len)),
-        }
         for pre_bb in pre_bbs {
             self.walk_block(*pre_bb);
         }
@@ -146,37 +139,18 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
-                if let Some(loop_range) = self.find_loop(bb)
+                if let Some((loop_set, loop_bb)) = self.find_loop(bb)
                     && let Some((next, brea)) = match targets.all_targets() {
-                        [a, b] | [b, a] if !loop_range.contains(b) => Some((*a, *b)),
+                        [a, b] | [b, a] if !loop_set.contains(*b) => Some((*a, *b)),
                         _ => None,
                     }
                 {
-                    self.cfg_stack.retain_mut(|CfgJoinInfo(join_bb, edges)| {
-                        if *join_bb == brea {
-                            *edges -= 1;
-                            *edges == 0
-                        } else {
-                            true
-                        }
-                    });
-
                     CfgInfo::Break { next, brea }
                 } else {
-                    let CfgJoinInfo(join_bb, edges) = self.cfg_stack.last_mut().unwrap();
                     let mut branches = Vec::new();
                     branches.extend_from_slice(targets.all_targets());
-                    let join_bb = *join_bb;
 
-                    *edges -= branches.len();
-                    if *edges == 0 {
-                        self.cfg_stack.pop();
-                    }
-
-                    CfgInfo::Condition {
-                        branches,
-                        join: join_bb,
-                    }
+                    CfgInfo::Condition { branches }
                 }
             },
             #[rustfmt::skip]
@@ -191,6 +165,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             mir::TerminatorKind::Return => CfgInfo::Return,
             mir::TerminatorKind::Yield { .. } => unreachable!(),
         };
+
         self.cfg.insert(bb, cfg_info);
     }
 

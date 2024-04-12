@@ -20,9 +20,9 @@ fn pat_maybe_return_owned_arg_1(a: String) -> String {
     if !a.is_empty() {
         return a;
     }
-    
+
     println!("{a:#?}");
-    
+
     "hey".to_string()
 }
 
