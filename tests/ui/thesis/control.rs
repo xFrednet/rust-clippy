@@ -1,4 +1,4 @@
-#![forbid(clippy::borrow_pats)]
+#![warn(clippy::borrow_pats)]
 
 fn if_1() {
     if true {

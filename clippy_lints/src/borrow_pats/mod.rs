@@ -14,11 +14,13 @@
 //!
 //! # Done
 //! - [x] Refactor events to have places instead of locals.
+//! - [x] Consider HIR based visitor `rustc_hir_typeck::expr_use_visitor::Delegate`
 //!
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
 
-use std::collections::VecDeque;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, VecDeque};
 use std::ops::ControlFlow;
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_late_bound_region};
@@ -28,6 +30,7 @@ use hir::{HirId, Mutability};
 use mid::mir::visit::Visitor;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_index::bit_set::BitSet;
 use rustc_index::IndexVec;
 use rustc_lint::{LateContext, LateLintPass, Level};
 use rustc_middle::mir;
@@ -40,6 +43,7 @@ use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
 mod owned;
 mod ret;
+
 mod rustc_extention;
 mod util;
 pub use rustc_extention::*;
@@ -74,6 +78,9 @@ struct AnalysisInfo<'tcx> {
     local_kinds: IndexVec<mir::Local, LocalKind>,
     // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
+    cfg: BTreeMap<BasicBlock, CfgInfo>,
+    /// The set defines the loop bbs, and the basic block determines the end of the loop
+    loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -107,6 +114,8 @@ impl<'tcx> AnalysisInfo<'tcx> {
             body,
             def_id,
             local_kinds,
+            cfg: Default::default(),
+            loops: Default::default(),
         }
     }
 
@@ -1141,14 +1150,17 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
 
         if lint_level != Level::Allow {
-            let info = AnalysisInfo::new(cx, def);
+            let mut info = AnalysisInfo::new(cx, def);
 
             let mut return_analysis = ret::ReturnAnalysis::new(&info);
             return_analysis.run();
-            println!("{return_analysis:#?}");
             println!("{return_analysis}");
-            return_analysis.update_info();
+            let (cfg, loops) = return_analysis.take_info();
+            info.cfg = cfg;
+            info.loops = loops;
+            let info = info;
 
+            return;
             for (local, kind) in info.local_kinds.iter_enumerated() {
                 // We're only interested in named trash
                 if kind.name().is_some() {

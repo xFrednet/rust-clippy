@@ -108,7 +108,6 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
         if self.visited.contains(bb) {
             return;
         }
-        eprintln!("Visited: {bb:#?}");
         self.visited.insert(bb);
 
         // Here we also have to traverse everything in reverse order
@@ -169,7 +168,12 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
         self.cfg.insert(bb, cfg_info);
     }
 
-    pub fn update_info(&mut self) {
-        todo!()
+    pub fn take_info(self) -> (BTreeMap<BasicBlock, CfgInfo>, Vec<(BitSet<BasicBlock>, BasicBlock)>) {
+        let Self {
+            cfg,
+            loops,
+            ..
+        } = self;
+        (cfg, loops)
     }
 }
