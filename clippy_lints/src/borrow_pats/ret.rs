@@ -5,9 +5,7 @@ use rustc_index::bit_set::BitSet;
 use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::{self, BasicBlock, Local, Operand};
 
-use super::AnalysisInfo;
-
-const RETURN: Local = Local::from_u32(0);
+use super::{AnalysisInfo, RETURN};
 
 #[derive(Debug)]
 pub struct ReturnAnalysis<'a, 'tcx> {

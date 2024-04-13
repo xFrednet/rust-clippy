@@ -43,7 +43,6 @@ use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
 use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
-mod meta;
 mod owned;
 mod ret;
 
@@ -53,6 +52,8 @@ mod util;
 pub use info::*;
 pub use rustc_extention::*;
 pub use util::*;
+
+const RETURN: Local = Local::from_u32(0);
 
 declare_clippy_lint! {
     /// ### What it does
@@ -1035,13 +1036,13 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             ret::ReturnAnalysis::run(&info);
 
             return;
-            for (local, kind) in info.local_kinds.iter_enumerated() {
+            for (local, local_info) in info.locals.iter() {
                 // We're only interested in named trash
-                if kind.name().is_some() {
-                    let decl = &info.body.local_decls[local];
+                if local_info.kind.name().is_some() {
+                    let decl = &info.body.local_decls[*local];
                     let is_owned = !decl.ty.is_ref();
                     if is_owned {
-                        let mut analysis = owned::OwnedAnalysis::new(&info, local);
+                        let mut analysis = owned::OwnedAnalysis::new(&info, *local);
                         analysis.visit_body(&info.body);
                         println!("{analysis}");
                     }

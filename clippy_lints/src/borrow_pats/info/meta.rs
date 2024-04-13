@@ -1,18 +1,17 @@
-#[warn(unused)]
 use std::collections::BTreeMap;
-use std::ops::Range;
 
-use super::{calc_call_local_relations, AnalysisInfo, CfgInfo, LocalAssignInfo, LocalInfo, LocalOrConst};
+use crate::borrow_pats::PrintPrevent;
 
-use hir::Mutability;
+use super::super::{calc_call_local_relations, CfgInfo, LocalAssignInfo, LocalInfo, LocalOrConst};
+use super::LocalKind;
+
 use mid::mir::visit::Visitor;
-use mid::mir::{Terminator, TerminatorKind, VarDebugInfo, VarDebugInfoContents};
-use mid::ty::TypeVisitableExt;
-use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use mid::mir::{Body, Terminator, TerminatorKind};
+use mid::ty::{TyCtxt, TypeVisitableExt};
 use rustc_index::bit_set::BitSet;
+use rustc_middle as mid;
 use rustc_middle::mir;
-use rustc_middle::mir::{BasicBlock, FakeReadCause, Local, Place, Rvalue};
-use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
+use rustc_middle::mir::{BasicBlock, Local, Place, Rvalue};
 
 /// This analysis is special as it is always the first one to run. It collects
 /// information about the control flow etc, which will be used by future analysis.
@@ -20,48 +19,77 @@ use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 /// For better construction and value tracking, it uses reverse order depth search
 #[derive(Debug)]
 pub struct MetaAnalysis<'a, 'tcx> {
-    info: &'a AnalysisInfo<'tcx>,
-    visited: BitSet<BasicBlock>,
+    body: &'a Body<'tcx>,
+    tcx: PrintPrevent<TyCtxt<'tcx>>,
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
     pub return_block: BasicBlock,
-    pub local_infos: BTreeMap<Local, LocalInfo<'tcx>>,
+    pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
-    pub fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
-        let local_info_iter = info
-            .local_kinds
-            .iter_enumerated()
-            .map(|(id, kind)| (id, LocalInfo::new(*kind)));
-        let mut local_infos = BTreeMap::new();
-        local_infos.extend(local_info_iter);
+    pub fn from_body(tcx: TyCtxt<'tcx>, body: &'a Body<'tcx>) -> Self {
+        let mut anly = Self::new(tcx, body);
+        anly.visit_body(body);
+        anly.mark_unused_locals();
+        anly
+    }
 
-        let bbs_len = info.body.basic_blocks.len();
-        Self {
-            info,
+    pub fn new(tcx: TyCtxt<'tcx>, body: &'a Body<'tcx>) -> Self {
+        let locals = Self::setup_local_infos(body);
+
+        let mut anly = Self {
+            body,
+            tcx: PrintPrevent(tcx),
             cfg: Default::default(),
-            visited: BitSet::new_empty(bbs_len),
             loops: Default::default(),
             terms: Default::default(),
             return_block: BasicBlock::from_u32(0),
-            local_infos,
-        }
+            locals,
+        };
+
+        anly.collect_loops();
+        anly
     }
 
-    pub fn run(&mut self) {
-        self.collect_loops();
-        self.visit_body(&self.info.body);
+    fn setup_local_infos(body: &mir::Body<'tcx>) -> BTreeMap<Local, LocalInfo<'tcx>> {
+        let local_info_iter = body
+            .local_decls
+            .indices()
+            .map(|id| (id, LocalInfo::new(LocalKind::AnonVar)));
+        let mut local_infos = BTreeMap::new();
+        local_infos.extend(local_info_iter);
+
+        local_infos.get_mut(&super::super::RETURN).map(|info| {
+            info.kind = LocalKind::Return;
+        });
+        body.var_debug_info.iter().for_each(|info| {
+            if let mir::VarDebugInfoContents::Place(place) = info.value {
+                let local = place.local;
+                // +1, since `_0` is used for the return
+                local_infos.get_mut(&local).map(|loc_info| {
+                    loc_info.kind = if local < (body.arg_count + 1).into() {
+                        LocalKind::UserArg(info.name)
+                    } else {
+                        LocalKind::UserVar(info.name)
+                    };
+                });
+            } else {
+                todo!("How should this be handled? {info:#?}");
+            }
+        });
+
+        local_infos
     }
 
     fn collect_loops(&mut self) {
-        let predecessors = self.info.body.basic_blocks.predecessors();
-        for (bb, bbd) in self.info.body.basic_blocks.iter_enumerated() {
+        let predecessors = self.body.basic_blocks.predecessors();
+        for (bb, bbd) in self.body.basic_blocks.iter_enumerated() {
             if let TerminatorKind::Goto { target } = bbd.terminator().kind {
                 if target < bb {
-                    let mut loop_set = BitSet::new_empty(self.info.body.basic_blocks.len());
+                    let mut loop_set = BitSet::new_empty(self.body.basic_blocks.len());
                     loop_set.insert(target);
 
                     let mut queue = vec![bb];
@@ -79,7 +107,11 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     }
 
     fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
-        super::find_loop(&self.loops, bb)
+        super::super::find_loop(&self.loops, bb)
+    }
+
+    fn mark_unused_locals(&mut self) {
+        self.locals.iter_mut().filter(|(_, info)| info.data == LocalAssignInfo::Unresolved).for_each(|(_, info)| {info.kind = LocalKind::Unused; });
     }
 
     fn visit_terminator_for_cfg(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
@@ -139,19 +171,19 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                 assert!(destination.projection.is_empty());
                 let dest = destination.local;
                 self.terms
-                    .insert(bb, calc_call_local_relations(self.info.tcx, func, dest, args));
+                    .insert(bb, calc_call_local_relations(self.tcx.0, func, dest, args));
             },
             _ => {},
         }
     }
 
-    fn visit_terminator_for_locals(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
+    fn visit_terminator_for_locals(&mut self, term: &Terminator<'tcx>, _bb: BasicBlock) {
         match &term.kind {
             mir::TerminatorKind::Call { destination, .. } => {
                 // TODO: Should mut arguments be handled?
                 assert!(destination.projection.is_empty());
                 let local = destination.local;
-                self.local_infos
+                self.locals
                     .get_mut(&local)
                     .unwrap()
                     .add_assign(*destination, LocalAssignInfo::Computed);
@@ -172,7 +204,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
         let local = place.local;
 
         let assign_info = match rval {
-            mir::Rvalue::Ref(_reg, kind, src) => {
+            mir::Rvalue::Ref(_reg, _kind, src) => {
                 match src.projection.as_slice() {
                     [mir::PlaceElem::Deref] => {
                         // &(*_1) = Copy
@@ -222,9 +254,6 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             | Rvalue::CopyForDeref(_) => LocalAssignInfo::Computed,
         };
 
-        self.local_infos
-            .get_mut(&local)
-            .unwrap()
-            .add_assign(*place, assign_info);
+        self.locals.get_mut(&local).unwrap().add_assign(*place, assign_info);
     }
 }

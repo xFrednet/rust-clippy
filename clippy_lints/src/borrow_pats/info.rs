@@ -2,11 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use super::meta::MetaAnalysis;
 use hir::def_id::LocalDefId;
+use meta::MetaAnalysis;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_index::bit_set::BitSet;
-use rustc_index::IndexVec;
 use rustc_lint::LateContext;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
@@ -15,12 +14,13 @@ use rustc_span::Symbol;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
+mod meta;
+
 pub struct AnalysisInfo<'tcx> {
     pub cx: &'tcx LateContext<'tcx>,
     pub tcx: TyCtxt<'tcx>,
     pub body: mir::Body<'tcx>,
     pub def_id: LocalDefId,
-    pub local_kinds: IndexVec<mir::Local, LocalKind>,
     // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
@@ -37,7 +37,6 @@ impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
         f.debug_struct("AnalysisInfo")
             .field("body", &self.body)
             .field("def_id", &self.def_id)
-            .field("local_kinds", &self.local_kinds)
             .field("cfg", &self.cfg)
             .field("loops", &self.loops)
             .field("terms", &self.terms)
@@ -58,53 +57,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             ..
         } = get_body_with_borrowck_facts(cx.tcx, def_id, ConsumerOptions::RegionInferenceContext);
 
-        // Maybe check: borrowck::dataflow::calculate_borrows_out_of_scope_at_location
-
-        let local_kinds = Self::determine_local_kinds(&body);
-        let mut res = Self {
-            cx,
-            tcx: cx.tcx,
-            body,
-            def_id,
-            local_kinds,
-            // Will be filled by meta analysis:
-            cfg: Default::default(),
-            loops: Default::default(),
-            terms: Default::default(),
-            return_block: BasicBlock::from_u32(0),
-            locals: Default::default(),
-        };
-        res.collect_meta();
-        res
-    }
-
-    fn determine_local_kinds(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, LocalKind> {
-        let mut kinds = IndexVec::default();
-        kinds.resize(body.local_decls.len(), LocalKind::AnonVar);
-
-        kinds[mir::Local::from_u32(0)] = LocalKind::Return;
-        body.var_debug_info.iter().for_each(|info| {
-            if let mir::VarDebugInfoContents::Place(place) = info.value {
-                let local = place.local;
-                // +1, since `_0` is used for the return
-                kinds.get_mut(local).map(|kind| {
-                    *kind = if local < (body.arg_count + 1).into() {
-                        LocalKind::UserArg(info.name)
-                    } else {
-                        LocalKind::UserVar(info.name)
-                    }
-                });
-            } else {
-                todo!("How should this be handled? {info:#?}");
-            }
-        });
-
-        kinds
-    }
-
-    fn collect_meta(&mut self) {
-        let mut meta_analysis = MetaAnalysis::new(self);
-        meta_analysis.run();
+        let meta_analysis = MetaAnalysis::from_body(cx.tcx, &body);
 
         // This needs deconstruction to kill the loan of self
         let MetaAnalysis {
@@ -112,14 +65,23 @@ impl<'tcx> AnalysisInfo<'tcx> {
             loops,
             terms,
             return_block,
-            local_infos,
+            locals,
             ..
         } = meta_analysis;
-        self.cfg = cfg;
-        self.loops = loops;
-        self.terms = terms;
-        self.return_block = return_block;
-        self.locals = local_infos;
+
+        // Maybe check: borrowck::dataflow::calculate_borrows_out_of_scope_at_location
+
+        Self {
+            cx,
+            tcx: cx.tcx,
+            body,
+            def_id,
+            cfg,
+            loops,
+            terms,
+            return_block,
+            locals,
+        }
     }
 
     #[expect(dead_code)]
@@ -168,6 +130,9 @@ pub enum LocalKind {
     UserVar(Symbol),
     /// Generated variable, i.e. unnamed
     AnonVar,
+    /// This value was previously part of rustc's MIR but is no longer used.
+    Unused,
+    // TODO: Remove!
     /// An anonymous constant value
     AnonConst,
 }

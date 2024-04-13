@@ -215,13 +215,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:3 ~ control[8063]::if_1),
-    local_kinds: [
-        Return,
-        AnonVar,
-        UserVar(
-            "_x",
-        ),
-    ],
     cfg: {
         bb0: Condition {
             branches: [
@@ -599,17 +592,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:4 ~ control[8063]::if_2),
-    local_kinds: [
-        Return,
-        AnonVar,
-        UserVar(
-            "_x",
-        ),
-        AnonVar,
-        UserVar(
-            "_y",
-        ),
-    ],
     cfg: {
         bb0: Condition {
             branches: [
@@ -1083,18 +1065,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:5 ~ control[8063]::loop_1),
-    local_kinds: [
-        Return,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-    ],
     cfg: {
         bb0: Linear(
             bb1,
@@ -1182,32 +1152,32 @@ AnalysisInfo {
             data: Computed,
         },
         _4: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _5: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _6: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _7: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _8: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _9: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
@@ -1574,19 +1544,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:6 ~ control[8063]::loop_2),
-    local_kinds: [
-        Return,
-        UserVar(
-            "idx",
-        ),
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-    ],
     cfg: {
         bb0: Linear(
             bb1,
@@ -1655,17 +1612,17 @@ AnalysisInfo {
             data: Computed,
         },
         _6: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _7: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
         _8: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
@@ -2116,25 +2073,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:7 ~ control[8063]::loop_3),
-    local_kinds: [
-        Return,
-        UserVar(
-            "idx",
-        ),
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        UserVar(
-            "_x",
-        ),
-        UserVar(
-            "_y",
-        ),
-    ],
     cfg: {
         bb0: Linear(
             bb1,
@@ -2213,7 +2151,7 @@ AnalysisInfo {
             ),
         },
         _8: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
@@ -2537,19 +2475,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:8 ~ control[8063]::block_with_label),
-    local_kinds: [
-        Return,
-        AnonVar,
-        UserVar(
-            "_x",
-        ),
-        AnonVar,
-        AnonVar,
-        AnonVar,
-        UserVar(
-            "_y",
-        ),
-    ],
     cfg: {
         bb0: Condition {
             branches: [
@@ -2596,7 +2521,7 @@ AnalysisInfo {
             data: Const,
         },
         _5: LocalInfo {
-            kind: AnonVar,
+            kind: Unused,
             assign_count: 0,
             data: Unresolved,
         },
@@ -2714,9 +2639,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:10 ~ control[8063]::cond_1),
-    local_kinds: [
-        Return,
-    ],
     cfg: {
         bb0: Return,
     },
@@ -2835,9 +2757,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:11 ~ control[8063]::cond_2),
-    local_kinds: [
-        Return,
-    ],
     cfg: {
         bb0: Return,
     },
@@ -2956,9 +2875,6 @@ AnalysisInfo {
         function_coverage_info: None,
     },
     def_id: DefId(0:12 ~ control[8063]::main),
-    local_kinds: [
-        Return,
-    ],
     cfg: {
         bb0: Return,
     },
