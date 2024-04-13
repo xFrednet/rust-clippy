@@ -42,11 +42,14 @@ use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
 use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
+mod meta;
 mod owned;
 mod ret;
 
+mod info;
 mod rustc_extention;
 mod util;
+pub use info::*;
 pub use rustc_extention::*;
 pub use util::*;
 
@@ -70,110 +73,6 @@ declare_clippy_lint! {
 }
 
 declare_lint_pass!(BorrowPats => [BORROW_PATS]);
-
-struct AnalysisInfo<'tcx> {
-    cx: &'tcx LateContext<'tcx>,
-    tcx: TyCtxt<'tcx>,
-    body: mir::Body<'tcx>,
-    def_id: LocalDefId,
-    local_kinds: IndexVec<mir::Local, LocalKind>,
-    // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
-    // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
-    cfg: BTreeMap<BasicBlock, CfgInfo>,
-    /// The set defines the loop bbs, and the basic block determines the end of the loop
-    loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
-    terms: BTreeMap<Location, BTreeMap<Local, Vec<Local>>>,
-}
-
-impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AnalysisInfo")
-            .field("body", &self.body)
-            .field("def_id", &self.def_id)
-            .field("local_kinds", &self.local_kinds)
-            .finish()
-    }
-}
-
-impl<'tcx> AnalysisInfo<'tcx> {
-    fn new(cx: &LateContext<'tcx>, def_id: LocalDefId) -> Self {
-        // This is totally unsafe and I will not pretend it isn't.
-        // In this context it is safe, this struct will never outlive `cx`
-        let cx = unsafe { core::mem::transmute::<&LateContext<'tcx>, &'tcx LateContext<'tcx>>(cx) };
-
-        let borrowck::consumers::BodyWithBorrowckFacts {
-            body,
-            // borrow_set, location_table
-            ..
-        } = get_body_with_borrowck_facts(cx.tcx, def_id, ConsumerOptions::RegionInferenceContext);
-
-        // Maybe check: borrowck::dataflow::calculate_borrows_out_of_scope_at_location
-
-        let local_kinds = Self::determine_local_kinds(&body);
-        Self {
-            cx,
-            tcx: cx.tcx,
-            body,
-            def_id,
-            local_kinds,
-            cfg: Default::default(),
-            loops: Default::default(),
-            terms: Default::default(),
-        }
-    }
-
-    fn determine_local_kinds(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, LocalKind> {
-        let mut kinds = IndexVec::default();
-        kinds.resize(body.local_decls.len(), LocalKind::AnonVar);
-
-        kinds[mir::Local::from_u32(0)] = LocalKind::Return;
-        body.var_debug_info.iter().for_each(|info| {
-            if let mir::VarDebugInfoContents::Place(place) = info.value {
-                let local = place.local;
-                // +1, since `_0` is used for the return
-                kinds.get_mut(local).map(|kind| {
-                    *kind = if local < (body.arg_count + 1).into() {
-                        LocalKind::UserArg(info.name)
-                    } else {
-                        LocalKind::UserVar(info.name)
-                    }
-                });
-            } else {
-                todo!("How should this be handled? {info:#?}");
-            }
-        });
-
-        kinds
-    }
-
-    fn places_conflict(&self, a: Place<'tcx>, b: Place<'tcx>) -> bool {
-        borrowck::consumers::places_conflict(
-            self.tcx,
-            &self.body,
-            a,
-            b,
-            borrowck::consumers::PlaceConflictBias::NoOverlap,
-        )
-    }
-}
-
-#[derive(Debug)]
-enum CfgInfo {
-    /// The basic block is linear or almost linear. This is also the
-    /// value used for function calls which could result in unwinds.
-    Linear(BasicBlock),
-    /// The control flow can diverge after this block and will join
-    /// together at `join`
-    Condition { branches: Vec<BasicBlock> },
-    /// This basic block breaks loop. It could also be the first condition.
-    /// This includes the loop conditions at the start. However, it doesn't
-    /// have to be the first block of the loop.
-    Break { next: BasicBlock, brea: BasicBlock },
-    /// This branch doesn't have any successors
-    None,
-    /// Let's see if we can detect this
-    Return,
-}
 
 // ===========================================================
 // Old Analysis
@@ -1062,30 +961,6 @@ enum LoanEventKind<'a, 'tcx> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum LocalKind {
-    Unknown,
-    /// The return local
-    Return,
-    /// User defined argument
-    UserArg(Symbol),
-    /// User defined variable
-    UserVar(Symbol),
-    /// Generated variable, i.e. unnamed
-    AnonVar,
-    /// An anonymous constant value
-    AnonConst,
-}
-
-impl LocalKind {
-    fn name(&self) -> Option<Symbol> {
-        match self {
-            Self::UserArg(name) | Self::UserVar(name) => Some(*name),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum PatternKind {
     Unknown,
     TempBorrowed,
@@ -1154,15 +1029,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def);
-
-            let mut return_analysis = ret::ReturnAnalysis::new(&info);
-            return_analysis.run();
-            println!("{:#?}", return_analysis.terms);
-            println!("{return_analysis}");
-            let (cfg, loops) = return_analysis.take_info();
-            info.cfg = cfg;
-            info.loops = loops;
-            let info = info;
+            println!("{info:#?}");
 
             return;
             for (local, kind) in info.local_kinds.iter_enumerated() {

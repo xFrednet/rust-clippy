@@ -1,0 +1,1782 @@
+=====
+bb0:
+    StorageLive(_5)
+    StorageLive(_6)
+    _6 = move _3
+    _5 = no_rep(const 1_u32, move _6) -> [return: bb1, unwind: bb13]
+
+bb1:
+    StorageDead(_6)
+    FakeRead(ForLet(None), _5)
+    StorageLive(_7)
+    StorageLive(_8)
+    StorageLive(_9)
+    _9 = &_1
+    _8 = &(*_9)
+    _7 = direct_dep(move _8, const 2_u32) -> [return: bb2, unwind: bb14]
+
+bb2:
+    StorageDead(_8)
+    FakeRead(ForLet(None), _7)
+    StorageDead(_9)
+    StorageLive(_10)
+    StorageLive(_11)
+    StorageLive(_12)
+    _12 = &_1
+    _11 = &(*_12)
+    StorageLive(_13)
+    StorageLive(_14)
+    _14 = &_2
+    _13 = &(*_14)
+    _10 = lifetime_dep(move _11, move _13) -> [return: bb3, unwind: bb14]
+
+bb3:
+    StorageDead(_13)
+    StorageDead(_11)
+    FakeRead(ForLet(None), _10)
+    StorageDead(_14)
+    StorageDead(_12)
+    StorageLive(_15)
+    StorageLive(_16)
+    StorageLive(_17)
+    _17 = &_1
+    _16 = &(*_17)
+    StorageLive(_18)
+    StorageLive(_19)
+    _19 = &_2
+    _18 = &(*_19)
+    _15 = lifetime_dep_more(move _16, move _18) -> [return: bb4, unwind: bb14]
+
+bb4:
+    StorageDead(_18)
+    StorageDead(_16)
+    FakeRead(ForLet(None), _15)
+    StorageDead(_19)
+    StorageDead(_17)
+    StorageLive(_20)
+    StorageLive(_21)
+    StorageLive(_22)
+    _43 = const _
+    _22 = &(*_43)
+    _21 = &(*_22)
+    StorageLive(_24)
+    StorageLive(_25)
+    _42 = const _
+    _25 = &(*_42)
+    _24 = &(*_25)
+    _20 = lifetime_dep_prim(move _21, move _24) -> [return: bb5, unwind: bb14]
+
+bb5:
+    StorageDead(_24)
+    StorageDead(_21)
+    FakeRead(ForLet(None), _20)
+    StorageDead(_25)
+    StorageDead(_22)
+    StorageLive(_27)
+    StorageLive(_28)
+    StorageLive(_29)
+    _29 = const "In"
+    _28 = &(*_29)
+    StorageLive(_30)
+    StorageLive(_31)
+    _31 = const "Put"
+    _30 = &(*_31)
+    _27 = lifetime_dep_const(move _28, move _30) -> [return: bb6, unwind: bb14]
+
+bb6:
+    StorageDead(_30)
+    StorageDead(_28)
+    FakeRead(ForLet(None), _27)
+    StorageDead(_31)
+    StorageDead(_29)
+    StorageLive(_32)
+    StorageLive(_33)
+    StorageLive(_34)
+    _34 = &_1
+    _33 = &(*_34)
+    StorageLive(_35)
+    StorageLive(_36)
+    _36 = &_2
+    _35 = &(*_36)
+    _32 = lifetime_outlives::<'_, '_, '_>(move _33, move _35) -> [return: bb7, unwind: bb14]
+
+bb7:
+    StorageDead(_35)
+    StorageDead(_33)
+    FakeRead(ForLet(None), _32)
+    StorageDead(_36)
+    StorageDead(_34)
+    StorageLive(_37)
+    StorageLive(_38)
+    StorageLive(_39)
+    _39 = &(_4.0: std::string::String)
+    _38 = &(*_39)
+    StorageLive(_40)
+    StorageLive(_41)
+    _41 = &(_4.1: std::string::String)
+    _40 = &(*_41)
+    _37 = lifetime_outlives::<'_, '_, '_>(move _38, move _40) -> [return: bb8, unwind: bb14]
+
+bb8:
+    StorageDead(_40)
+    StorageDead(_38)
+    FakeRead(ForLet(None), _37)
+    StorageDead(_41)
+    StorageDead(_39)
+    _0 = const ()
+    StorageDead(_37)
+    StorageDead(_32)
+    StorageDead(_27)
+    StorageDead(_20)
+    StorageDead(_15)
+    StorageDead(_10)
+    StorageDead(_7)
+    StorageDead(_5)
+    drop(_4) -> [return: bb9, unwind: bb15]
+
+bb9:
+    drop(_3) -> [return: bb10, unwind: bb16]
+
+bb10:
+    drop(_2) -> [return: bb11, unwind: bb17]
+
+bb11:
+    drop(_1) -> [return: bb12, unwind: bb18]
+
+bb12:
+    return
+
+bb13:
+    drop(_6) -> [return: bb14, unwind terminate(cleanup)]
+
+bb14:
+    drop(_4) -> [return: bb15, unwind terminate(cleanup)]
+
+bb15:
+    drop(_3) -> [return: bb16, unwind terminate(cleanup)]
+
+bb16:
+    drop(_2) -> [return: bb17, unwind terminate(cleanup)]
+
+bb17:
+    drop(_1) -> [return: bb18, unwind terminate(cleanup)]
+
+bb18:
+    resume
+
+=====
+location_map: {
+    bb1[5]: BorrowData {
+        reserve_location: bb1[5],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?6,
+        borrowed_place: _1,
+        assigned_place: _9,
+    },
+    bb2[6]: BorrowData {
+        reserve_location: bb2[6],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?8,
+        borrowed_place: _1,
+        assigned_place: _12,
+    },
+    bb2[10]: BorrowData {
+        reserve_location: bb2[10],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?10,
+        borrowed_place: _2,
+        assigned_place: _14,
+    },
+    bb3[8]: BorrowData {
+        reserve_location: bb3[8],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?12,
+        borrowed_place: _1,
+        assigned_place: _17,
+    },
+    bb3[12]: BorrowData {
+        reserve_location: bb3[12],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?14,
+        borrowed_place: _2,
+        assigned_place: _19,
+    },
+    bb6[8]: BorrowData {
+        reserve_location: bb6[8],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?26,
+        borrowed_place: _1,
+        assigned_place: _34,
+    },
+    bb6[12]: BorrowData {
+        reserve_location: bb6[12],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?28,
+        borrowed_place: _2,
+        assigned_place: _36,
+    },
+    bb7[8]: BorrowData {
+        reserve_location: bb7[8],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?33,
+        borrowed_place: (_4.0: std::string::String),
+        assigned_place: _39,
+    },
+    bb7[12]: BorrowData {
+        reserve_location: bb7[12],
+        activation_location: NotTwoPhase,
+        kind: Shared,
+        region: '?35,
+        borrowed_place: (_4.1: std::string::String),
+        assigned_place: _41,
+    },
+}
+activation_map: {}
+local_map: {
+    _1: {
+        bw0,
+        bw1,
+        bw3,
+        bw5,
+    },
+    _2: {
+        bw2,
+        bw4,
+        bw6,
+    },
+    _4: {
+        bw7,
+        bw8,
+    },
+}
+locals_state_at_exit: AllAreInvalidated
+AnalysisInfo {
+    body: Body {
+        basic_blocks: BasicBlocks {
+            basic_blocks: [
+                BasicBlockData {
+                    statements: [
+                        StorageLive(_5),
+                        StorageLive(_6),
+                        _6 = move _3,
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:33:17: 33:30 (#0),
+                                scope: scope[0],
+                            },
+                            kind: _5 = no_rep(const 1_u32, move _6) -> [return: bb1, unwind: bb13],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_6),
+                        FakeRead(ForLet(None), _5),
+                        StorageLive(_7),
+                        StorageLive(_8),
+                        StorageLive(_9),
+                        _9 = &_1,
+                        _8 = &(*_9),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:34:17: 34:35 (#0),
+                                scope: scope[1],
+                            },
+                            kind: _7 = direct_dep(move _8, const 2_u32) -> [return: bb2, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_8),
+                        FakeRead(ForLet(None), _7),
+                        StorageDead(_9),
+                        StorageLive(_10),
+                        StorageLive(_11),
+                        StorageLive(_12),
+                        _12 = &_1,
+                        _11 = &(*_12),
+                        StorageLive(_13),
+                        StorageLive(_14),
+                        _14 = &_2,
+                        _13 = &(*_14),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:35:17: 35:39 (#0),
+                                scope: scope[2],
+                            },
+                            kind: _10 = lifetime_dep(move _11, move _13) -> [return: bb3, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_13),
+                        StorageDead(_11),
+                        FakeRead(ForLet(None), _10),
+                        StorageDead(_14),
+                        StorageDead(_12),
+                        StorageLive(_15),
+                        StorageLive(_16),
+                        StorageLive(_17),
+                        _17 = &_1,
+                        _16 = &(*_17),
+                        StorageLive(_18),
+                        StorageLive(_19),
+                        _19 = &_2,
+                        _18 = &(*_19),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:36:17: 36:44 (#0),
+                                scope: scope[3],
+                            },
+                            kind: _15 = lifetime_dep_more(move _16, move _18) -> [return: bb4, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_18),
+                        StorageDead(_16),
+                        FakeRead(ForLet(None), _15),
+                        StorageDead(_19),
+                        StorageDead(_17),
+                        StorageLive(_20),
+                        StorageLive(_21),
+                        StorageLive(_22),
+                        _43 = const _,
+                        _22 = &(*_43),
+                        _21 = &(*_22),
+                        StorageLive(_24),
+                        StorageLive(_25),
+                        _42 = const _,
+                        _25 = &(*_42),
+                        _24 = &(*_25),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:37:17: 37:42 (#0),
+                                scope: scope[4],
+                            },
+                            kind: _20 = lifetime_dep_prim(move _21, move _24) -> [return: bb5, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_24),
+                        StorageDead(_21),
+                        FakeRead(ForLet(None), _20),
+                        StorageDead(_25),
+                        StorageDead(_22),
+                        StorageLive(_27),
+                        StorageLive(_28),
+                        StorageLive(_29),
+                        _29 = const "In",
+                        _28 = &(*_29),
+                        StorageLive(_30),
+                        StorageLive(_31),
+                        _31 = const "Put",
+                        _30 = &(*_31),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:38:17: 38:48 (#0),
+                                scope: scope[5],
+                            },
+                            kind: _27 = lifetime_dep_const(move _28, move _30) -> [return: bb6, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_30),
+                        StorageDead(_28),
+                        FakeRead(ForLet(None), _27),
+                        StorageDead(_31),
+                        StorageDead(_29),
+                        StorageLive(_32),
+                        StorageLive(_33),
+                        StorageLive(_34),
+                        _34 = &_1,
+                        _33 = &(*_34),
+                        StorageLive(_35),
+                        StorageLive(_36),
+                        _36 = &_2,
+                        _35 = &(*_36),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:39:17: 39:44 (#0),
+                                scope: scope[6],
+                            },
+                            kind: _32 = lifetime_outlives::<'_, '_, '_>(move _33, move _35) -> [return: bb7, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_35),
+                        StorageDead(_33),
+                        FakeRead(ForLet(None), _32),
+                        StorageDead(_36),
+                        StorageDead(_34),
+                        StorageLive(_37),
+                        StorageLive(_38),
+                        StorageLive(_39),
+                        _39 = &(_4.0: std::string::String),
+                        _38 = &(*_39),
+                        StorageLive(_40),
+                        StorageLive(_41),
+                        _41 = &(_4.1: std::string::String),
+                        _40 = &(*_41),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:40:17: 40:52 (#0),
+                                scope: scope[7],
+                            },
+                            kind: _37 = lifetime_outlives::<'_, '_, '_>(move _38, move _40) -> [return: bb8, unwind: bb14],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [
+                        StorageDead(_40),
+                        StorageDead(_38),
+                        FakeRead(ForLet(None), _37),
+                        StorageDead(_41),
+                        StorageDead(_39),
+                        _0 = const (),
+                        StorageDead(_37),
+                        StorageDead(_32),
+                        StorageDead(_27),
+                        StorageDead(_20),
+                        StorageDead(_15),
+                        StorageDead(_10),
+                        StorageDead(_7),
+                        StorageDead(_5),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_4) -> [return: bb9, unwind: bb15],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_3) -> [return: bb10, unwind: bb16],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_2) -> [return: bb11, unwind: bb17],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_1) -> [return: bb12, unwind: bb18],
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:2: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: return,
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:33:29: 33:30 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_6) -> [return: bb14, unwind terminate(cleanup)],
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_4) -> [return: bb15, unwind terminate(cleanup)],
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_3) -> [return: bb16, unwind terminate(cleanup)],
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_2) -> [return: bb17, unwind terminate(cleanup)],
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:41:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: drop(_1) -> [return: bb18, unwind terminate(cleanup)],
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+                BasicBlockData {
+                    statements: [],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/fn_call_relations.rs:32:1: 41:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: resume,
+                        },
+                    ),
+                    is_cleanup: true,
+                },
+            ],
+            cache: Cache {
+                predecessors: OnceLock(
+                    [
+                        [],
+                        [
+                            bb0,
+                        ],
+                        [
+                            bb1,
+                        ],
+                        [
+                            bb2,
+                        ],
+                        [
+                            bb3,
+                        ],
+                        [
+                            bb4,
+                        ],
+                        [
+                            bb5,
+                        ],
+                        [
+                            bb6,
+                        ],
+                        [
+                            bb7,
+                        ],
+                        [
+                            bb8,
+                        ],
+                        [
+                            bb9,
+                        ],
+                        [
+                            bb10,
+                        ],
+                        [
+                            bb11,
+                        ],
+                        [
+                            bb0,
+                        ],
+                        [
+                            bb1,
+                            bb2,
+                            bb3,
+                            bb4,
+                            bb5,
+                            bb6,
+                            bb7,
+                            bb13,
+                        ],
+                        [
+                            bb8,
+                            bb14,
+                        ],
+                        [
+                            bb9,
+                            bb15,
+                        ],
+                        [
+                            bb10,
+                            bb16,
+                        ],
+                        [
+                            bb11,
+                            bb17,
+                        ],
+                    ],
+                ),
+                switch_sources: OnceLock(
+                    <uninit>,
+                ),
+                is_cyclic: OnceLock(
+                    false,
+                ),
+                reverse_postorder: OnceLock(
+                    [
+                        bb0,
+                        bb1,
+                        bb2,
+                        bb3,
+                        bb4,
+                        bb5,
+                        bb6,
+                        bb7,
+                        bb8,
+                        bb9,
+                        bb10,
+                        bb11,
+                        bb12,
+                        bb13,
+                        bb14,
+                        bb15,
+                        bb16,
+                        bb17,
+                        bb18,
+                    ],
+                ),
+                dominators: OnceLock(
+                    <uninit>,
+                ),
+            },
+        },
+        phase: Analysis(
+            Initial,
+        ),
+        pass_count: 1,
+        source: MirSource {
+            instance: Item(
+                DefId(0:17 ~ fn_call_relations[cfca]::test),
+            ),
+            promoted: None,
+        },
+        source_scopes: [
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:32:1: 41:2 (#0),
+                parent_scope: None,
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:33:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[0],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:34:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[1],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:35:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[2],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:36:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[3],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:37:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[4],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:38:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[5],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:39:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[6],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+            SourceScopeData {
+                span: tests/ui/thesis/fn_call_relations.rs:40:5: 41:2 (#0),
+                parent_scope: Some(
+                    scope[7],
+                ),
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:17 ~ fn_call_relations[cfca]::test).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+        ],
+        coroutine: None,
+        local_decls: [
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: (),
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:32:68: 32:68 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: Some(
+                                    tests/ui/thesis/fn_call_relations.rs:32:13: 32:19 (#0),
+                                ),
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:32:9: 32:11 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:32:9: 32:11 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:32:9: 32:11 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: Some(
+                                    tests/ui/thesis/fn_call_relations.rs:32:25: 32:31 (#0),
+                                ),
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:32:21: 32:23 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:32:21: 32:23 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:32:21: 32:23 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: Some(
+                                    tests/ui/thesis/fn_call_relations.rs:32:37: 32:43 (#0),
+                                ),
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:32:33: 32:35 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:32:33: 32:35 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:32:33: 32:35 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: Some(
+                                    tests/ui/thesis/fn_call_relations.rs:32:51: 32:67 (#0),
+                                ),
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:32:45: 32:49 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:32:45: 32:49 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: (std::string::String, std::string::String),
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:32:45: 32:49 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:33:17: 33:30 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:33:9: 33:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: u16,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:33:9: 33:14 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:33:27: 33:29 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:34:17: 34:35 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:34:9: 34:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?40 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:34:9: 34:14 (#0),
+                    scope: scope[1],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?41 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:34:28: 34:31 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?42 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:34:28: 34:31 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:35:17: 35:39 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:35:9: 35:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?43 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:35:9: 35:14 (#0),
+                    scope: scope[2],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?44 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:35:30: 35:33 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?45 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:35:30: 35:33 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?46 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:35:35: 35:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?47 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:35:35: 35:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:36:17: 36:44 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:36:9: 36:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?48 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:36:9: 36:14 (#0),
+                    scope: scope[3],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?49 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:36:35: 36:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?50 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:36:35: 36:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?51 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:36:40: 36:43 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?52 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:36:40: 36:43 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:37:17: 37:42 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:37:9: 37:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?53 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:9: 37:14 (#0),
+                    scope: scope[4],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?54 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:35: 37:37 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?55 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:35: 37:37 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:36: 37:37 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?56 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:39: 37:41 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?57 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:39: 37:41 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:40: 37:41 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:38:17: 38:48 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:38:9: 38:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?58 str,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:38:9: 38:14 (#0),
+                    scope: scope[5],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?59 str,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:38:36: 38:40 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?60 str,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:38:36: 38:40 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?61 str,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:38:42: 38:47 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?62 str,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:38:42: 38:47 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:39:17: 39:44 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:39:9: 39:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?63 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:39:9: 39:14 (#0),
+                    scope: scope[6],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?64 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:39:35: 39:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?65 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:39:35: 39:38 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?66 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:39:40: 39:43 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?67 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:39:40: 39:43 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    User(
+                        Var(
+                            VarBindingForm {
+                                binding_mode: BindByValue(
+                                    Not,
+                                ),
+                                opt_ty_info: None,
+                                opt_match_place: Some(
+                                    (
+                                        None,
+                                        tests/ui/thesis/fn_call_relations.rs:40:17: 40:52 (#0),
+                                    ),
+                                ),
+                                pat_span: tests/ui/thesis/fn_call_relations.rs:40:9: 40:14 (#0),
+                            },
+                        ),
+                    ),
+                ),
+                ty: &'?68 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:40:9: 40:14 (#0),
+                    scope: scope[7],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?69 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:40:35: 40:42 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?70 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:40:35: 40:42 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?71 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:40:44: 40:51 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?72 std::string::String,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:40:44: 40:51 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?73 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:39: 37:41 (#0),
+                    scope: scope[4],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?74 u32,
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/fn_call_relations.rs:37:35: 37:37 (#0),
+                    scope: scope[4],
+                },
+            },
+        ],
+        user_type_annotations: [],
+        arg_count: 4,
+        spread_arg: None,
+        var_debug_info: [
+            s1 => _1,
+            s2 => _2,
+            s3 => _3,
+            pair => _4,
+            _test => _5,
+            _test => _7,
+            _test => _10,
+            _test => _15,
+            _test => _20,
+            _test => _27,
+            _test => _32,
+            _test => _37,
+        ],
+        span: tests/ui/thesis/fn_call_relations.rs:32:1: 41:2 (#0),
+        required_consts: [],
+        is_polymorphic: false,
+        injection_phase: None,
+        tainted_by_errors: None,
+        function_coverage_info: None,
+    },
+    def_id: DefId(0:17 ~ fn_call_relations[cfca]::test),
+    local_kinds: [
+        Return,
+        UserArg(
+            "s1",
+        ),
+        UserArg(
+            "s2",
+        ),
+        UserArg(
+            "s3",
+        ),
+        UserArg(
+            "pair",
+        ),
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        UserVar(
+            "_test",
+        ),
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+    ],
+    cfg: {
+        bb0: Linear(
+            bb1,
+        ),
+        bb1: Linear(
+            bb2,
+        ),
+        bb2: Linear(
+            bb3,
+        ),
+        bb3: Linear(
+            bb4,
+        ),
+        bb4: Linear(
+            bb5,
+        ),
+        bb5: Linear(
+            bb6,
+        ),
+        bb6: Linear(
+            bb7,
+        ),
+        bb7: Linear(
+            bb8,
+        ),
+        bb8: Linear(
+            bb9,
+        ),
+        bb9: Linear(
+            bb10,
+        ),
+        bb10: Linear(
+            bb11,
+        ),
+        bb11: Linear(
+            bb12,
+        ),
+        bb12: Return,
+    },
+    loops: [],
+    terms: {
+        bb0: {
+            _5: [],
+        },
+        bb1: {
+            _7: [
+                _8,
+            ],
+        },
+        bb2: {
+            _10: [
+                _13,
+            ],
+        },
+        bb3: {
+            _15: [
+                _16,
+                _18,
+            ],
+        },
+        bb4: {
+            _20: [
+                _21,
+                _24,
+            ],
+        },
+        bb5: {
+            _27: [
+                _28,
+                _30,
+            ],
+        },
+        bb6: {
+            _32: [
+                _33,
+                _35,
+            ],
+        },
+        bb7: {
+            _37: [
+                _38,
+                _40,
+            ],
+        },
+    },
+}

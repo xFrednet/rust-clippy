@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
-use rustc_middle::mir::{self, Local, Operand};
+use rustc_ast::Mutability;
+use rustc_index::bit_set::BitSet;
+use rustc_middle::mir::{self, BasicBlock, Local, Operand};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::source_map::Spanned;
 
@@ -93,7 +95,8 @@ pub fn get_parents_of_return<'tcx>(tcx: TyCtxt<'tcx>, op: &mir::Operand<'tcx>) -
         let mut input_indices = vec![];
         for (index, input) in fn_sig.inputs().iter().enumerate() {
             // "Here to stab things, don't case"
-            for_each_ref_region(*input, &mut |reg, _ty, _mut| {
+            for_each_ref_region(*input, &mut |reg, _ty, mutability| {
+                assert_eq!(mutability, Mutability::Not);
                 if ret_regions.contains(&reg) {
                     input_indices.push(index);
                 }
@@ -105,4 +108,14 @@ pub fn get_parents_of_return<'tcx>(tcx: TyCtxt<'tcx>, op: &mir::Operand<'tcx>) -
     } else {
         todo!("{op:#?}\n\n")
     }
+}
+
+pub fn find_loop(
+    loops: &Vec<(BitSet<BasicBlock>, BasicBlock)>,
+    bb: BasicBlock,
+) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
+    loops
+        .iter()
+        .filter(|(set, _)| set.contains(bb))
+        .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
 }
