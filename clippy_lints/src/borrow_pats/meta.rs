@@ -2,11 +2,12 @@
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-use super::{calc_call_local_relations, AnalysisInfo, CfgInfo};
+use super::{calc_call_local_relations, AnalysisInfo, CfgInfo, LocalAssignInfo, LocalInfo};
 
 use hir::Mutability;
 use mid::mir::visit::Visitor;
 use mid::mir::{Terminator, TerminatorKind, VarDebugInfo, VarDebugInfoContents};
+use mid::ty::TypeVisitableExt;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::bit_set::BitSet;
 use rustc_middle::mir;
@@ -26,10 +27,18 @@ pub struct MetaAnalysis<'a, 'tcx> {
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
     pub return_block: BasicBlock,
+    pub local_infos: BTreeMap<Local, LocalInfo<'tcx>>,
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     pub fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
+        let local_info_iter = info
+            .local_kinds
+            .iter_enumerated()
+            .map(|(id, kind)| (id, LocalInfo::new(*kind)));
+        let mut local_infos = BTreeMap::new();
+        local_infos.extend(local_info_iter);
+
         let bbs_len = info.body.basic_blocks.len();
         Self {
             info,
@@ -38,22 +47,13 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             loops: Default::default(),
             terms: Default::default(),
             return_block: BasicBlock::from_u32(0),
+            local_infos,
         }
     }
 
     pub fn run(&mut self) {
         self.collect_loops();
-
-        let (bb, _bbd) = &self
-            .info
-            .body
-            .basic_blocks
-            .iter_enumerated()
-            .find(|(_bb, bbd)| matches!(bbd.terminator().kind, mir::TerminatorKind::Return))
-            .unwrap();
-
-        self.return_block = *bb;
-        self.walk_block(*bb);
+        self.visit_body(&self.info.body);
     }
 
     fn collect_loops(&mut self) {
@@ -80,23 +80,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
 
     fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
         super::find_loop(&self.loops, bb)
-    }
-
-    fn walk_block(&mut self, bb: BasicBlock) {
-        if self.visited.contains(bb) {
-            return;
-        }
-        self.visited.insert(bb);
-
-        // Here we also have to traverse everything in reverse order
-        let bbd = &self.info.body.basic_blocks[bb];
-        self.visit_terminator_for_terms(bbd.terminator(), bb);
-        self.visit_terminator_for_cfg(bbd.terminator(), bb);
-
-        let pre_bbs = &self.info.body.basic_blocks.predecessors()[bb];
-        for pre_bb in pre_bbs {
-            self.walk_block(*pre_bb);
-        }
     }
 
     fn visit_terminator_for_cfg(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
@@ -135,7 +118,10 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             | mir::TerminatorKind::InlineAsm { .. } => {
                 CfgInfo::None
             },
-            mir::TerminatorKind::Return => CfgInfo::Return,
+            mir::TerminatorKind::Return => {
+                self.return_block = bb;
+                CfgInfo::Return
+            },
             mir::TerminatorKind::Yield { .. } => unreachable!(),
         };
 
@@ -157,5 +143,78 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             },
             _ => {},
         }
+    }
+
+    fn visit_terminator_for_locals(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
+        match &term.kind {
+            mir::TerminatorKind::Call { destination, .. } => {
+                // TODO: Should mut arguments be handled?
+                assert!(destination.projection.is_empty());
+                let local = destination.local;
+                self.local_infos
+                    .get_mut(&local)
+                    .unwrap()
+                    .add_assign(*destination, LocalAssignInfo::Computed);
+            },
+            _ => {},
+        }
+    }
+}
+
+impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
+    fn visit_terminator(&mut self, term: &Terminator<'tcx>, loc: mir::Location) {
+        self.visit_terminator_for_cfg(term, loc.block);
+        self.visit_terminator_for_terms(term, loc.block);
+        self.visit_terminator_for_locals(term, loc.block);
+    }
+
+    fn visit_assign(&mut self, place: &Place<'tcx>, rval: &Rvalue<'tcx>, _loc: mir::Location) {
+        let local = place.local;
+
+        let assign_info = match rval {
+            mir::Rvalue::Ref(_reg, kind, src) => {
+                match src.projection.as_slice() {
+                    [mir::PlaceElem::Deref] => {
+                        // &(*_1) = Copy
+                        LocalAssignInfo::Copy(src.local)
+                    },
+                    _ => LocalAssignInfo::Loan(*src),
+                }
+            },
+            mir::Rvalue::Use(op) => match &op {
+                mir::Operand::Copy(other) | mir::Operand::Move(other) => {
+                    if other.has_projections() {
+                        LocalAssignInfo::Part(*other)
+                    } else {
+                        LocalAssignInfo::Copy(other.local)
+                    }
+                },
+                mir::Operand::Constant(_) => LocalAssignInfo::Const,
+            },
+            // Will be handled as computed for now, but in theory this is a clear construction
+            Rvalue::Repeat(_, _) |
+            Rvalue::Aggregate(_, _) => LocalAssignInfo::Computed,
+
+            // Casts should depend on the input data
+            Rvalue::Cast(_, _, _) => todo!("Assign: {place:#?} = {rval:#?}"),
+
+            Rvalue::NullaryOp(_, _) => LocalAssignInfo::Const,
+
+            Rvalue::ThreadLocalRef(_)
+            | Rvalue::AddressOf(_, _)
+            | Rvalue::Len(_)
+            | Rvalue::BinaryOp(_, _)
+            | Rvalue::CheckedBinaryOp(_, _)
+            | Rvalue::UnaryOp(_, _)
+            | Rvalue::Discriminant(_)
+            | Rvalue::ShallowInitBox(_, _)
+            | Rvalue::CopyForDeref(_) => LocalAssignInfo::Computed,
+            
+        };
+
+        self.local_infos
+            .get_mut(&local)
+            .unwrap()
+            .add_assign(*place, assign_info);
     }
 }

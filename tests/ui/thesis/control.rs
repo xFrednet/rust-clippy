@@ -51,6 +51,7 @@ fn block_with_label() -> u32 {
     12
 }
 
+#[allow(clippy::borrow_pats)]
 fn loop_4() {
     let mut idx = 0;
     for a in 0..100 {

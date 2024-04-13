@@ -10,7 +10,7 @@ use rustc_index::IndexVec;
 use rustc_lint::LateContext;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
-use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::{TyCtxt, TypeVisitableExt};
 use rustc_span::Symbol;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
@@ -173,5 +173,72 @@ impl LocalKind {
             Self::UserArg(name) | Self::UserVar(name) => Some(*name),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct LocalInfo<'tcx> {
+    pub kind: LocalKind,
+    pub assign_count: u32,
+    pub data: LocalAssignInfo<'tcx>,
+}
+
+impl<'tcx> LocalInfo<'tcx> {
+    pub fn new(kind: LocalKind) -> Self {
+        let (assign_count, data) = match &kind {
+            LocalKind::Unknown => unreachable!(),
+            LocalKind::UserArg(_) => (1, LocalAssignInfo::Argument),
+            _ => (0, LocalAssignInfo::Unresolved),
+        };
+        Self {
+            kind,
+            assign_count,
+            data,
+        }
+    }
+
+    pub fn add_assign(&mut self, place: mir::Place<'tcx>, assign: LocalAssignInfo<'tcx>) {
+        if place.has_projections() {
+            self.data.part_assign()
+        } else {
+            self.assign_count += 1;
+            self.data.mix(assign);
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+pub enum LocalAssignInfo<'tcx> {
+    /// The default value, before it has been resolved. This should never be the
+    /// final version.
+    Unresolved,
+    /// The value is an argument. This will add a *fake* mutation to the mut count
+    Argument,
+    /// The value has several assignment spots with different data types
+    Mixed,
+    /// The local is a strait copy from another local, this includes moves
+    Copy(mir::Local),
+    /// A part of a place was moved or copied into this
+    Part(mir::Place<'tcx>),
+    /// The value is constant, this includes static loans
+    Const,
+    /// The value is the result of a computation, usually done by function calls
+    Computed,
+    /// A loan of a place
+    Loan(mir::Place<'tcx>),
+}
+
+impl<'tcx> LocalAssignInfo<'tcx> {
+    pub fn mix(&mut self, new_value: Self) {
+        if *self == Self::Unresolved {
+            *self = new_value;
+        } else if *self != new_value {
+            *self = Self::Mixed;
+        }
+    }
+
+    /// This is used to indicate, that a part of this value was mutated via a projection
+    fn part_assign(&mut self) {
+        *self = Self::Mixed;
     }
 }

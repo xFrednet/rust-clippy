@@ -23,7 +23,7 @@ pub struct ReturnPats {
     pats: RefCell<Vec<ReturnPat>>,
 }
 
-impl<'a, 'tcx> std::fmt::Display for ReturnPats<'a, 'tcx> {
+impl std::fmt::Display for ReturnPats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Return: {:?}", self.pats)
     }
@@ -38,8 +38,8 @@ impl std::fmt::Debug for ReturnPats {
 impl ReturnPats {
     pub fn push(&self, new_pat: ReturnPat) {
         let mut pats = self.pats.borrow_mut();
-        if let Some((idx, check_pat)) = pats.iter().take_while(|x| x <= new_pat).enumerate().last()
-            && check_pat != new_pat
+        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last()
+            && *check_pat != new_pat
         {
             pats.insert(idx + 1, new_pat);
         } else {
@@ -48,7 +48,7 @@ impl ReturnPats {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum ReturnPat {
     /// A constant value is returned.
     Const,
@@ -93,7 +93,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             }
         }
 
-        eprintln!("{anly}");
+        eprintln!("{}", anly.pats);
     }
 }
 
