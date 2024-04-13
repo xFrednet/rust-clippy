@@ -14,19 +14,19 @@ pub struct ReturnAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     pats: ReturnPats,
     visited: BitSet<BasicBlock>,
-}
-
-impl<'a, 'tcx> std::fmt::Display for ReturnAnalysis<'a, 'tcx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Return: {:?}", self.pats)
-    }
+    assigns: u32,
 }
 
 /// A convinient wrapper to make sure patterns are tracked correctly.
 #[derive(Default)]
 pub struct ReturnPats {
-    has_multiple: Cell<bool>,
     pats: RefCell<Vec<ReturnPat>>,
+}
+
+impl<'a, 'tcx> std::fmt::Display for ReturnPats<'a, 'tcx> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Return: {:?}", self.pats)
+    }
 }
 
 impl std::fmt::Debug for ReturnPats {
@@ -36,41 +36,20 @@ impl std::fmt::Debug for ReturnPats {
 }
 
 impl ReturnPats {
-    pub fn push(&self, pat: ReturnPat) {
-        assert!(
-            pat.is_value(),
-            "External analysis should only ever insert value patterns"
-        );
-
-        if !self.has_multiple.get() {
-            let add_cond = self.pats.borrow().get(0).map(ReturnPat::is_value).unwrap_or_default();
-            if add_cond {
-                self.push_direct(ReturnPat::ConditionalReturn);
-                self.has_multiple.set(true);
-            }
-        }
-
-        self.push_direct(pat);
-    }
-    fn push_direct(&self, pat: ReturnPat) {
-        if self.pats.borrow().contains(&pat) {
-            return;
-        }
-        if pat.is_value() {
-            self.pats.borrow_mut().insert(0, pat);
+    pub fn push(&self, new_pat: ReturnPat) {
+        let mut pats = self.pats.borrow_mut();
+        if let Some((idx, check_pat)) = pats.iter().take_while(|x| x <= new_pat).enumerate().last()
+            && check_pat != new_pat
+        {
+            pats.insert(idx + 1, new_pat);
         } else {
-            self.pats.borrow_mut().push(pat);
+            pats.insert(0, new_pat);
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ReturnPat {
-    /// Just the unit type is returned, nothing interesting
-    Unit,
-    /// The return depends on some kind of condition
-    ConditionalReturn,
-
     /// A constant value is returned.
     Const,
     /// A argument is returned
@@ -81,15 +60,11 @@ pub enum ReturnPat {
     /// static. The lifetime for calling functions still depends on the
     /// function signature.
     StaticLoan,
-}
 
-impl ReturnPat {
-    fn is_value(&self) -> bool {
-        match self {
-            ReturnPat::ConditionalReturn | ReturnPat::Unit => false,
-            ReturnPat::Const | ReturnPat::Argument | ReturnPat::Computed | ReturnPat::StaticLoan => true,
-        }
-    }
+    /// Just the unit type is returned, nothing interesting
+    Unit,
+    /// The return depends on some kind of condition
+    Conditional,
 }
 
 impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
@@ -98,6 +73,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             info,
             pats: Default::default(),
             visited: BitSet::new_empty(info.body.basic_blocks.len()),
+            assigns: 0,
         }
     }
 
@@ -107,10 +83,14 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
         let decl = &info.body.local_decls[RETURN];
         if decl.ty.is_unit() {
             anly.pats.push(ReturnPat::Const);
-            anly.pats.push_direct(ReturnPat::Unit);
+            anly.pats.push(ReturnPat::Unit);
         } else {
             println!("Type: {decl:#?}");
             anly.visit_body(&info.body);
+            assert!(anly.assigns >= 1);
+            if anly.assigns > 1 {
+                anly.pats.push(ReturnPat::Conditional);
+            }
         }
 
         eprintln!("{anly}");
@@ -122,6 +102,8 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
         if target.local != RETURN {
             return;
         }
+
+        self.assigns += 1;
 
         match &rvalue {
             mir::Rvalue::Use(Operand::Constant(_)) => {
@@ -143,6 +125,26 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             | mir::Rvalue::Discriminant(_)
             | mir::Rvalue::ShallowInitBox(_, _)
             | mir::Rvalue::CopyForDeref(_) => unreachable!("Return: None of these ops should be inlined {rvalue:#?}"),
+        }
+    }
+
+    fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, _loc: mir::Location) {
+        match &term.kind {
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination,
+                ..
+            } => {
+                if destination.local != RETURN {
+                    return;
+                }
+                assert!(destination.projection.is_empty());
+
+                self.assigns += 1;
+                self.pats.push(ReturnPat::Computed);
+            },
+            _ => {},
         }
     }
 }

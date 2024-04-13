@@ -11,6 +11,7 @@
 //!     - Rename some `Loan` to `Dep`
 //!     - Handle Deps like loans
 //! - Checkout: `rvalue_locals`
+//! - The output states need to be sorted... OH NO
 //!
 //! # Done
 //! - [x] Refactor events to have places instead of locals.
