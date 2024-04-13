@@ -2,7 +2,7 @@
 use std::collections::BTreeMap;
 use std::ops::Range;
 
-use super::{calc_call_local_relations, AnalysisInfo, CfgInfo, LocalAssignInfo, LocalInfo};
+use super::{calc_call_local_relations, AnalysisInfo, CfgInfo, LocalAssignInfo, LocalInfo, LocalOrConst};
 
 use hir::Mutability;
 use mid::mir::visit::Visitor;
@@ -176,7 +176,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                 match src.projection.as_slice() {
                     [mir::PlaceElem::Deref] => {
                         // &(*_1) = Copy
-                        LocalAssignInfo::Copy(src.local)
+                        LocalAssignInfo::Local(src.local)
                     },
                     _ => LocalAssignInfo::Loan(*src),
                 }
@@ -186,17 +186,28 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                     if other.has_projections() {
                         LocalAssignInfo::Part(*other)
                     } else {
-                        LocalAssignInfo::Copy(other.local)
+                        LocalAssignInfo::Local(other.local)
                     }
                 },
                 mir::Operand::Constant(_) => LocalAssignInfo::Const,
             },
-            // Will be handled as computed for now, but in theory this is a clear construction
-            Rvalue::Repeat(_, _) |
-            Rvalue::Aggregate(_, _) => LocalAssignInfo::Computed,
+
+            // Constructed Values
+            Rvalue::Aggregate(_, fields) => {
+                let parts = fields.iter().map(|field| LocalOrConst::from(field)).collect();
+                LocalAssignInfo::Ctor(parts)
+            },
+            Rvalue::Repeat(op, _) => LocalAssignInfo::Ctor(vec![op.into()]),
 
             // Casts should depend on the input data
-            Rvalue::Cast(_, _, _) => todo!("Assign: {place:#?} = {rval:#?}"),
+            Rvalue::Cast(_kind, op, _target) => {
+                if let Some(place) = op.place() {
+                    assert!(!place.has_projections());
+                    LocalAssignInfo::Cast(place.local)
+                } else {
+                    LocalAssignInfo::Const
+                }
+            },
 
             Rvalue::NullaryOp(_, _) => LocalAssignInfo::Const,
 
@@ -209,7 +220,6 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             | Rvalue::Discriminant(_)
             | Rvalue::ShallowInitBox(_, _)
             | Rvalue::CopyForDeref(_) => LocalAssignInfo::Computed,
-            
         };
 
         self.local_infos

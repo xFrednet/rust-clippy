@@ -29,6 +29,7 @@ pub struct AnalysisInfo<'tcx> {
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
     /// The final block that contains the return.
     pub return_block: BasicBlock,
+    pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -40,6 +41,7 @@ impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
             .field("cfg", &self.cfg)
             .field("loops", &self.loops)
             .field("terms", &self.terms)
+            .field("locals", &self.locals)
             .finish()
     }
 }
@@ -70,6 +72,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             loops: Default::default(),
             terms: Default::default(),
             return_block: BasicBlock::from_u32(0),
+            locals: Default::default(),
         };
         res.collect_meta();
         res
@@ -109,12 +112,14 @@ impl<'tcx> AnalysisInfo<'tcx> {
             loops,
             terms,
             return_block,
+            local_infos,
             ..
         } = meta_analysis;
         self.cfg = cfg;
         self.loops = loops;
         self.terms = terms;
         self.return_block = return_block;
+        self.locals = local_infos;
     }
 
     #[expect(dead_code)]
@@ -176,7 +181,7 @@ impl LocalKind {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct LocalInfo<'tcx> {
     pub kind: LocalKind,
     pub assign_count: u32,
@@ -207,7 +212,7 @@ impl<'tcx> LocalInfo<'tcx> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum LocalAssignInfo<'tcx> {
     /// The default value, before it has been resolved. This should never be the
     /// final version.
@@ -217,7 +222,7 @@ pub enum LocalAssignInfo<'tcx> {
     /// The value has several assignment spots with different data types
     Mixed,
     /// The local is a strait copy from another local, this includes moves
-    Copy(mir::Local),
+    Local(mir::Local),
     /// A part of a place was moved or copied into this
     Part(mir::Place<'tcx>),
     /// The value is constant, this includes static loans
@@ -226,6 +231,29 @@ pub enum LocalAssignInfo<'tcx> {
     Computed,
     /// A loan of a place
     Loan(mir::Place<'tcx>),
+    /// This value is the result of a cast of a different local. The data
+    /// state depends on the case source
+    Cast(mir::Local),
+    /// The Ctor of a transparent type. This Ctor can be constant, so the
+    /// content depends on the used locals
+    Ctor(Vec<LocalOrConst>),
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+pub enum LocalOrConst {
+    Local(mir::Local),
+    Const,
+}
+
+impl From<&mir::Operand<'_>> for LocalOrConst {
+    fn from(value: &mir::Operand<'_>) -> Self {
+        if let Some(place) = value.place() {
+            assert!(!value.has_projections());
+            Self::Local(place.local)
+        } else {
+            Self::Const
+        }
+    }
 }
 
 impl<'tcx> LocalAssignInfo<'tcx> {

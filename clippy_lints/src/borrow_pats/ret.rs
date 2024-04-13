@@ -31,7 +31,7 @@ impl std::fmt::Display for ReturnPats {
 
 impl std::fmt::Debug for ReturnPats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.pats.fmt(f)
+        self.pats.borrow().fmt(f)
     }
 }
 

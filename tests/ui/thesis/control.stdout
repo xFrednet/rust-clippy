@@ -239,6 +239,25 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 2,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _2: LocalInfo {
+            kind: UserVar(
+                "_x",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 AnalysisInfo {
     body: Body {
@@ -620,6 +639,37 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 3,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _2: LocalInfo {
+            kind: UserVar(
+                "_x",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+        _3: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _4: LocalInfo {
+            kind: UserVar(
+                "_y",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 AnalysisInfo {
     body: Body {
@@ -1110,6 +1160,58 @@ AnalysisInfo {
             _3: [],
         },
     },
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: AnonVar,
+            assign_count: 2,
+            data: Const,
+        },
+        _2: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _3: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _4: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _5: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _6: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _7: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _8: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _9: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+    },
 }
 AnalysisInfo {
     body: Body {
@@ -1517,6 +1619,57 @@ AnalysisInfo {
         ),
     ],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: UserVar(
+                "idx",
+            ),
+            assign_count: 2,
+            data: Mixed,
+        },
+        _2: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _3: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _4: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Local(
+                _1,
+            ),
+        },
+        _5: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _6: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _7: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _8: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+    },
 }
 AnalysisInfo {
     body: Body {
@@ -2014,6 +2167,71 @@ AnalysisInfo {
         ),
     ],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: UserVar(
+                "idx",
+            ),
+            assign_count: 2,
+            data: Mixed,
+        },
+        _2: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _3: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _4: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _5: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _6: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Computed,
+        },
+        _7: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Local(
+                _1,
+            ),
+        },
+        _8: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _9: LocalInfo {
+            kind: UserVar(
+                "_x",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+        _10: LocalInfo {
+            kind: UserVar(
+                "_y",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 AnalysisInfo {
     body: Body {
@@ -2349,6 +2567,47 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+        _1: LocalInfo {
+            kind: AnonVar,
+            assign_count: 2,
+            data: Const,
+        },
+        _2: LocalInfo {
+            kind: UserVar(
+                "_x",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+        _3: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _4: LocalInfo {
+            kind: AnonVar,
+            assign_count: 1,
+            data: Const,
+        },
+        _5: LocalInfo {
+            kind: AnonVar,
+            assign_count: 0,
+            data: Unresolved,
+        },
+        _6: LocalInfo {
+            kind: UserVar(
+                "_y",
+            ),
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 Type: LocalDecl {
     mutability: Mut,
@@ -2463,6 +2722,13 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 Type: LocalDecl {
     mutability: Mut,
@@ -2577,6 +2843,13 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
 Type: LocalDecl {
     mutability: Mut,
@@ -2691,4 +2964,11 @@ AnalysisInfo {
     },
     loops: [],
     terms: {},
+    locals: {
+        _0: LocalInfo {
+            kind: Return,
+            assign_count: 1,
+            data: Const,
+        },
+    },
 }
