@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use super::meta::MetaAnalysis;
 use hir::def_id::LocalDefId;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
 use rustc_index::bit_set::BitSet;
@@ -11,7 +12,6 @@ use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
-use super::meta::MetaAnalysis;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
@@ -27,6 +27,8 @@ pub struct AnalysisInfo<'tcx> {
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
+    /// The final block that contains the return.
+    pub return_block: BasicBlock,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -63,9 +65,11 @@ impl<'tcx> AnalysisInfo<'tcx> {
             body,
             def_id,
             local_kinds,
+            // Will be filled by meta analysis:
             cfg: Default::default(),
             loops: Default::default(),
             terms: Default::default(),
+            return_block: BasicBlock::from_u32(0),
         };
         res.collect_meta();
         res
@@ -100,10 +104,17 @@ impl<'tcx> AnalysisInfo<'tcx> {
         meta_analysis.run();
 
         // This needs deconstruction to kill the loan of self
-        let MetaAnalysis { cfg, loops, terms, .. } = meta_analysis;
+        let MetaAnalysis {
+            cfg,
+            loops,
+            terms,
+            return_block,
+            ..
+        } = meta_analysis;
         self.cfg = cfg;
         self.loops = loops;
         self.terms = terms;
+        self.return_block = return_block;
     }
 
     #[expect(dead_code)]

@@ -1,5 +1,4 @@
 #[warn(unused)]
-
 use std::collections::BTreeMap;
 use std::ops::Range;
 
@@ -26,6 +25,7 @@ pub struct MetaAnalysis<'a, 'tcx> {
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
+    pub return_block: BasicBlock,
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
@@ -37,6 +37,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             visited: BitSet::new_empty(bbs_len),
             loops: Default::default(),
             terms: Default::default(),
+            return_block: BasicBlock::from_u32(0),
         }
     }
 
@@ -50,6 +51,8 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             .iter_enumerated()
             .find(|(_bb, bbd)| matches!(bbd.terminator().kind, mir::TerminatorKind::Return))
             .unwrap();
+
+        self.return_block = *bb;
         self.walk_block(*bb);
     }
 

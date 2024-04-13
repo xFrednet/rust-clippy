@@ -1,0 +1,205 @@
+=====
+bb0:
+    StorageLive(_1)
+    StorageLive(_2)
+    _4 = const _
+    _2 = &(*_4)
+    _1 = &(*_2)
+    _0 = move _1 as &[u32] (PointerCoercion(Unsize))
+    StorageDead(_1)
+    StorageDead(_2)
+    return
+
+=====
+location_map: {}
+activation_map: {}
+local_map: {}
+locals_state_at_exit: AllAreInvalidated
+AnalysisInfo {
+    body: Body {
+        basic_blocks: BasicBlocks {
+            basic_blocks: [
+                BasicBlockData {
+                    statements: [
+                        StorageLive(_1),
+                        StorageLive(_2),
+                        _4 = const _,
+                        _2 = &(*_4),
+                        _1 = &(*_2),
+                        _0 = move _1 as &[u32] (PointerCoercion(Unsize)),
+                        StorageDead(_1),
+                        StorageDead(_2),
+                    ],
+                    terminator: Some(
+                        Terminator {
+                            source_info: SourceInfo {
+                                span: tests/ui/thesis/returns.rs:12:2: 12:2 (#0),
+                                scope: scope[0],
+                            },
+                            kind: return,
+                        },
+                    ),
+                    is_cleanup: false,
+                },
+            ],
+            cache: Cache {
+                predecessors: OnceLock(
+                    [
+                        [],
+                    ],
+                ),
+                switch_sources: OnceLock(
+                    <uninit>,
+                ),
+                is_cyclic: OnceLock(
+                    false,
+                ),
+                reverse_postorder: OnceLock(
+                    [
+                        bb0,
+                    ],
+                ),
+                dominators: OnceLock(
+                    <uninit>,
+                ),
+            },
+        },
+        phase: Analysis(
+            Initial,
+        ),
+        pass_count: 1,
+        source: MirSource {
+            instance: Item(
+                DefId(0:5 ~ returns[b73b]::static_slice),
+            ),
+            promoted: None,
+        },
+        source_scopes: [
+            SourceScopeData {
+                span: tests/ui/thesis/returns.rs:10:1: 12:2 (#0),
+                parent_scope: None,
+                inlined: None,
+                inlined_parent_scope: None,
+                local_data: Set(
+                    SourceScopeLocalData {
+                        lint_root: HirId(DefId(0:5 ~ returns[b73b]::static_slice).0),
+                        safety: Safe,
+                    },
+                ),
+            },
+        ],
+        coroutine: None,
+        local_decls: [
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?8 [u32],
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/returns.rs:10:22: 10:36 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    BlockTailTemp(
+                        BlockTailInfo {
+                            tail_result_is_ignored: false,
+                            span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                        },
+                    ),
+                ),
+                ty: &'?9 [u32; 0_usize],
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    BlockTailTemp(
+                        BlockTailInfo {
+                            tail_result_is_ignored: false,
+                            span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                        },
+                    ),
+                ),
+                ty: &'?10 [u32; 0_usize],
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Not,
+                local_info: Set(
+                    BlockTailTemp(
+                        BlockTailInfo {
+                            tail_result_is_ignored: false,
+                            span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                        },
+                    ),
+                ),
+                ty: [u32; 0_usize],
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/returns.rs:11:6: 11:8 (#0),
+                    scope: scope[0],
+                },
+            },
+            LocalDecl {
+                mutability: Mut,
+                local_info: Set(
+                    Boring,
+                ),
+                ty: &'?11 [u32; 0_usize],
+                user_ty: None,
+                source_info: SourceInfo {
+                    span: tests/ui/thesis/returns.rs:11:5: 11:8 (#0),
+                    scope: scope[0],
+                },
+            },
+        ],
+        user_type_annotations: [],
+        arg_count: 0,
+        spread_arg: None,
+        var_debug_info: [],
+        span: tests/ui/thesis/returns.rs:10:1: 12:2 (#0),
+        required_consts: [],
+        is_polymorphic: false,
+        injection_phase: None,
+        tainted_by_errors: None,
+        function_coverage_info: None,
+    },
+    def_id: DefId(0:5 ~ returns[b73b]::static_slice),
+    local_kinds: [
+        Return,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+        AnonVar,
+    ],
+    cfg: {
+        bb0: Return,
+    },
+    loops: [],
+    terms: {},
+}
+Type: LocalDecl {
+    mutability: Mut,
+    local_info: Set(
+        Boring,
+    ),
+    ty: &'?8 [u32],
+    user_ty: None,
+    source_info: SourceInfo {
+        span: tests/ui/thesis/returns.rs:10:22: 10:36 (#0),
+        scope: scope[0],
+    },
+}

@@ -1028,8 +1028,10 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
 
         if lint_level != Level::Allow {
-            let mut info = AnalysisInfo::new(cx, def);
+            let info = AnalysisInfo::new(cx, def);
             println!("{info:#?}");
+
+            ret::ReturnAnalysis::run(&info);
 
             return;
             for (local, kind) in info.local_kinds.iter_enumerated() {
