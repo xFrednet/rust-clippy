@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
@@ -118,4 +119,49 @@ pub fn find_loop(
         .iter()
         .filter(|(set, _)| set.contains(bb))
         .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
+}
+
+pub trait PatternEnum: Copy + Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq + PartialOrd {}
+
+/// A convinient wrapper to make sure patterns are tracked correctly.
+pub struct PatternStorage<T: PatternEnum> {
+    name: &'static str,
+    pats: RefCell<Vec<T>>,
+}
+
+impl<T: PatternEnum> std::fmt::Display for PatternStorage<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {:?}", self.name, self.pats.borrow())
+    }
+}
+
+impl<T: PatternEnum> std::fmt::Debug for PatternStorage<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.pats.borrow().fmt(f)
+    }
+}
+
+impl<T: PatternEnum> PatternStorage<T> {
+    pub fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            pats: Default::default(),
+        }
+    }
+
+    pub fn push(&self, new_pat: T) {
+        let mut pats = self.pats.borrow_mut();
+        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last() {
+            // Only insert, if it's a new pattern
+            if *check_pat != new_pat {
+                pats.insert(idx + 1, new_pat);
+            }
+        } else {
+            pats.insert(0, new_pat);
+        }
+    }
+
+    pub fn get(self) -> Vec<T> {
+        self.pats.take()
+    }
 }

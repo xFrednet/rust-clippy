@@ -1,3 +1,4 @@
 # "pat_maybe_return_owned_arg_1"
-- Return: [Conditional]
+- a: [Arg, Return] <State: Filled>
+- Return: [Argument, Conditional]
 

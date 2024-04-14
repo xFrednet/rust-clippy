@@ -13,6 +13,7 @@ use rustc_middle::ty::{TyCtxt, TypeVisitableExt};
 use rustc_span::Symbol;
 
 use super::ret::ReturnPats;
+use super::PatternStorage;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
@@ -84,7 +85,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             terms,
             return_block,
             locals,
-            return_pats: Default::default(),
+            return_pats: PatternStorage::new("TODO"),
         }
     }
 

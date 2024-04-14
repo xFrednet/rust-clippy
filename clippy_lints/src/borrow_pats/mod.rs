@@ -1031,29 +1031,34 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
 
         if lint_level != Level::Allow {
+            let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
             let mut info = AnalysisInfo::new(cx, def);
 
-            let return_pats = ret::ReturnAnalysis::run(&info);
-            info.return_pats = return_pats;
+            info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            if std::env::var("CLIPPY_PETS_PRINT").is_ok() {
+            if print_pats {
                 println!("# {body_name:?}");
-                println!("- {}", info.return_pats);
-                println!();
             }
 
-            return;
             for (local, local_info) in info.locals.iter() {
                 // We're only interested in named trash
                 if local_info.kind.name().is_some() {
                     let decl = &info.body.local_decls[*local];
                     let is_owned = !decl.ty.is_ref();
                     if is_owned {
-                        let mut analysis = owned::OwnedAnalysis::new(&info, *local);
-                        analysis.visit_body(&info.body);
-                        println!("{analysis}");
+                        let pats = owned::OwnedAnalysis::run(&info, *local);
+                        println!("- {pats}");
+                    } else {
+                        eprintln!("TODO: implement analysis for named refs");
                     }
                 }
+            }
+
+            if print_pats {
+                // Return must be printed at the end, as it might be modified by
+                // the following analysis thingies
+                println!("- {}", info.return_pats);
+                println!();
             }
         }
 

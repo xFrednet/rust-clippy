@@ -193,7 +193,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             let local = place.local;
             self.locals.get_mut(&local).map(|local_info| {
                 // +1, since `_0` is used for the return
-                local_info.kind = if local < (self.body.arg_count + 1).into() {
+                local_info.kind = if info.argument_index.is_some() {
                     // +1 since it's assigned outside of the body
                     local_info.assign_count += 1;
                     local_info.add_assign(place, DataInfo::Argument);

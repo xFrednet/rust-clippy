@@ -8,45 +8,13 @@ use rustc_middle::ty::TypeVisitableExt;
 
 use crate::borrow_pats::{DataInfo, LocalConstness};
 
-use super::{AnalysisInfo, RETURN};
+use super::{AnalysisInfo, PatternEnum, PatternStorage, RETURN};
 
 #[derive(Debug)]
 pub struct ReturnAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     pats: ReturnPats,
     visited: BitSet<BasicBlock>,
-}
-
-/// A convinient wrapper to make sure patterns are tracked correctly.
-#[derive(Default)]
-pub struct ReturnPats {
-    pats: RefCell<Vec<ReturnPat>>,
-}
-
-impl std::fmt::Display for ReturnPats {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Return: {:?}", self.pats.borrow())
-    }
-}
-
-impl std::fmt::Debug for ReturnPats {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.pats.borrow().fmt(f)
-    }
-}
-
-impl ReturnPats {
-    pub fn push(&self, new_pat: ReturnPat) {
-        let mut pats = self.pats.borrow_mut();
-        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last() {
-            // Only insert, if it's a new pattern
-            if *check_pat != new_pat {
-                pats.insert(idx + 1, new_pat);
-            }
-        } else {
-            pats.insert(0, new_pat);
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
@@ -69,12 +37,14 @@ pub enum ReturnPat {
     /// All returned values are constant
     AllConst,
 }
+impl PatternEnum for ReturnPat {}
+pub type ReturnPats = PatternStorage<ReturnPat>;
 
 impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
     fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
         Self {
             info,
-            pats: Default::default(),
+            pats: PatternStorage::new("Return"),
             visited: BitSet::new_empty(info.body.basic_blocks.len()),
         }
     }
