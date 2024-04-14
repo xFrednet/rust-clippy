@@ -12,6 +12,8 @@ use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::{TyCtxt, TypeVisitableExt};
 use rustc_span::Symbol;
 
+use super::ret::ReturnPats;
+
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
 mod meta;
@@ -30,6 +32,7 @@ pub struct AnalysisInfo<'tcx> {
     /// The final block that contains the return.
     pub return_block: BasicBlock,
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
+    pub return_pats: ReturnPats,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -81,6 +84,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             terms,
             return_block,
             locals,
+            return_pats: Default::default(),
         }
     }
 

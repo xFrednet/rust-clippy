@@ -79,7 +79,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
         }
     }
 
-    pub fn run(info: &'a AnalysisInfo<'tcx>) {
+    pub fn run(info: &'a AnalysisInfo<'tcx>) -> ReturnPats {
         let mut anly = Self::new(info);
 
         let decl = &info.body.local_decls[RETURN];
@@ -108,7 +108,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             }
         }
 
-        eprintln!("{}", anly.pats);
+        anly.pats
     }
 }
 

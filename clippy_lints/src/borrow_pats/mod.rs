@@ -1013,6 +1013,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
         // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
+        let body_name = cx.tcx.item_name(def.into());
 
         // TODO: Mention in report that const can't be considered due to rustc internals
         match cx.tcx.def_kind(def) {
@@ -1030,9 +1031,16 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
 
         if lint_level != Level::Allow {
-            let info = AnalysisInfo::new(cx, def);
+            let mut info = AnalysisInfo::new(cx, def);
 
-            ret::ReturnAnalysis::run(&info);
+            let return_pats = ret::ReturnAnalysis::run(&info);
+            info.return_pats = return_pats;
+
+            if std::env::var("CLIPPY_PETS_PRINT").is_ok() {
+                println!("# {body_name:?}");
+                println!("- {}", info.return_pats);
+                println!();
+            }
 
             return;
             for (local, local_info) in info.locals.iter() {
@@ -1058,10 +1066,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let (mir, _) = cx.tcx.mir_promoted(def);
         let mir_borrow = mir.borrow();
         let mir_borrow = &mir_borrow;
-
-        let body_name = cx.tcx.item_name(def.into());
         let body_name = body_name.as_str();
-
         // Run analysis
         if lint_level != Level::Allow {
             run_analysis(cx, cx.tcx, &mir.borrow(), body_name);
