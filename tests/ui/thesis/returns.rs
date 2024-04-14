@@ -25,9 +25,5 @@ fn static_string() -> &'static str {
 }
 
 fn arg_or_default(arg: &String) -> &str {
-    if arg.is_empty() {
-        "Default"
-    } else {
-        arg
-    }
+    if arg.is_empty() { "Default" } else { arg }
 }

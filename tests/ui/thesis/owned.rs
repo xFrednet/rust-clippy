@@ -1,3 +1,5 @@
+//@rustc-env: CLIPPY_PETS_PRINT=1
+
 struct Animal {
     legs: u32,
     heads: u32,
@@ -10,12 +12,12 @@ fn take_two(_animal_1: Animal, _animal_2: Animal) {}
 
 fn take_pair((_animal_1, _animal_2): (Animal, Animal)) {}
 
-#[warn(clippy::borrow_pats)]
+//#[forbid(clippy::borrow_pats)]
 fn pat_return_owned_arg(animal: Animal) -> Animal {
     animal
 }
 
-#[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_1(a: String) -> String {
     if !a.is_empty() {
         return a;

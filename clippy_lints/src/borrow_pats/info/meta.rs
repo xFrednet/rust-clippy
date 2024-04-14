@@ -65,22 +65,10 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         local_infos.get_mut(&super::super::RETURN).map(|info| {
             info.kind = LocalKind::Return;
         });
-        body.var_debug_info.iter().for_each(|info| {
-            if let mir::VarDebugInfoContents::Place(place) = info.value {
-                let local = place.local;
-                // +1, since `_0` is used for the return
-                local_infos.get_mut(&local).map(|loc_info| {
-                    loc_info.kind = if local < (body.arg_count + 1).into() {
-                        LocalKind::UserArg(info.name)
-                    } else {
-                        LocalKind::UserVar(info.name)
-                    };
-                });
-            } else {
-                todo!("How should this be handled? {info:#?}");
-            }
-        });
 
+        // The arg and named variable info will be filled in `visit_debug_info` thingy
+
+        //eprintln!("{local_infos:#?}");
         local_infos
     }
 
@@ -199,6 +187,26 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
+    fn visit_var_debug_info(&mut self, info: &mir::VarDebugInfo<'tcx>) {
+        if let mir::VarDebugInfoContents::Place(place) = info.value {
+            assert!(!place.has_projections());
+            let local = place.local;
+            self.locals.get_mut(&local).map(|local_info| {
+                // +1, since `_0` is used for the return
+                local_info.kind = if local < (self.body.arg_count + 1).into() {
+                    // +1 since it's assigned outside of the body
+                    local_info.assign_count += 1;
+                    local_info.add_assign(place, DataInfo::Argument);
+                    LocalKind::UserArg(info.name)
+                } else {
+                    LocalKind::UserVar(info.name)
+                };
+            });
+        } else {
+            todo!("How should this be handled? {info:#?}");
+        }
+    }
+
     fn visit_terminator(&mut self, term: &Terminator<'tcx>, loc: mir::Location) {
         self.visit_terminator_for_cfg(term, loc.block);
         self.visit_terminator_for_terms(term, loc.block);

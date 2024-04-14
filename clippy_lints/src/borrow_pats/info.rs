@@ -106,7 +106,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
 
     pub fn local_constness(&self, local: Local) -> LocalConstness {
         match &self.locals[&local].data {
-            DataInfo::Unresolved => unreachable!(),
+            DataInfo::Unresolved => unreachable!("{self:#?}"),
             DataInfo::Computed | DataInfo::Argument => LocalConstness::Nope,
             DataInfo::Mixed => LocalConstness::Maybe,
             DataInfo::Local(other) => self.local_constness(*other),
@@ -179,15 +179,10 @@ pub struct LocalInfo<'tcx> {
 
 impl<'tcx> LocalInfo<'tcx> {
     pub fn new(kind: LocalKind) -> Self {
-        let (assign_count, data) = match &kind {
-            LocalKind::Unknown => unreachable!(),
-            LocalKind::UserArg(_) => (1, DataInfo::Argument),
-            _ => (0, DataInfo::Unresolved),
-        };
         Self {
             kind,
-            assign_count,
-            data,
+            assign_count: 0,
+            data: DataInfo::Unresolved,
         }
     }
 

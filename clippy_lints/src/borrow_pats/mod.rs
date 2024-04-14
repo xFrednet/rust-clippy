@@ -1078,18 +1078,18 @@ fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: h
     let borrowck = get_body_with_borrowck_facts(cx.tcx, def, ConsumerOptions::RegionInferenceContext);
     println!("=====");
     print_body(&borrowck.body);
-    println!("=====");
-    println!("location_map: {:#?}", borrowck.borrow_set.location_map);
-    println!("activation_map: {:#?}", borrowck.borrow_set.activation_map);
-    println!("local_map: {:#?}", borrowck.borrow_set.local_map);
+    println!("");
+    println!("- location_map: {:#?}", borrowck.borrow_set.location_map);
+    println!("- activation_map: {:#?}", borrowck.borrow_set.activation_map);
+    println!("- local_map: {:#?}", borrowck.borrow_set.local_map);
     match &borrowck.borrow_set.locals_state_at_exit {
         rustc_borrowck::borrow_set::LocalsStateAtExit::AllAreInvalidated => {
-            println!("locals_state_at_exit: AllAreInvalidated")
+            println!("- locals_state_at_exit: AllAreInvalidated")
         },
         rustc_borrowck::borrow_set::LocalsStateAtExit::SomeAreInvalidated {
             has_storage_dead_or_moved,
         } => println!(
-            "locals_state_at_exit: SomeAreInvalidated {:#?}",
+            "- locals_state_at_exit: SomeAreInvalidated {:#?}",
             has_storage_dead_or_moved
         ),
     };
