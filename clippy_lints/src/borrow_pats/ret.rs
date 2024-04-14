@@ -3,7 +3,10 @@ use std::cell::{Cell, RefCell};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::bit_set::BitSet;
 use rustc_middle::mir::visit::Visitor;
-use rustc_middle::mir::{self, BasicBlock, Local, Operand};
+use rustc_middle::mir::{self, BasicBlock, Local, Operand, Rvalue};
+use rustc_middle::ty::TypeVisitableExt;
+
+use crate::borrow_pats::{DataInfo, LocalConstness};
 
 use super::{AnalysisInfo, RETURN};
 
@@ -12,7 +15,6 @@ pub struct ReturnAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     pats: ReturnPats,
     visited: BitSet<BasicBlock>,
-    assigns: u32,
 }
 
 /// A convinient wrapper to make sure patterns are tracked correctly.
@@ -23,7 +25,7 @@ pub struct ReturnPats {
 
 impl std::fmt::Display for ReturnPats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Return: {:?}", self.pats)
+        write!(f, "Return: {:?}", self.pats.borrow())
     }
 }
 
@@ -36,10 +38,11 @@ impl std::fmt::Debug for ReturnPats {
 impl ReturnPats {
     pub fn push(&self, new_pat: ReturnPat) {
         let mut pats = self.pats.borrow_mut();
-        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last()
-            && *check_pat != new_pat
-        {
-            pats.insert(idx + 1, new_pat);
+        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last() {
+            // Only insert, if it's a new pattern
+            if *check_pat != new_pat {
+                pats.insert(idx + 1, new_pat);
+            }
         } else {
             pats.insert(0, new_pat);
         }
@@ -63,6 +66,8 @@ pub enum ReturnPat {
     Unit,
     /// The return depends on some kind of condition
     Conditional,
+    /// All returned values are constant
+    AllConst,
 }
 
 impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
@@ -71,7 +76,6 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
             info,
             pats: Default::default(),
             visited: BitSet::new_empty(info.body.basic_blocks.len()),
-            assigns: 0,
         }
     }
 
@@ -80,13 +84,26 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
 
         let decl = &info.body.local_decls[RETURN];
         if decl.ty.is_unit() {
-            anly.pats.push(ReturnPat::Const);
             anly.pats.push(ReturnPat::Unit);
+            anly.pats.push(ReturnPat::Const);
+            anly.pats.push(ReturnPat::AllConst);
         } else {
-            println!("Type: {decl:#?}");
-            anly.visit_body(&info.body);
-            assert!(anly.assigns >= 1);
-            if anly.assigns > 1 {
+            let return_info = &info.locals[&RETURN];
+
+            match info.local_constness(RETURN) {
+                LocalConstness::Const => {
+                    anly.pats.push(ReturnPat::Const);
+                    anly.pats.push(ReturnPat::AllConst);
+                },
+                // Here we need to investigate
+                LocalConstness::Nope | LocalConstness::Maybe => {
+                    // Loans and arguments in the data should be added by the
+                    // loans and owned analysis (Famous last words)
+                    anly.visit_body(&info.body);
+                },
+            }
+
+            if return_info.assign_count > 1 {
                 anly.pats.push(ReturnPat::Conditional);
             }
         }
@@ -96,53 +113,73 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
-    fn visit_assign(&mut self, target: &mir::Place<'tcx>, rvalue: &mir::Rvalue<'tcx>, _loc: mir::Location) {
+    fn visit_assign(&mut self, target: &mir::Place<'tcx>, rval: &mir::Rvalue<'tcx>, _loc: mir::Location) {
         if target.local != RETURN {
             return;
         }
 
-        self.assigns += 1;
+        assert!(!target.has_projections());
 
-        match &rvalue {
-            mir::Rvalue::Use(Operand::Constant(_)) => {
-                self.pats.push(ReturnPat::Const);
-            },
-            mir::Rvalue::Cast(_, _, _) | mir::Rvalue::Use(_) => todo!("Return: {rvalue:#?}"),
-            mir::Rvalue::Repeat(_, _) | mir::Rvalue::Aggregate(_, _) => {
-                todo!("Return: {rvalue:#?}")
-            },
-
-            mir::Rvalue::Ref(_, _, _)
-            | mir::Rvalue::ThreadLocalRef(_)
-            | mir::Rvalue::AddressOf(_, _)
-            | mir::Rvalue::Len(_)
-            | mir::Rvalue::BinaryOp(_, _)
-            | mir::Rvalue::CheckedBinaryOp(_, _)
-            | mir::Rvalue::NullaryOp(_, _)
-            | mir::Rvalue::UnaryOp(_, _)
-            | mir::Rvalue::Discriminant(_)
-            | mir::Rvalue::ShallowInitBox(_, _)
-            | mir::Rvalue::CopyForDeref(_) => unreachable!("Return: None of these ops should be inlined {rvalue:#?}"),
-        }
-    }
-
-    fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, _loc: mir::Location) {
-        match &term.kind {
-            mir::TerminatorKind::Call {
-                func,
-                args,
-                destination,
-                ..
-            } => {
-                if destination.local != RETURN {
-                    return;
+        match rval {
+            mir::Rvalue::Ref(_reg, _kind, src) => {
+                match src.projection.as_slice() {
+                    [mir::PlaceElem::Deref] => {
+                        // &(*_1) = Copy
+                        if self.info.local_constness(src.local) == LocalConstness::Const {
+                            self.pats.push(ReturnPat::Const)
+                        }
+                    },
+                    _ => {},
                 }
-                assert!(destination.projection.is_empty());
-
-                self.assigns += 1;
-                self.pats.push(ReturnPat::Computed);
             },
-            _ => {},
+            Rvalue::Repeat(op, _) | mir::Rvalue::Use(op) => match &op {
+                mir::Operand::Copy(other) | mir::Operand::Move(other) => {
+                    if !other.has_projections() && self.info.local_constness(other.local) == LocalConstness::Const {
+                        self.pats.push(ReturnPat::Const)
+                    }
+                },
+                mir::Operand::Constant(_) => self.pats.push(ReturnPat::Const),
+            },
+
+            // Constructed Values
+            Rvalue::Aggregate(_, fields) => {
+                let constness = fields
+                    .iter()
+                    .filter_map(|op| op.place())
+                    .map(|place| {
+                        assert!(!place.has_projections());
+                        self.info.local_constness(place.local)
+                    })
+                    .max()
+                    .unwrap_or(LocalConstness::Const);
+                if constness == LocalConstness::Const {
+                    self.pats.push(ReturnPat::Const)
+                }
+            },
+
+            // Casts should depend on the input data
+            Rvalue::Cast(_kind, op, _target) => {
+                if let Some(place) = op.place() {
+                    assert!(!place.has_projections());
+                    if self.info.local_constness(place.local) == LocalConstness::Const {
+                        self.pats.push(ReturnPat::Const)
+                    }
+                } else {
+                    self.pats.push(ReturnPat::Const)
+                }
+            },
+
+            Rvalue::NullaryOp(_, _) => self.pats.push(ReturnPat::Const),
+
+            Rvalue::ThreadLocalRef(_)
+            | Rvalue::AddressOf(_, _)
+            | Rvalue::Len(_)
+            | Rvalue::BinaryOp(_, _)
+            | Rvalue::CheckedBinaryOp(_, _)
+            | Rvalue::UnaryOp(_, _)
+            | Rvalue::Discriminant(_)
+            | Rvalue::ShallowInitBox(_, _)
+            | Rvalue::CopyForDeref(_) => {},
         }
     }
 }

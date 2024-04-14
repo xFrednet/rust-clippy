@@ -99,6 +99,26 @@ impl<'tcx> AnalysisInfo<'tcx> {
     pub fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
         super::find_loop(&self.loops, bb)
     }
+
+    pub fn local_constness(&self, local: Local) -> LocalConstness {
+        match &self.locals[&local].data {
+            DataInfo::Unresolved => unreachable!(),
+            DataInfo::Computed | DataInfo::Argument => LocalConstness::Nope,
+            DataInfo::Mixed => LocalConstness::Maybe,
+            DataInfo::Local(other) => self.local_constness(*other),
+            DataInfo::Loan(place) | DataInfo::Part(place) => {
+                LocalConstness::max(LocalConstness::Maybe, self.local_constness(place.local))
+            },
+            DataInfo::Const => LocalConstness::Const,
+            DataInfo::Cast(other) => self.local_constness(*other),
+            DataInfo::Ctor(others) => others
+                .iter()
+                .filter_map(LocalOrConst::local)
+                .map(|local| self.local_constness(local))
+                .max()
+                .unwrap_or(LocalConstness::Const),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -150,15 +170,15 @@ impl LocalKind {
 pub struct LocalInfo<'tcx> {
     pub kind: LocalKind,
     pub assign_count: u32,
-    pub data: LocalAssignInfo<'tcx>,
+    pub data: DataInfo<'tcx>,
 }
 
 impl<'tcx> LocalInfo<'tcx> {
     pub fn new(kind: LocalKind) -> Self {
         let (assign_count, data) = match &kind {
             LocalKind::Unknown => unreachable!(),
-            LocalKind::UserArg(_) => (1, LocalAssignInfo::Argument),
-            _ => (0, LocalAssignInfo::Unresolved),
+            LocalKind::UserArg(_) => (1, DataInfo::Argument),
+            _ => (0, DataInfo::Unresolved),
         };
         Self {
             kind,
@@ -167,7 +187,7 @@ impl<'tcx> LocalInfo<'tcx> {
         }
     }
 
-    pub fn add_assign(&mut self, place: mir::Place<'tcx>, assign: LocalAssignInfo<'tcx>) {
+    pub fn add_assign(&mut self, place: mir::Place<'tcx>, assign: DataInfo<'tcx>) {
         if place.has_projections() {
             self.data.part_assign()
         } else {
@@ -178,7 +198,7 @@ impl<'tcx> LocalInfo<'tcx> {
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub enum LocalAssignInfo<'tcx> {
+pub enum DataInfo<'tcx> {
     /// The default value, before it has been resolved. This should never be the
     /// final version.
     Unresolved,
@@ -204,10 +224,34 @@ pub enum LocalAssignInfo<'tcx> {
     Ctor(Vec<LocalOrConst>),
 }
 
+impl<'tcx> DataInfo<'tcx> {
+    pub fn mix(&mut self, new_value: Self) {
+        if *self == Self::Unresolved {
+            *self = new_value;
+        } else if *self != new_value {
+            *self = Self::Mixed;
+        }
+    }
+
+    /// This is used to indicate, that a part of this value was mutated via a projection
+    fn part_assign(&mut self) {
+        *self = Self::Mixed;
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum LocalOrConst {
     Local(mir::Local),
     Const,
+}
+
+impl LocalOrConst {
+    fn local(&self) -> Option<Local> {
+        match self {
+            LocalOrConst::Local(local) => Some(*local),
+            LocalOrConst::Const => None,
+        }
+    }
 }
 
 impl From<&mir::Operand<'_>> for LocalOrConst {
@@ -221,17 +265,12 @@ impl From<&mir::Operand<'_>> for LocalOrConst {
     }
 }
 
-impl<'tcx> LocalAssignInfo<'tcx> {
-    pub fn mix(&mut self, new_value: Self) {
-        if *self == Self::Unresolved {
-            *self = new_value;
-        } else if *self != new_value {
-            *self = Self::Mixed;
-        }
-    }
-
-    /// This is used to indicate, that a part of this value was mutated via a projection
-    fn part_assign(&mut self) {
-        *self = Self::Mixed;
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LocalConstness {
+    /// Is const
+    Const,
+    /// Maybe const
+    Maybe,
+    /// Def not const
+    Nope,
 }

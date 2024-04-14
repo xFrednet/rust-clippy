@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::borrow_pats::PrintPrevent;
 
-use super::super::{calc_call_local_relations, CfgInfo, LocalAssignInfo, LocalInfo, LocalOrConst};
+use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
 
 use mid::mir::visit::Visitor;
@@ -111,7 +111,12 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     }
 
     fn mark_unused_locals(&mut self) {
-        self.locals.iter_mut().filter(|(_, info)| info.data == LocalAssignInfo::Unresolved).for_each(|(_, info)| {info.kind = LocalKind::Unused; });
+        self.locals
+            .iter_mut()
+            .filter(|(_, info)| info.data == DataInfo::Unresolved)
+            .for_each(|(_, info)| {
+                info.kind = LocalKind::Unused;
+            });
     }
 
     fn visit_terminator_for_cfg(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
@@ -186,7 +191,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                 self.locals
                     .get_mut(&local)
                     .unwrap()
-                    .add_assign(*destination, LocalAssignInfo::Computed);
+                    .add_assign(*destination, DataInfo::Computed);
             },
             _ => {},
         }
@@ -208,40 +213,40 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                 match src.projection.as_slice() {
                     [mir::PlaceElem::Deref] => {
                         // &(*_1) = Copy
-                        LocalAssignInfo::Local(src.local)
+                        DataInfo::Local(src.local)
                     },
-                    _ => LocalAssignInfo::Loan(*src),
+                    _ => DataInfo::Loan(*src),
                 }
             },
             mir::Rvalue::Use(op) => match &op {
                 mir::Operand::Copy(other) | mir::Operand::Move(other) => {
                     if other.has_projections() {
-                        LocalAssignInfo::Part(*other)
+                        DataInfo::Part(*other)
                     } else {
-                        LocalAssignInfo::Local(other.local)
+                        DataInfo::Local(other.local)
                     }
                 },
-                mir::Operand::Constant(_) => LocalAssignInfo::Const,
+                mir::Operand::Constant(_) => DataInfo::Const,
             },
 
             // Constructed Values
             Rvalue::Aggregate(_, fields) => {
                 let parts = fields.iter().map(|field| LocalOrConst::from(field)).collect();
-                LocalAssignInfo::Ctor(parts)
+                DataInfo::Ctor(parts)
             },
-            Rvalue::Repeat(op, _) => LocalAssignInfo::Ctor(vec![op.into()]),
+            Rvalue::Repeat(op, _) => DataInfo::Ctor(vec![op.into()]),
 
             // Casts should depend on the input data
             Rvalue::Cast(_kind, op, _target) => {
                 if let Some(place) = op.place() {
                     assert!(!place.has_projections());
-                    LocalAssignInfo::Cast(place.local)
+                    DataInfo::Cast(place.local)
                 } else {
-                    LocalAssignInfo::Const
+                    DataInfo::Const
                 }
             },
 
-            Rvalue::NullaryOp(_, _) => LocalAssignInfo::Const,
+            Rvalue::NullaryOp(_, _) => DataInfo::Const,
 
             Rvalue::ThreadLocalRef(_)
             | Rvalue::AddressOf(_, _)
@@ -251,7 +256,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             | Rvalue::UnaryOp(_, _)
             | Rvalue::Discriminant(_)
             | Rvalue::ShallowInitBox(_, _)
-            | Rvalue::CopyForDeref(_) => LocalAssignInfo::Computed,
+            | Rvalue::CopyForDeref(_) => DataInfo::Computed,
         };
 
         self.locals.get_mut(&local).unwrap().add_assign(*place, assign_info);

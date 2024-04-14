@@ -1031,7 +1031,6 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         if lint_level != Level::Allow {
             let info = AnalysisInfo::new(cx, def);
-            println!("{info:#?}");
 
             ret::ReturnAnalysis::run(&info);
 

@@ -1,8 +1,11 @@
+#![warn(clippy::borrow_pats)]
+
+fn main() {}
+
 fn simple_const() -> u32 {
     15
 }
 
-#[forbid(clippy::borrow_pats)]
 fn fn_call() -> u32 {
     simple_const()
 }
@@ -15,4 +18,14 @@ fn static_slice() -> &'static [u32] {
     &[]
 }
 
-fn main() {}
+fn static_string() -> &'static str {
+    "Ducks are cool"
+}
+
+fn arg_or_default(arg: &String) -> &str {
+    if arg.is_empty() {
+        "Default"
+    } else {
+        arg
+    }
+}
