@@ -1,5 +1,5 @@
 use super::ret::ReturnPat;
-use super::{AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
+use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
 
 use hir::Mutability;
 use mid::mir::visit::Visitor;
@@ -48,12 +48,15 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         /// Arguments are assigned outside and therefore have at least a use of 1
         let use_count = u32::from(matches!(local_kind, LocalKind::Arg(_)));
 
+        let mut states = IndexVec::new();
+        states.resize(info.body.basic_blocks.len(), State::None);
+
         Self {
             info,
             local,
             name,
             state: State::Empty,
-            states: IndexVec::new(),
+            states,
             local_kind,
             invals: vec![],
             borrows: FxHashMap::default(),
@@ -64,7 +67,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
     pub fn run(info: &'a AnalysisInfo<'tcx>, local: Local) -> OwnedPats {
         let mut anly = Self::new(info, local);
-        anly.visit_body(&info.body);
+        visit_body_in_order(&mut anly, info);
 
         if anly.use_count == 1 {
             anly.pats.push(OwnedPat::Unused);
@@ -74,37 +77,51 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     }
 
     fn init_state(&mut self, bb: BasicBlock) {
-        assert!(self.states.len() == bb.as_usize());
         if bb == START_BLOCK {
             if matches!(self.local_kind, LocalKind::Arg(_)) {
-                self.states.push(State::Filled);
+                self.states[bb] = State::Filled;
             } else {
-                self.states.push(State::Empty);
+                self.states[bb] = State::Empty;
             }
 
             return;
         }
 
-        let preds = &self.info.body.basic_blocks.predecessors()[bb];
-        // TODO: Check for patterns on join
-        for pred in preds {}
+        let preds = &self.info.preds[&bb];
+        self.states[bb] = preds.iter().map(|bb| self.states[bb]).reduce(|a, b| a.join(b)).unwrap();
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum State {
+    None,
     Empty,
     Filled,
     Moved,
     Dropped,
+    MaybeFilled,
 }
 
 impl State {
     /// Retruns true if this state contains valid data, which can be dropped or moved.
     fn validity(self) -> Validity {
         match self {
+            State::None => unreachable!(),
             State::Filled => Validity::Valid,
+            State::MaybeFilled => Validity::Maybe,
             State::Empty | State::Moved | State::Dropped => Validity::Not,
+        }
+    }
+
+    fn join(self, other: State) -> State {
+        assert_ne!(self, State::None);
+        assert_ne!(other, State::None);
+
+        if self == other {
+            self
+        } else {
+            // For now, all others result in it being maybe filled.
+            State::MaybeFilled
         }
     }
 }

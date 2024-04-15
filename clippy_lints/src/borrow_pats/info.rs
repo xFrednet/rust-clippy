@@ -1,6 +1,6 @@
 #![warn(unused)]
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 use hir::def_id::LocalDefId;
 use meta::MetaAnalysis;
@@ -151,22 +151,6 @@ pub enum CfgInfo {
     None,
     /// Let's see if we can detect this
     Return,
-}
-
-impl CfgInfo {
-    pub fn add_successors(&self, queue: &mut VecDeque<BasicBlock>) {
-        match &self {
-            CfgInfo::Linear(bb) => queue.push_back(*bb),
-            CfgInfo::Condition { branches } => {
-                queue.extend(branches.iter().copied());
-            },
-            CfgInfo::Break { next, brea } => {
-                queue.push_back(*next);
-                queue.push_back(*brea);
-            },
-            CfgInfo::None | CfgInfo::Return => {},
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

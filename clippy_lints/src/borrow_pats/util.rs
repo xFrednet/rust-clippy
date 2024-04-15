@@ -170,15 +170,12 @@ pub enum Validity {
     Not,
 }
 
-fn visit_in_control_order<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
+pub fn visit_body_in_order<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
     for info in &info.body.var_debug_info {
         vis.visit_var_debug_info(&info);
     }
 
-    let mut queue = VecDeque::new();
-    queue.push_back(START_BLOCK);
-    while let Some(bb) = queue.pop_front() {
+    for bb in info.visit_order.iter().copied() {
         vis.visit_basic_block_data(bb, &info.body.basic_blocks[bb]);
-        info.cfg[&bb].add_successors(&mut queue);
     }
 }

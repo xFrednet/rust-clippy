@@ -1,17 +1,9 @@
 #![expect(unused)]
 //! # TODOs
-//! - Refactor patterns to be made up of:
-//!     - Init
-//!     - Use
-//!     - Death
-//! - Add more patterns and states to the automata
-//! - Add basic support for testing in uitests
 //! - Handle or abort on feature use
 //! - Insight: Loans are basically just special dependent typed
-//!     - Rename some `Loan` to `Dep`
-//!     - Handle Deps like loans
-//! - Checkout: `rvalue_locals`
 //! - The output states need to be sorted... OH NO
+//! - Add Computed to Return
 //!
 //! # Done
 //! - [x] Refactor events to have places instead of locals.
@@ -1045,7 +1037,6 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            return;
             for (local, local_info) in info.locals.iter() {
                 // We're only interested in named trash
                 if local_info.kind.name().is_some() {
