@@ -19,8 +19,8 @@ fn pat_return_owned_arg(animal: Animal) -> Animal {
     animal
 }
 
-#[forbid(clippy::borrow_pats)]
-// #[warn(clippy::borrow_pats)]
+// #[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_1(a: String) -> String {
     if !a.is_empty() {
         return a;
@@ -54,5 +54,16 @@ fn pat_maybe_return_owned_arg_2(a: String) -> String {
 fn pat_copy_to_self(mut animal: Animal) {
     animal.heads = animal.legs;
 }
+
+fn pub_dynamic_drop_1(animal: String, cond: bool) {
+    if cond {
+        // Move out of function
+        std::mem::drop(animal);
+    }
+
+    magic()
+}
+
+fn magic() {}
 
 fn main() {}

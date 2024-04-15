@@ -1,6 +1,6 @@
 #![warn(unused)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use hir::def_id::LocalDefId;
 use meta::MetaAnalysis;
@@ -34,6 +34,9 @@ pub struct AnalysisInfo<'tcx> {
     pub return_block: BasicBlock,
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
     pub return_pats: ReturnPats,
+    pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub visit_order: Vec<BasicBlock>,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -70,6 +73,9 @@ impl<'tcx> AnalysisInfo<'tcx> {
             terms,
             return_block,
             locals,
+            preds,
+            preds_unlooped,
+            visit_order,
             ..
         } = meta_analysis;
 
@@ -86,6 +92,9 @@ impl<'tcx> AnalysisInfo<'tcx> {
             return_block,
             locals,
             return_pats: PatternStorage::new("TODO"),
+            preds,
+            preds_unlooped,
+            visit_order,
         }
     }
 
@@ -144,13 +153,29 @@ pub enum CfgInfo {
     Return,
 }
 
+impl CfgInfo {
+    pub fn add_successors(&self, queue: &mut VecDeque<BasicBlock>) {
+        match &self {
+            CfgInfo::Linear(bb) => queue.push_back(*bb),
+            CfgInfo::Condition { branches } => {
+                queue.extend(branches.iter().copied());
+            },
+            CfgInfo::Break { next, brea } => {
+                queue.push_back(*next);
+                queue.push_back(*brea);
+            },
+            CfgInfo::None | CfgInfo::Return => {},
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LocalKind {
     Unknown,
     /// The return local
     Return,
     /// User defined argument
-    UserArg(Symbol),
+    Arg(Symbol),
     /// User defined variable
     UserVar(Symbol),
     /// Generated variable, i.e. unnamed
@@ -165,7 +190,7 @@ pub enum LocalKind {
 impl LocalKind {
     pub fn name(&self) -> Option<Symbol> {
         match self {
-            Self::UserArg(name) | Self::UserVar(name) => Some(*name),
+            Self::Arg(name) | Self::UserVar(name) => Some(*name),
             _ => None,
         }
     }

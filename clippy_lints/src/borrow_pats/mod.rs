@@ -116,7 +116,7 @@ impl<'a, 'tcx> BorrowAnalysis<'a, 'tcx> {
                 let local = place.local;
                 // +1, since `_0` is used for the return
                 autos.get_mut(local).unwrap().local_kind = if local < (body.arg_count + 1).into() {
-                    LocalKind::UserArg(info.name)
+                    LocalKind::Arg(info.name)
                 } else {
                     LocalKind::UserVar(info.name)
                 };
@@ -456,13 +456,13 @@ impl<'a, 'tcx> Automata<'a, 'tcx> {
         self.state = match (&self.local_kind, is_owned) {
             (LocalKind::Unknown, _) => unreachable!(),
             (LocalKind::Return, _) => State::Return(ReturnState::Init),
-            (LocalKind::UserArg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
-            (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
+            (LocalKind::Arg(_), true) => State::Owned(OwnedState::Filled(InitKind::Arg)),
+            (LocalKind::Arg(symbol), false) => State::NamedRef(NamedRefInfo {
                 brokers: vec![BrokerInfo::Arg(self.local, *symbol)],
                 state: NamedRefState::Life,
             }),
             (LocalKind::UserVar(_), true) => State::Owned(OwnedState::Empty),
-            (LocalKind::UserArg(symbol), false) => State::NamedRef(NamedRefInfo {
+            (LocalKind::Arg(symbol), false) => State::NamedRef(NamedRefInfo {
                 brokers: vec![],
                 state: NamedRefState::Empty,
             }),
@@ -1027,6 +1027,13 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         let body_hir = cx.tcx.local_def_id_to_hir_id(def);
         let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+        let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
+
+        if lint_level != Level::Allow {
+            if print_pats {
+                println!("# {body_name:?}");
+            }
+        }
 
         if lint_level == Level::Forbid {
             // eprintln!("{body:#?}");
@@ -1034,15 +1041,11 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
 
         if lint_level != Level::Allow {
-            let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
             let mut info = AnalysisInfo::new(cx, def);
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            if print_pats {
-                println!("# {body_name:?}");
-            }
-
+            return;
             for (local, local_info) in info.locals.iter() {
                 // We're only interested in named trash
                 if local_info.kind.name().is_some() {
@@ -1102,6 +1105,10 @@ fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: h
         ),
     };
     println!();
-    let scope_info = calculate_borrows_out_of_scope_at_location(&borrowck.body, &borrowck.region_inference_context, &borrowck.borrow_set);
+    let scope_info = calculate_borrows_out_of_scope_at_location(
+        &borrowck.body,
+        &borrowck.region_inference_context,
+        &borrowck.borrow_set,
+    );
     println!("- scope_info: {scope_info:#?}");
 }

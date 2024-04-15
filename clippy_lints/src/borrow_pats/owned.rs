@@ -1,10 +1,11 @@
 use super::ret::ReturnPat;
-use super::{AnalysisInfo, LocalKind, PatternEnum, PatternStorage};
+use super::{AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
 
 use hir::Mutability;
 use mid::mir::visit::Visitor;
-use mid::mir::{VarDebugInfo, VarDebugInfoContents};
+use mid::mir::{VarDebugInfo, VarDebugInfoContents, START_BLOCK};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_index::IndexVec;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, FakeReadCause, Local, Place, Rvalue};
 use rustc_span::Symbol;
@@ -16,6 +17,7 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     local: Local,
     name: Symbol,
     state: State,
+    states: IndexVec<BasicBlock, State>,
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
     local_kind: LocalKind,
@@ -44,13 +46,14 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         let name_str = unsafe { std::mem::transmute::<&str, &'static str>(name.as_str()) };
 
         /// Arguments are assigned outside and therefore have at least a use of 1
-        let use_count = u32::from(matches!(local_kind, LocalKind::UserArg(_)));
+        let use_count = u32::from(matches!(local_kind, LocalKind::Arg(_)));
 
         Self {
             info,
             local,
             name,
             state: State::Empty,
+            states: IndexVec::new(),
             local_kind,
             invals: vec![],
             borrows: FxHashMap::default(),
@@ -69,6 +72,23 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
         anly.pats
     }
+
+    fn init_state(&mut self, bb: BasicBlock) {
+        assert!(self.states.len() == bb.as_usize());
+        if bb == START_BLOCK {
+            if matches!(self.local_kind, LocalKind::Arg(_)) {
+                self.states.push(State::Filled);
+            } else {
+                self.states.push(State::Empty);
+            }
+
+            return;
+        }
+
+        let preds = &self.info.body.basic_blocks.predecessors()[bb];
+        // TODO: Check for patterns on join
+        for pred in preds {}
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -76,6 +96,17 @@ enum State {
     Empty,
     Filled,
     Moved,
+    Dropped,
+}
+
+impl State {
+    /// Retruns true if this state contains valid data, which can be dropped or moved.
+    fn validity(self) -> Validity {
+        match self {
+            State::Filled => Validity::Valid,
+            State::Empty | State::Moved | State::Dropped => Validity::Not,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -88,6 +119,9 @@ pub enum OwnedPat {
     Returned,
     /// The value is only assigned once and never read afterwards.
     Unused,
+    /// The value is dynamically dropped, meaning if it's still valid at a given location.
+    /// See RFC: #320
+    DynamicDrop,
 }
 
 impl PatternEnum for OwnedPat {}
@@ -97,12 +131,17 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     fn visit_var_debug_info(&mut self, info: &VarDebugInfo<'tcx>) {
         if let VarDebugInfoContents::Place(place) = info.value
             && place.local == self.local
-            && let Some(arg_idx) = info.argument_index
         {
-            self.name = info.name;
-            self.state = State::Filled;
-            self.pats.push(OwnedPat::Arg);
+            if let Some(arg_idx) = info.argument_index {
+                self.state = State::Filled;
+                self.pats.push(OwnedPat::Arg);
+            }
         }
+    }
+
+    fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &mir::BasicBlockData<'tcx>) {
+        self.init_state(bb);
+        self.super_basic_block_data(bb, bbd);
     }
 
     // Note: visit_place sounds perfect, with the mild inconvinience, that it doesn't
@@ -123,12 +162,12 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
             && place.local == self.local
         {
             if op.is_move() {
-                self.invals.push(loc);
+                self.states[loc.block] = State::Moved;
             }
 
             if target.local.as_u32() == 0 {
                 self.pats.push(OwnedPat::Returned);
-                if matches!(self.local_kind, LocalKind::UserArg(_)) {
+                if matches!(self.local_kind, LocalKind::Arg(_)) {
                     self.info.return_pats.push(ReturnPat::Argument);
                 }
             } else {
@@ -137,6 +176,77 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         }
 
         self.super_assign(target, rvalue, loc);
+    }
+
+    fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, loc: mir::Location) {
+        match &term.kind {
+            mir::TerminatorKind::Drop { place, .. } => {
+                if place.local == self.local {
+                    match self.states[loc.block].validity() {
+                        Validity::Valid => {
+                            self.states[loc.block] = State::Dropped;
+                        },
+                        Validity::Maybe => {
+                            self.pats.push(OwnedPat::DynamicDrop);
+                            self.states[loc.block] = State::Dropped;
+                        },
+                        Validity::Not => {
+                            // // It can happen that drop is called on a moved value like in this
+                            // code: ```
+                            // if !a.is_empty() {
+                            //     return a;
+                            // }
+                            // ```
+                            // // In that case we just ignore the action. (MIR WHY??????)
+                        },
+                    }
+                }
+            },
+            mir::TerminatorKind::SwitchInt { discr: op, .. } | mir::TerminatorKind::Assert { cond: op, .. } => {
+                if let Some(place) = op.place()
+                    && place.local == self.local
+                {
+                    todo!();
+                }
+            },
+            mir::TerminatorKind::Call {
+                func,
+                args,
+                destination: dest,
+                ..
+            } => {
+                if let Some(place) = func.place()
+                    && place.local == self.local
+                {
+                    todo!();
+                }
+
+                for arg in args {
+                    if let Some(place) = arg.node.place()
+                        && place.local == self.local
+                    {
+                        todo!();
+                    }
+                }
+
+                if dest.local == self.local {
+                    todo!()
+                }
+            },
+
+            // Controll flow or unstable features. Uninteresting for values
+            mir::TerminatorKind::Goto { .. }
+            | mir::TerminatorKind::UnwindResume
+            | mir::TerminatorKind::UnwindTerminate(_)
+            | mir::TerminatorKind::Return
+            | mir::TerminatorKind::Unreachable
+            | mir::TerminatorKind::Yield { .. }
+            | mir::TerminatorKind::CoroutineDrop
+            | mir::TerminatorKind::FalseEdge { .. }
+            | mir::TerminatorKind::FalseUnwind { .. }
+            | mir::TerminatorKind::InlineAsm { .. } => {},
+        }
+        self.super_terminator(term, loc)
     }
 
     fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, _location: mir::Location) {

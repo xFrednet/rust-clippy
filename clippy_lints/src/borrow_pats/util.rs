@@ -1,14 +1,15 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
 use rustc_index::bit_set::BitSet;
-use rustc_middle::mir::{self, BasicBlock, Local, Operand};
+use rustc_middle::mir::visit::Visitor;
+use rustc_middle::mir::{self, BasicBlock, Local, Operand, START_BLOCK};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::source_map::Spanned;
 
-use super::BorrowAnalysis;
+use super::{AnalysisInfo, BorrowAnalysis};
 
 pub struct PrintPrevent<T>(pub T);
 
@@ -155,5 +156,29 @@ impl<T: PatternEnum> PatternStorage<T> {
 
     pub fn get(self) -> BTreeSet<T> {
         self.pats.take()
+    }
+}
+
+/// Indicates the validity of a value.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Validity {
+    /// Is valid on all paths
+    Valid,
+    /// Maybe filled with valid data
+    Maybe,
+    /// Not filled with valid data
+    Not,
+}
+
+fn visit_in_control_order<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
+    for info in &info.body.var_debug_info {
+        vis.visit_var_debug_info(&info);
+    }
+
+    let mut queue = VecDeque::new();
+    queue.push_back(START_BLOCK);
+    while let Some(bb) = queue.pop_front() {
+        vis.visit_basic_block_data(bb, &info.body.basic_blocks[bb]);
+        info.cfg[&bb].add_successors(&mut queue);
     }
 }

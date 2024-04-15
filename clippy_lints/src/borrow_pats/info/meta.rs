@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use crate::borrow_pats::PrintPrevent;
 
@@ -6,7 +6,7 @@ use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, Loca
 use super::LocalKind;
 
 use mid::mir::visit::Visitor;
-use mid::mir::{Body, Terminator, TerminatorKind};
+use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
 use mid::ty::{TyCtxt, TypeVisitableExt};
 use rustc_index::bit_set::BitSet;
 use rustc_middle as mid;
@@ -27,6 +27,9 @@ pub struct MetaAnalysis<'a, 'tcx> {
     pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
     pub return_block: BasicBlock,
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
+    pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub visit_order: Vec<BasicBlock>,
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
@@ -34,11 +37,18 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         let mut anly = Self::new(tcx, body);
         anly.visit_body(body);
         anly.mark_unused_locals();
+        anly.unloop_preds();
+        anly.build_trav();
+
         anly
     }
 
     pub fn new(tcx: TyCtxt<'tcx>, body: &'a Body<'tcx>) -> Self {
         let locals = Self::setup_local_infos(body);
+        let bb_len = body.basic_blocks.len();
+
+        let mut preds = BTreeMap::new();
+        preds.extend((0..bb_len).map(|bb| (BasicBlock::from_usize(bb), BitSet::new_empty(bb_len))));
 
         let mut anly = Self {
             body,
@@ -48,6 +58,9 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             terms: Default::default(),
             return_block: BasicBlock::from_u32(0),
             locals,
+            preds,
+            preds_unlooped: Default::default(),
+            visit_order: Default::default(),
         };
 
         anly.collect_loops();
@@ -68,7 +81,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
 
         // The arg and named variable info will be filled in `visit_debug_info` thingy
 
-        //eprintln!("{local_infos:#?}");
         local_infos
     }
 
@@ -107,6 +119,68 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             });
     }
 
+    fn unloop_preds(&mut self) {
+        let mut unlooped = self.preds.clone();
+
+        if !self.body.basic_blocks.is_cfg_cyclic() {
+            self.preds_unlooped = unlooped;
+            return;
+        }
+
+        for (bb, preds) in unlooped.iter_mut() {
+            if let Some((loop_set, end_bb)) = self.find_loop(*bb) {
+                if preds.contains(*end_bb) {
+                    preds.subtract(loop_set);
+                }
+            }
+        }
+        self.preds_unlooped = unlooped;
+    }
+
+    fn build_trav(&mut self) {
+        let bb_len = self.body.basic_blocks.len();
+        let mut visited: BitSet<BasicBlock> = BitSet::new_empty(bb_len);
+        let mut order: Vec<BasicBlock> = Vec::with_capacity(bb_len);
+
+        let mut buffer_queue = VecDeque::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(START_BLOCK);
+        loop {
+            while let Some(bb) = queue.pop_front() {
+                if visited.contains(bb) {
+                    continue;
+                }
+
+                let preds = &self.preds_unlooped[&bb];
+                if preds.clone().intersect(&visited) {
+                    // Not all prerequisites are fulfilled. This bb will be added again by the other branch
+                    continue;
+                }
+
+                match &self.cfg[&bb] {
+                    CfgInfo::Linear(next) => queue.push_back(*next),
+                    CfgInfo::Condition { branches } => queue.extend(branches.iter()),
+                    CfgInfo::Break { next, brea } => {
+                        queue.push_back(*next);
+                        buffer_queue.push_back(*brea);
+                    },
+                    CfgInfo::None | CfgInfo::Return => {},
+                }
+
+                order.push(bb);
+                visited.insert(bb);
+            }
+
+            if buffer_queue.is_empty() {
+                break;
+            }
+
+            std::mem::swap(&mut buffer_queue, &mut queue);
+        }
+
+        self.visit_order = order;
+    }
+
     fn visit_terminator_for_cfg(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         let cfg_info = match &term.kind {
             #[rustfmt::skip]
@@ -117,6 +191,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             | mir::TerminatorKind::Drop { target, .. }
             | mir::TerminatorKind::InlineAsm { destination: Some(target), .. }
             | mir::TerminatorKind::Goto { target } => {
+                self.preds.get_mut(&target).map(|x| x.insert(bb));
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
@@ -126,10 +201,16 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                         _ => None,
                     }
                 {
+                    self.preds.get_mut(&next).map(|x| x.insert(bb));
+                    self.preds.get_mut(&brea).map(|x| x.insert(bb));
                     CfgInfo::Break { next, brea }
                 } else {
                     let mut branches = Vec::new();
                     branches.extend_from_slice(targets.all_targets());
+
+                    for target in &branches {
+                        self.preds.get_mut(target).map(|x| x.insert(bb));
+                    }
 
                     CfgInfo::Condition { branches }
                 }
@@ -197,7 +278,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                     // +1 since it's assigned outside of the body
                     local_info.assign_count += 1;
                     local_info.add_assign(place, DataInfo::Argument);
-                    LocalKind::UserArg(info.name)
+                    LocalKind::Arg(info.name)
                 } else {
                     LocalKind::UserVar(info.name)
                 };
