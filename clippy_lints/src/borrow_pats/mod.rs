@@ -20,10 +20,13 @@
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
 
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::ops::ControlFlow;
 
+use borrowck::borrow_set::BorrowSet;
+use borrowck::consumers::calculate_borrows_out_of_scope_at_location;
 use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_late_bound_region};
 use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
 use hir::def_id::LocalDefId;
@@ -1083,7 +1086,7 @@ fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: h
     let borrowck = get_body_with_borrowck_facts(cx.tcx, def, ConsumerOptions::RegionInferenceContext);
     println!("=====");
     print_body(&borrowck.body);
-    println!("");
+    println!();
     println!("- location_map: {:#?}", borrowck.borrow_set.location_map);
     println!("- activation_map: {:#?}", borrowck.borrow_set.activation_map);
     println!("- local_map: {:#?}", borrowck.borrow_set.local_map);
@@ -1098,4 +1101,7 @@ fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: h
             has_storage_dead_or_moved
         ),
     };
+    println!();
+    let scope_info = calculate_borrows_out_of_scope_at_location(&borrowck.body, &borrowck.region_inference_context, &borrowck.borrow_set);
+    println!("- scope_info: {scope_info:#?}");
 }

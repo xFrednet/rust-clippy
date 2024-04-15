@@ -17,7 +17,7 @@ pub struct ReturnAnalysis<'a, 'tcx> {
     visited: BitSet<BasicBlock>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ReturnPat {
     /// A constant value is returned.
     Const,

@@ -78,7 +78,7 @@ enum State {
     Moved,
 }
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum OwnedPat {
     /// The owned value is a function argument
     Arg,
@@ -139,7 +139,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         self.super_assign(target, rvalue, loc);
     }
 
-    fn visit_local(&mut self, local:Local,_context:mir::visit::PlaceContext,_location:mir::Location,) {
+    fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, _location: mir::Location) {
         if local == self.local {
             self.use_count += 1;
         }

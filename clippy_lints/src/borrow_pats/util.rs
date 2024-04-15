@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
@@ -121,12 +121,12 @@ pub fn find_loop(
         .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
 }
 
-pub trait PatternEnum: Copy + Clone + std::fmt::Debug + Eq + std::hash::Hash + PartialEq + PartialOrd {}
+pub trait PatternEnum: Copy + Clone + std::fmt::Debug + std::hash::Hash + Eq + PartialEq + Ord + PartialOrd {}
 
 /// A convinient wrapper to make sure patterns are tracked correctly.
 pub struct PatternStorage<T: PatternEnum> {
     name: &'static str,
-    pats: RefCell<Vec<T>>,
+    pats: RefCell<BTreeSet<T>>,
 }
 
 impl<T: PatternEnum> std::fmt::Display for PatternStorage<T> {
@@ -150,18 +150,10 @@ impl<T: PatternEnum> PatternStorage<T> {
     }
 
     pub fn push(&self, new_pat: T) {
-        let mut pats = self.pats.borrow_mut();
-        if let Some((idx, check_pat)) = pats.iter().take_while(|x| **x <= new_pat).enumerate().last() {
-            // Only insert, if it's a new pattern
-            if *check_pat != new_pat {
-                pats.insert(idx + 1, new_pat);
-            }
-        } else {
-            pats.insert(0, new_pat);
-        }
+        self.pats.borrow_mut().insert(new_pat);
     }
 
-    pub fn get(self) -> Vec<T> {
+    pub fn get(self) -> BTreeSet<T> {
         self.pats.take()
     }
 }
