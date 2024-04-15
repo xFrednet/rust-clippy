@@ -23,6 +23,8 @@ pub enum ReturnPat {
     Const,
     /// A argument is returned
     Argument,
+    /// This is a part of an argument
+    ArgumentPart,
     /// A computed value is returned
     Computed,
     /// A loan to a constant value. This only means that the lifetime can be

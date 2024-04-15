@@ -1,4 +1,17 @@
+# "take_one"
+- _animal: [Arg, Unused]
+- Return: [Const, Unit, AllConst]
+
+# "take_two"
+- _animal_1: [Arg, Unused]
+- _animal_2: [Arg, Unused]
+- Return: [Const, Unit, AllConst]
+
+# "pat_return_owned_arg"
+- animal: [Arg, Return]
+- Return: [Argument]
+
 # "pat_maybe_return_owned_arg_1"
-- a: [Arg, Return] <State: Filled>
+- a: [Arg, Return]
 - Return: [Argument, Conditional]
 
