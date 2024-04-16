@@ -155,7 +155,6 @@ pub enum CfgInfo {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LocalKind {
-    Unknown,
     /// The return local
     Return,
     /// User defined argument
@@ -166,9 +165,6 @@ pub enum LocalKind {
     AnonVar,
     /// This value was previously part of rustc's MIR but is no longer used.
     Unused,
-    // TODO: Remove!
-    /// An anonymous constant value
-    AnonConst,
 }
 
 impl LocalKind {

@@ -9,7 +9,7 @@ use rustc_middle::mir::{self, BasicBlock, Local, Operand, START_BLOCK};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::source_map::Spanned;
 
-use super::{AnalysisInfo, BorrowAnalysis};
+use super::AnalysisInfo;
 
 pub struct PrintPrevent<T>(pub T);
 
