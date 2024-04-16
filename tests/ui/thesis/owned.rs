@@ -19,9 +19,9 @@ fn pat_return_owned_arg(animal: Animal) -> Animal {
     animal
 }
 
-// #[forbid(clippy::borrow_pats)]
-#[warn(clippy::borrow_pats)]
+#[forbid(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_1(a: String) -> String {
+    // TODO: Temporary borrow is not detected
     if !a.is_empty() {
         return a;
     }
@@ -29,8 +29,7 @@ fn pat_maybe_return_owned_arg_1(a: String) -> String {
     "hey".to_string()
 }
 
-// #[forbid(clippy::borrow_pats)]
-// #[warn(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_1_test(a: u32) -> u32 {
     if !a.is_power_of_two() {
         return a;
@@ -39,7 +38,7 @@ fn pat_maybe_return_owned_arg_1_test(a: u32) -> u32 {
     19
 }
 
-// #[forbid(clippy::borrow_pats)]
+// #[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_2(a: String) -> String {
     let ret;
     if !a.is_empty() {
