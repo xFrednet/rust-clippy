@@ -1008,7 +1008,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
         // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
-        let body_name = cx.tcx.item_name(def.into());
+        let Some(body_name) = cx.tcx.opt_item_name(def.into()) else {return};
 
         // TODO: Mention in report that const can't be considered due to rustc internals
         match cx.tcx.def_kind(def) {
