@@ -19,9 +19,8 @@ fn pat_return_owned_arg(animal: Animal) -> Animal {
     animal
 }
 
-#[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_1(a: String) -> String {
-    // TODO: Temporary borrow is not detected
     if !a.is_empty() {
         return a;
     }

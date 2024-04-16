@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::ret::ReturnPat;
 use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
@@ -98,7 +98,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 #[derive(Clone, Debug, Default)]
 struct StateInfo {
     state: State,
+    /// This is a set of values that *might* contain the owned value.
+    /// MIR has this *beautiful* habit of moving stuff into anonymous
+    /// locals first before using it further.
     anons: BTreeSet<Local>,
+    /// This set contains anonymous borrows, these are AFAIK always used
+    /// for temporary borrows.
+    ///
+    /// Note: If I can confirm that these borrows are always used for
+    /// temporary borrows, it might be possible to prevent tracking them
+    /// to safe some performance.
+    temp_bros: BTreeMap<Local, Mutability>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -136,6 +146,7 @@ impl StateInfo {
         };
 
         self.anons.extend(other.anons.iter());
+        self.temp_bros.extend(other.temp_bros.iter());
 
         self
     }
@@ -143,12 +154,20 @@ impl StateInfo {
     /// This tries to remove the given place from the known anons that hold this value.
     /// It will retrun `true`, if the removal was successfull.
     /// Places with projections will be ignored.
-    fn try_remove_anon(&mut self, anon: &Place<'_>) -> bool {
+    fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
         if anon.has_projections() {
             return false;
         }
 
         self.anons.remove(&anon.local)
+    }
+
+    fn remove_temp_bro(&mut self, anon: &Place<'_>) -> Option<Mutability> {
+        if anon.has_projections() {
+            return None;
+        }
+
+        self.temp_bros.remove(&anon.local)
     }
 }
 
@@ -169,6 +188,8 @@ pub enum OwnedPat {
     MovedIntoFn,
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
+    TempBorrow,
+    TempBorrowMut,
 }
 
 impl PatternEnum for OwnedPat {}
@@ -198,6 +219,9 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: mir::Location) {
         // TODO Ensure that moves always invalidate all borrows. IE. that the current
         // borrow check is really CFG insensitive.
+        if let Rvalue::Ref(_region, mir::BorrowKind::Fake, _place) = &rvalue {
+            return;
+        }
 
         if target.local == self.local {
             self.visit_assign_to_self(target, rvalue, loc.block);
@@ -249,6 +273,13 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 // Copies are uninteresting to me
             }
         }
+
+        if let Rvalue::Ref(_region, kind, place) = &rval
+            && place.local == self.local
+        {
+            assert!(!place.has_projections());
+            self.states[bb].temp_bros.insert(target.local, kind.mutability());
+        }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         todo!("{target:#?}\n{rval:#?}\n{bb:#?}")
@@ -256,7 +287,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
-            && self.states[bb].try_remove_anon(place)
+            && self.states[bb].remove_anon(place)
         {
             if target.local.as_u32() == 0 {
                 self.pats.push(OwnedPat::Returned);
@@ -339,7 +370,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             | mir::TerminatorKind::InlineAsm { .. } => {},
         }
     }
-
     fn visit_terminator_for_anons(&mut self, term: &mir::Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
             mir::TerminatorKind::Drop { place, .. } => {
@@ -355,28 +385,33 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 ..
             } => {
                 if let Some(place) = func.place()
-                    && self.states[bb].try_remove_anon(&place)
+                    && self.states[bb].remove_anon(&place)
                 {
                     todo!();
                 }
 
-                let consumed = args
-                    .iter()
-                    .filter_map(|arg| {
-                        if let Operand::Move(place) = arg.node {
-                            Some(place)
-                        } else {
-                            None
-                        }
-                    })
-                    .any(|place| self.states[bb].try_remove_anon(&place));
-                if consumed {
-                    self.pats.push(OwnedPat::MovedIntoFn);
+                let args = args.iter().filter_map(|arg| {
+                    if let Operand::Move(place) = arg.node {
+                        Some(place)
+                    } else {
+                        None
+                    }
+                });
+                for arg in args {
+                    if self.states[bb].remove_anon(&arg) {
+                        self.pats.push(OwnedPat::MovedIntoFn);
 
-                    if let Some((did, _generic_args)) = func.const_fn_def()
-                        && self.info.cx.tcx.is_diagnostic_item(sym::mem_drop, did)
-                    {
-                        self.pats.push(OwnedPat::ManualDrop);
+                        if let Some((did, _generic_args)) = func.const_fn_def()
+                            && self.info.cx.tcx.is_diagnostic_item(sym::mem_drop, did)
+                        {
+                            self.pats.push(OwnedPat::ManualDrop);
+                        }
+                    } else if let Some(muta) = self.states[bb].remove_temp_bro(&arg) {
+                        let pat = match muta {
+                            Mutability::Not => OwnedPat::TempBorrow,
+                            Mutability::Mut => OwnedPat::TempBorrowMut,
+                        };
+                        self.pats.push(pat);
                     }
                 }
 
