@@ -75,9 +75,9 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         let mut local_infos = BTreeMap::new();
         local_infos.extend(local_info_iter);
 
-        local_infos.get_mut(&super::super::RETURN).map(|info| {
+        if let Some(info) = local_infos.get_mut(&super::super::RETURN) {
             info.kind = LocalKind::Return;
-        });
+        }
 
         // The arg and named variable info will be filled in `visit_debug_info` thingy
 
@@ -127,7 +127,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             return;
         }
 
-        for (bb, preds) in unlooped.iter_mut() {
+        for (bb, preds) in &mut unlooped {
             if let Some((loop_set, end_bb)) = self.find_loop(*bb) {
                 if preds.contains(*end_bb) {
                     preds.subtract(loop_set);
@@ -191,7 +191,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             | mir::TerminatorKind::Drop { target, .. }
             | mir::TerminatorKind::InlineAsm { destination: Some(target), .. }
             | mir::TerminatorKind::Goto { target } => {
-                self.preds.get_mut(&target).map(|x| x.insert(bb));
+                self.preds.get_mut(target).map(|x| x.insert(bb));
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
@@ -272,8 +272,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
         if let mir::VarDebugInfoContents::Place(place) = info.value {
             assert!(!place.has_projections());
             let local = place.local;
-            self.locals.get_mut(&local).map(|local_info| {
-                // +1, since `_0` is used for the return
+            if let Some(local_info) = self.locals.get_mut(&local) {
                 local_info.kind = if info.argument_index.is_some() {
                     // +1 since it's assigned outside of the body
                     local_info.assign_count += 1;
@@ -282,7 +281,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                 } else {
                     LocalKind::UserVar(info.name)
                 };
-            });
+            }
         } else {
             todo!("How should this be handled? {info:#?}");
         }
@@ -320,7 +319,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
 
             // Constructed Values
             Rvalue::Aggregate(_, fields) => {
-                let parts = fields.iter().map(|field| LocalOrConst::from(field)).collect();
+                let parts = fields.iter().map(LocalOrConst::from).collect();
                 DataInfo::Ctor(parts)
             },
             Rvalue::Repeat(op, _) => DataInfo::Ctor(vec![op.into()]),

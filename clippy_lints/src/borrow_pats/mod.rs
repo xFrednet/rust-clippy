@@ -75,7 +75,9 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
         // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
-        let Some(body_name) = cx.tcx.opt_item_name(def.into()) else {return};
+        let Some(body_name) = cx.tcx.opt_item_name(def.into()) else {
+            return;
+        };
 
         // TODO: Mention in report that const can't be considered due to rustc internals
         match cx.tcx.def_kind(def) {
@@ -88,10 +90,8 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
         let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
 
-        if lint_level != Level::Allow {
-            if print_pats {
-                println!("# {body_name:?}");
-            }
+        if lint_level != Level::Allow && print_pats {
+            println!("# {body_name:?}");
         }
 
         if lint_level == Level::Forbid {
@@ -104,7 +104,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            for (local, local_info) in info.locals.iter() {
+            for (local, local_info) in &info.locals {
                 // We're only interested in named trash
                 if local_info.kind.name().is_some() {
                     let decl = &info.body.local_decls[*local];
@@ -138,14 +138,11 @@ fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: h
     println!("- local_map: {:#?}", borrowck.borrow_set.local_map);
     match &borrowck.borrow_set.locals_state_at_exit {
         rustc_borrowck::borrow_set::LocalsStateAtExit::AllAreInvalidated => {
-            println!("- locals_state_at_exit: AllAreInvalidated")
+            println!("- locals_state_at_exit: AllAreInvalidated");
         },
         rustc_borrowck::borrow_set::LocalsStateAtExit::SomeAreInvalidated {
             has_storage_dead_or_moved,
-        } => println!(
-            "- locals_state_at_exit: SomeAreInvalidated {:#?}",
-            has_storage_dead_or_moved
-        ),
+        } => println!("- locals_state_at_exit: SomeAreInvalidated {has_storage_dead_or_moved:#?}"),
     };
     println!();
     let scope_info = calculate_borrows_out_of_scope_at_location(

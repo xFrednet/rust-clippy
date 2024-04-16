@@ -172,7 +172,7 @@ pub enum Validity {
 
 pub fn visit_body_in_order<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
     for info in &info.body.var_debug_info {
-        vis.visit_var_debug_info(&info);
+        vis.visit_var_debug_info(info);
     }
 
     for bb in info.visit_order.iter().copied() {

@@ -98,7 +98,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
                     [mir::PlaceElem::Deref] => {
                         // &(*_1) = Copy
                         if self.info.local_constness(src.local) == LocalConstness::Const {
-                            self.pats.push(ReturnPat::Const)
+                            self.pats.push(ReturnPat::Const);
                         }
                     },
                     _ => {},
@@ -107,7 +107,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             Rvalue::Repeat(op, _) | mir::Rvalue::Use(op) => match &op {
                 mir::Operand::Copy(other) | mir::Operand::Move(other) => {
                     if !other.has_projections() && self.info.local_constness(other.local) == LocalConstness::Const {
-                        self.pats.push(ReturnPat::Const)
+                        self.pats.push(ReturnPat::Const);
                     }
                 },
                 mir::Operand::Constant(_) => self.pats.push(ReturnPat::Const),
@@ -117,7 +117,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             Rvalue::Aggregate(_, fields) => {
                 let constness = fields
                     .iter()
-                    .filter_map(|op| op.place())
+                    .filter_map(rustc_middle::mir::Operand::place)
                     .map(|place| {
                         assert!(!place.has_projections());
                         self.info.local_constness(place.local)
@@ -125,7 +125,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
                     .max()
                     .unwrap_or(LocalConstness::Const);
                 if constness == LocalConstness::Const {
-                    self.pats.push(ReturnPat::Const)
+                    self.pats.push(ReturnPat::Const);
                 }
             },
 
@@ -134,10 +134,10 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
                 if let Some(place) = op.place() {
                     assert!(!place.has_projections());
                     if self.info.local_constness(place.local) == LocalConstness::Const {
-                        self.pats.push(ReturnPat::Const)
+                        self.pats.push(ReturnPat::Const);
                     }
                 } else {
-                    self.pats.push(ReturnPat::Const)
+                    self.pats.push(ReturnPat::Const);
                 }
             },
 

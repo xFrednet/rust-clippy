@@ -212,7 +212,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, loc: mir::Location) {
         self.visit_terminator_for_args(term, loc.block);
         self.visit_terminator_for_anons(term, loc.block);
-        self.super_terminator(term, loc)
+        self.super_terminator(term, loc);
     }
 
     fn visit_local(&mut self, local: Local, context: mir::visit::PlaceContext, loc: mir::Location) {

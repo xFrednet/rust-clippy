@@ -194,7 +194,7 @@ impl<'tcx> LocalInfo<'tcx> {
 
     pub fn add_assign(&mut self, place: mir::Place<'tcx>, assign: DataInfo<'tcx>) {
         if place.has_projections() {
-            self.data.part_assign()
+            self.data.part_assign();
         } else {
             self.assign_count += 1;
             self.data.mix(assign);
