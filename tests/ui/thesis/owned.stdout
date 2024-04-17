@@ -1,254 +1,31 @@
 # "take_one"
-- _animal: {Arg, Unused}
-- Return: {Const, Unit, AllConst}
+- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
 # "take_two"
-- _animal_1: {Arg, Unused}
-- _animal_2: {Arg, Unused}
-- Return: {Const, Unit, AllConst}
+- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
+- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
 # "pat_return_owned_arg"
-- animal: {Arg, Returned}
-- Return: {Argument}
+- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop) {Returned}
+- Return (-, -, -, -, -) {Argument}
 
 # "pat_maybe_return_owned_arg_1"
-- a: {Arg, Returned, TempBorrow}
-- Return: {Argument, Conditional}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {Returned, TempBorrow}
+- Return (-, -, -, -, -) {Argument, Conditional}
 
 # "pat_maybe_return_owned_arg_1_test"
-- a: {Arg, Returned}
-- Return: {Const, Argument, Conditional}
+- a              : (Immutable, Owned    , Argument, Copy   , NonDrop) {Returned}
+- Return (-, -, -, -, -) {Const, Argument, Conditional}
 
 # "pat_maybe_return_owned_arg_2"
-=====
-bb0:
-    StorageLive(_2)
-    StorageLive(_3)
-    StorageLive(_4)
-    StorageLive(_5)
-    _5 = &_1
-    _4 = std::string::String::is_empty(move _5) -> [return: bb1, unwind: bb19]
-
-bb1:
-    switchInt(move _4) -> [0: bb3, otherwise: bb2]
-
-bb2:
-    StorageDead(_5)
-    StorageLive(_7)
-    StorageLive(_8)
-    StorageLive(_9)
-    _9 = const "hey"
-    _8 = &(*_9)
-    _7 = <str as std::string::ToString>::to_string(move _8) -> [return: bb7, unwind: bb19]
-
-bb3:
-    StorageDead(_5)
-    StorageLive(_6)
-    _6 = move _1
-    drop(_2) -> [return: bb4, unwind: bb5]
-
-bb4:
-    _2 = move _6
-    drop(_6) -> [return: bb6, unwind: bb19]
-
-bb5:
-    _2 = move _6
-    drop(_6) -> [return: bb19, unwind terminate(cleanup)]
-
-bb6:
-    StorageDead(_6)
-    _3 = const ()
-    goto -> bb16
-
-bb7:
-    StorageDead(_8)
-    drop(_2) -> [return: bb8, unwind: bb9]
-
-bb8:
-    _2 = move _7
-    drop(_7) -> [return: bb10, unwind: bb19]
-
-bb9:
-    _2 = move _7
-    drop(_7) -> [return: bb19, unwind terminate(cleanup)]
-
-bb10:
-    StorageDead(_7)
-    StorageDead(_9)
-    StorageLive(_10)
-    StorageLive(_11)
-    StorageLive(_12)
-    StorageLive(_13)
-    StorageLive(_14)
-    StorageLive(_15)
-    _33 = const _
-    _15 = &(*_33)
-    _14 = &(*_15)
-    _13 = move _14 as &[&str] (PointerCoercion(Unsize))
-    StorageDead(_14)
-    StorageLive(_17)
-    StorageLive(_18)
-    StorageLive(_19)
-    StorageLive(_20)
-    StorageLive(_21)
-    StorageLive(_22)
-    StorageLive(_23)
-    _23 = &_1
-    _22 = &(*_23)
-    _21 = core::fmt::rt::Argument::<'_>::new_debug::<std::string::String>(move _22) -> [return: bb11, unwind: bb19]
-
-bb11:
-    StorageDead(_22)
-    _20 = [move _21]
-    StorageDead(_21)
-    _19 = &_20
-    _18 = &(*_19)
-    _17 = move _18 as &[core::fmt::rt::Argument<'_>] (PointerCoercion(Unsize))
-    StorageDead(_18)
-    StorageLive(_24)
-    StorageLive(_25)
-    StorageLive(_26)
-    StorageLive(_27)
-    StorageLive(_28)
-    StorageLive(_29)
-    _29 = core::fmt::rt::Alignment::Unknown
-    StorageLive(_30)
-    _30 = core::fmt::rt::Count::Implied
-    StorageLive(_31)
-    _31 = core::fmt::rt::Count::Implied
-    _28 = core::fmt::rt::Placeholder::new(const 0_usize, const ' ', move _29, const 4_u32, move _30, move _31) -> [return: bb12, unwind: bb19]
-
-bb12:
-    StorageDead(_31)
-    StorageDead(_30)
-    StorageDead(_29)
-    _27 = [move _28]
-    StorageDead(_28)
-    _26 = &_27
-    _25 = &(*_26)
-    _24 = move _25 as &[core::fmt::rt::Placeholder] (PointerCoercion(Unsize))
-    StorageDead(_25)
-    StorageLive(_32)
-    _32 = core::fmt::rt::UnsafeArg::new() -> [return: bb13, unwind: bb19]
-
-bb13:
-    _12 = std::fmt::Arguments::<'_>::new_v1_formatted(move _13, move _17, move _24, move _32) -> [return: bb14, unwind: bb19]
-
-bb14:
-    StorageDead(_32)
-    StorageDead(_24)
-    StorageDead(_17)
-    StorageDead(_13)
-    _11 = std::io::_print(move _12) -> [return: bb15, unwind: bb19]
-
-bb15:
-    StorageDead(_12)
-    StorageDead(_27)
-    StorageDead(_26)
-    StorageDead(_23)
-    StorageDead(_20)
-    StorageDead(_19)
-    StorageDead(_15)
-    StorageDead(_11)
-    _10 = const ()
-    StorageDead(_10)
-    _3 = const ()
-    goto -> bb16
-
-bb16:
-    StorageDead(_4)
-    StorageDead(_3)
-    _0 = move _2
-    drop(_2) -> [return: bb17, unwind: bb20]
-
-bb17:
-    StorageDead(_2)
-    drop(_1) -> [return: bb18, unwind: bb21]
-
-bb18:
-    return
-
-bb19:
-    drop(_2) -> [return: bb20, unwind terminate(cleanup)]
-
-bb20:
-    drop(_1) -> [return: bb21, unwind terminate(cleanup)]
-
-bb21:
-    resume
-
-
-- location_map: {
-    bb0[4]: BorrowData {
-        reserve_location: bb0[4],
-        activation_location: NotTwoPhase,
-        kind: Shared,
-        region: '?9,
-        borrowed_place: _1,
-        assigned_place: _5,
-    },
-    bb10[20]: BorrowData {
-        reserve_location: bb10[20],
-        activation_location: NotTwoPhase,
-        kind: Shared,
-        region: '?18,
-        borrowed_place: _1,
-        assigned_place: _23,
-    },
-    bb11[3]: BorrowData {
-        reserve_location: bb11[3],
-        activation_location: NotTwoPhase,
-        kind: Shared,
-        region: '?22,
-        borrowed_place: _20,
-        assigned_place: _19,
-    },
-    bb12[5]: BorrowData {
-        reserve_location: bb12[5],
-        activation_location: NotTwoPhase,
-        kind: Shared,
-        region: '?26,
-        borrowed_place: _27,
-        assigned_place: _26,
-    },
-}
-- activation_map: {}
-- local_map: {
-    _1: {
-        bw0,
-        bw1,
-    },
-    _20: {
-        bw2,
-    },
-    _27: {
-        bw3,
-    },
-}
-- locals_state_at_exit: AllAreInvalidated
-
-- scope_info: {
-    bb19[0]: [
-        bw0,
-        bw1,
-        bw2,
-        bw3,
-    ],
-    bb1[0]: [
-        bw0,
-    ],
-    bb15[0]: [
-        bw1,
-        bw2,
-        bw3,
-    ],
-}
-- a: {Arg, DynamicDrop, MovedToVar, TempBorrow}
-- ret: {Returned}
-- Return: {}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {DynamicDrop, MovedToVar, TempBorrow}
+- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   ) {Returned}
+- Return (-, -, -, -, -) {}
 
 # "pub_dynamic_drop_1"
-- animal: {Arg, DynamicDrop, MovedToFn, ManualDrop}
-- cond: {Arg}
-- Return: {Const, Unit, AllConst}
+- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   ) {DynamicDrop, MovedToFn, ManualDrop}
+- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop) {}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 

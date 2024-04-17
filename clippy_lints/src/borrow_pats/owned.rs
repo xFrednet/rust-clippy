@@ -22,7 +22,7 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     states: IndexVec<BasicBlock, StateInfo>,
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
-    local_kind: LocalKind,
+    local_kind: &'a LocalKind,
     pats: OwnedPats,
     /// Counts how many times a value was used. This starts at 1 for arguments otherwise 0.
     use_count: u32,
@@ -40,7 +40,7 @@ impl<'a, 'tcx> std::fmt::Display for OwnedAnalysis<'a, 'tcx> {
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     pub fn new(info: &'a AnalysisInfo<'tcx>, local: Local) -> Self {
-        let local_kind = info.locals[&local].kind;
+        let local_kind = &info.locals[&local].kind;
         let name = local_kind.name().unwrap();
 
         // Safety: Is this unsafe? Theoretically yes practically no. I was actually
@@ -49,7 +49,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         let name_str = unsafe { std::mem::transmute::<&str, &'static str>(name.as_str()) };
 
         /// Arguments are assigned outside and therefore have at least a use of 1
-        let use_count = u32::from(matches!(local_kind, LocalKind::Arg(_)));
+        let use_count = u32::from(local_kind.is_arg());
 
         let mut states = IndexVec::new();
         states.resize(info.body.basic_blocks.len(), StateInfo::default());
@@ -60,7 +60,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             name,
             states,
             local_kind,
-            pats: OwnedPats::new(name_str),
+            pats: OwnedPats::new(),
             use_count,
         }
     }
@@ -78,7 +78,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
     fn init_state(&mut self, bb: BasicBlock) {
         if bb == START_BLOCK {
-            if matches!(self.local_kind, LocalKind::Arg(_)) {
+            if self.local_kind.is_arg() {
                 self.states[bb].state = State::Filled;
             } else {
                 self.states[bb].state = State::Empty;
@@ -181,8 +181,6 @@ impl StateInfo {
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum OwnedPat {
-    /// The owned value is a function argument
-    Arg,
     /// The owned value might be returned
     ///
     /// The return pattern collection should also be informed of this. White box *tesing*
@@ -212,16 +210,6 @@ impl PatternEnum for OwnedPat {}
 pub type OwnedPats = PatternStorage<OwnedPat>;
 
 impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
-    fn visit_var_debug_info(&mut self, info: &VarDebugInfo<'tcx>) {
-        if let VarDebugInfoContents::Place(place) = info.value
-            && place.local == self.local
-        {
-            if let Some(arg_idx) = info.argument_index {
-                self.pats.push(OwnedPat::Arg);
-            }
-        }
-    }
-
     fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &mir::BasicBlockData<'tcx>) {
         self.init_state(bb);
         self.super_basic_block_data(bb, bbd);
@@ -276,11 +264,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
             if target.local.as_u32() == 0 {
                 self.pats.push(OwnedPat::Returned);
-                if matches!(self.local_kind, LocalKind::Arg(_)) {
+                if self.local_kind.is_arg() {
                     self.info.return_pats.push(ReturnPat::Argument);
                 }
             } else if is_move {
-                if self.info.locals[&target.local].kind == LocalKind::AnonVar {
+                if matches!(self.info.locals[&target.local].kind, LocalKind::AnonVar) {
                     assert!(!target.has_projections());
                     self.states[bb].anons.insert(target.local);
                 } else {
@@ -334,14 +322,15 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         {
             match self.info.locals[&target.local].kind {
                 LocalKind::Return => self.pats.push(OwnedPat::Returned),
-                LocalKind::Arg(_) => {
-                    // Check if this assignment can escape the function
-                    todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self}")
-                },
-                LocalKind::UserVar(_) => {
+                LocalKind::UserVar(_, _) => {
+                    if self.info.locals[&target.local].kind.is_arg() {
+                        // Check if this assignment can escape the function
+                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self}")
+                    }
                     if place.has_projections() {
                         self.pats.push(OwnedPat::MovedToVarPart);
                     } else {
+                        // TODO: Check for `let x = x`, where x was mut and x no longer is and assignment count = 0
                         self.pats.push(OwnedPat::MovedToVar);
                     }
                 },

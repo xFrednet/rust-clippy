@@ -1,14 +1,17 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use crate::borrow_pats::info::VarInfo;
 use crate::borrow_pats::PrintPrevent;
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
 
+use clippy_utils::ty::is_copy;
 use mid::mir::visit::Visitor;
 use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
 use mid::ty::{TyCtxt, TypeVisitableExt};
 use rustc_index::bit_set::BitSet;
+use rustc_lint::LateContext;
 use rustc_middle as mid;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place, Rvalue};
@@ -21,6 +24,7 @@ use rustc_middle::mir::{BasicBlock, Local, Place, Rvalue};
 pub struct MetaAnalysis<'a, 'tcx> {
     body: &'a Body<'tcx>,
     tcx: PrintPrevent<TyCtxt<'tcx>>,
+    cx: PrintPrevent<&'tcx LateContext<'tcx>>,
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
@@ -33,8 +37,8 @@ pub struct MetaAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
-    pub fn from_body(tcx: TyCtxt<'tcx>, body: &'a Body<'tcx>) -> Self {
-        let mut anly = Self::new(tcx, body);
+    pub fn from_body(cx: &'tcx LateContext<'tcx>, body: &'a Body<'tcx>) -> Self {
+        let mut anly = Self::new(cx, body);
         anly.visit_body(body);
         anly.mark_unused_locals();
         anly.unloop_preds();
@@ -43,7 +47,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         anly
     }
 
-    pub fn new(tcx: TyCtxt<'tcx>, body: &'a Body<'tcx>) -> Self {
+    pub fn new(cx: &'tcx LateContext<'tcx>, body: &'a Body<'tcx>) -> Self {
         let locals = Self::setup_local_infos(body);
         let bb_len = body.basic_blocks.len();
 
@@ -52,7 +56,8 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
 
         let mut anly = Self {
             body,
-            tcx: PrintPrevent(tcx),
+            tcx: PrintPrevent(cx.tcx),
+            cx: PrintPrevent(cx),
             cfg: Default::default(),
             loops: Default::default(),
             terms: Default::default(),
@@ -273,14 +278,25 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             assert!(!place.has_projections());
             let local = place.local;
             if let Some(local_info) = self.locals.get_mut(&local) {
-                local_info.kind = if info.argument_index.is_some() {
+                let decl = &self.body.local_decls[local];
+                let var_info = VarInfo {
+                    argument: info.argument_index.is_some(),
+                    mutable: decl.mutability.is_mut(),
+                    owned: !decl.ty.is_ref(),
+                    copy: is_copy(self.cx.0, decl.ty),
+                    // Turns out that both `has_significant_drop` and `has_drop`
+                    // return false if only fields require drops. Strings are a
+                    // good testing example for this.
+                    drop: decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env),
+                };
+
+                local_info.kind = LocalKind::UserVar(info.name, var_info);
+
+                if local_info.kind.is_arg() {
                     // +1 since it's assigned outside of the body
                     local_info.assign_count += 1;
                     local_info.add_assign(place, DataInfo::Argument);
-                    LocalKind::Arg(info.name)
-                } else {
-                    LocalKind::UserVar(info.name)
-                };
+                }
             }
         } else {
             todo!("How should this be handled? {info:#?}");

@@ -64,7 +64,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             ..
         } = get_body_with_borrowck_facts(cx.tcx, def_id, ConsumerOptions::RegionInferenceContext);
 
-        let meta_analysis = MetaAnalysis::from_body(cx.tcx, &body);
+        let meta_analysis = MetaAnalysis::from_body(cx, &body);
 
         // This needs deconstruction to kill the loan of self
         let MetaAnalysis {
@@ -91,7 +91,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             terms,
             return_block,
             locals,
-            return_pats: PatternStorage::new("TODO"),
+            return_pats: PatternStorage::new(),
             preds,
             preds_unlooped,
             visit_order,
@@ -152,29 +152,6 @@ pub enum CfgInfo {
     Return,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LocalKind {
-    /// The return local
-    Return,
-    /// User defined argument
-    Arg(Symbol),
-    /// User defined variable
-    UserVar(Symbol),
-    /// Generated variable, i.e. unnamed
-    AnonVar,
-    /// This value was previously part of rustc's MIR but is no longer used.
-    Unused,
-}
-
-impl LocalKind {
-    pub fn name(&self) -> Option<Symbol> {
-        match self {
-            Self::Arg(name) | Self::UserVar(name) => Some(*name),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct LocalInfo<'tcx> {
     pub kind: LocalKind,
@@ -198,6 +175,63 @@ impl<'tcx> LocalInfo<'tcx> {
             self.assign_count += 1;
             self.data.mix(assign);
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum LocalKind {
+    /// The return local
+    Return,
+    /// User defined variable
+    UserVar(Symbol, VarInfo),
+    /// Generated variable, i.e. unnamed
+    AnonVar,
+    /// This value was previously part of rustc's MIR but is no longer used.
+    Unused,
+}
+
+impl LocalKind {
+    pub fn name(&self) -> Option<Symbol> {
+        match self {
+            Self::UserVar(name, _) => Some(*name),
+            _ => None,
+        }
+    }
+
+    pub fn is_arg(&self) -> bool {
+        match self {
+            Self::UserVar(_, info) => info.argument,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct VarInfo {
+    pub argument: bool,
+    /// Indicates if this is mutable
+    pub mutable: bool,
+    /// Indicates if the value is owned or a reference.
+    pub owned: bool,
+    /// Indicates if the value is copy
+    pub copy: bool,
+    /// Indicates if this type needs to be dropped
+    pub drop: bool,
+}
+
+impl std::fmt::Debug for VarInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VarInfo({self})")
+    }
+}
+impl std::fmt::Display for VarInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mutable = if self.mutable { "Mutable" } else { "Immutable" };
+        let owned = if self.owned { "Owned" } else { "Reference" };
+        let argument = if self.argument { "Argument" } else { "Local" };
+        let copy = if self.copy { "Copy" } else { "NonCopy" };
+        let dropable = if self.drop { "Drop" } else { "NonDrop" };
+        write!(f, "{mutable:<9}, {owned:<9}, {argument:<8}, {copy:<7}, {dropable:<7}")
     }
 }
 

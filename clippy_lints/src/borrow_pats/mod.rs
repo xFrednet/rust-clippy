@@ -140,26 +140,27 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            for (local, local_info) in &info.locals {
-                // We're only interested in named trash
-                if local_info.kind.name().is_some() {
-                    let decl = &info.body.local_decls[*local];
-                    let is_owned = !decl.ty.is_ref();
-                    if is_owned {
-                        let pats = owned::OwnedAnalysis::run(&info, *local);
-                        if self.print_pats {
-                            println!("- {pats}");
+            for (local, local_info) in info.locals.iter().skip(1) {
+                match &local_info.kind {
+                    LocalKind::Return => unreachable!("Skipped before"),
+                    LocalKind::UserVar(name, var_info) => {
+                        if var_info.owned {
+                            let pats = owned::OwnedAnalysis::run(&info, *local);
+                            if self.print_pats {
+                                println!("- {:<15}: ({var_info}) {pats}", name.as_str());
+                            }
+                        } else {
+                            eprintln!("TODO: implement analysis for named refs");
                         }
-                    } else {
-                        eprintln!("TODO: implement analysis for named refs");
-                    }
+                    },
+                    LocalKind::AnonVar | LocalKind::Unused => break,
                 }
             }
 
             if self.print_pats {
                 // Return must be printed at the end, as it might be modified by
                 // the following analysis thingies
-                println!("- {}", info.return_pats);
+                println!("- Return (-, -, -, -, -) {}", info.return_pats);
                 println!();
             }
         }

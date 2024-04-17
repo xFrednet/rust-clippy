@@ -126,13 +126,12 @@ pub trait PatternEnum: Copy + Clone + std::fmt::Debug + std::hash::Hash + Eq + P
 
 /// A convinient wrapper to make sure patterns are tracked correctly.
 pub struct PatternStorage<T: PatternEnum> {
-    name: &'static str,
     pats: RefCell<BTreeSet<T>>,
 }
 
 impl<T: PatternEnum> std::fmt::Display for PatternStorage<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.pats.borrow())
+        write!(f, "{:?}", self.pats.borrow())
     }
 }
 
@@ -143,9 +142,8 @@ impl<T: PatternEnum> std::fmt::Debug for PatternStorage<T> {
 }
 
 impl<T: PatternEnum> PatternStorage<T> {
-    pub fn new(name: &'static str) -> Self {
+    pub fn new() -> Self {
         Self {
-            name,
             pats: Default::default(),
         }
     }

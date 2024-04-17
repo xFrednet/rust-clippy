@@ -46,7 +46,7 @@ impl<'a, 'tcx> ReturnAnalysis<'a, 'tcx> {
     fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
         Self {
             info,
-            pats: PatternStorage::new("Return"),
+            pats: PatternStorage::new(),
             visited: BitSet::new_empty(info.body.basic_blocks.len()),
         }
     }
