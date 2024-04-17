@@ -109,7 +109,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
         )
     }
 
-    #[expect(dead_code)]
     pub fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
         super::find_loop(&self.loops, bb)
     }

@@ -608,7 +608,7 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
             return;
         }
     }
-    
+
     store.register_late_pass(move |_| Box::new(borrow_pats::BorrowPats::new(msrv())));
     if !std::env::var("ENABLE_ALL_LINTS").eq(&Ok("1".to_string())) {
         return;

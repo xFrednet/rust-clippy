@@ -87,13 +87,17 @@ impl BorrowPats {
         // Determined by `check_crate`
         let enabled = true;
         let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
-        
-        Self { msrv, enabled, print_pats }
+
+        Self {
+            msrv,
+            enabled,
+            print_pats,
+        }
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
-    fn check_crate(&mut self, cx: &LateContext<'tcx>,) {
+    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         self.enabled = cx.tcx.features().all_features().iter().all(|x| *x == 0);
 
         if !self.enabled && self.print_pats {
@@ -105,7 +109,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         if !self.enabled {
             return;
         }
-        
+
         // FIXME: Check what happens for closures
         let def = cx.tcx.hir().body_owner_def_id(body.id());
         let Some(body_name) = cx.tcx.opt_item_name(def.into()) else {
@@ -121,7 +125,6 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         let body_hir = cx.tcx.local_def_id_to_hir_id(def);
         let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
-        
 
         if lint_level != Level::Allow && self.print_pats {
             println!("# {body_name:?}");

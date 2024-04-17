@@ -37,7 +37,8 @@ fn pat_maybe_return_owned_arg_1_test(a: u32) -> u32 {
     19
 }
 
-// #[warn(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
+/// FIXME: The argument return is not yet detected both in `a` and `Return`
 fn pat_maybe_return_owned_arg_2(a: String) -> String {
     let ret;
     if !a.is_empty() {
@@ -46,6 +47,11 @@ fn pat_maybe_return_owned_arg_2(a: String) -> String {
         ret = "hey".to_string();
         println!("{a:#?}");
     }
+    ret
+}
+
+fn pat_maybe_return_owned_arg_3(a: String) -> String {
+    let ret = if !a.is_empty() { a } else { "hey".to_string() };
     ret
 }
 

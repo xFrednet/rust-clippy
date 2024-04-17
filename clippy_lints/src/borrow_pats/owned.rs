@@ -169,6 +169,14 @@ impl StateInfo {
 
         self.temp_bros.remove(&anon.local)
     }
+
+    /// This clears this state. The `state` field has to be set afterwards
+    fn clear(&mut self) {
+        self.anons.clear();
+        self.temp_bros.clear();
+
+        self.state = State::None;
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -185,11 +193,19 @@ pub enum OwnedPat {
     /// See RFC: #320
     DynamicDrop,
     /// This value was moved into a different function. This also delegates the drop
-    MovedIntoFn,
+    MovedToFn,
+    /// This value was moved to a different local. `_other = _self`
+    MovedToVar,
+    /// This value was moved info a different local. `_other.field = _self`
+    MovedToVarPart,
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
     TempBorrow,
     TempBorrowMut,
+    /// The value has been overwritten
+    Overwrite,
+    /// The value will be overwritten in a loop
+    OverwriteInLoop,
 }
 
 impl PatternEnum for OwnedPat {}
@@ -240,6 +256,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     }
 
     fn visit_local(&mut self, local: Local, context: mir::visit::PlaceContext, loc: mir::Location) {
+        // TODO: Check that this isn't called for StorageLife and StorageDead
         if local == self.local {
             self.use_count += 1;
         }
@@ -282,19 +299,57 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
-        todo!("{target:#?}\n{rval:#?}\n{bb:#?}")
+        assert!(!target.has_projections());
+
+        let is_override = match self.states[bb].state {
+            // No-op the most normal and simple state
+            State::Empty => false,
+
+            // Filled should only ever be the case for !Drop types
+            State::Filled | State::MaybeFilled => {
+                // TODO: assert!(is_copy)
+                true
+            },
+
+            State::Moved | State::Dropped => true,
+            State::None => unreachable!(),
+        };
+        if is_override {
+            let pat = if self.info.find_loop(bb).is_some() {
+                OwnedPat::OverwriteInLoop
+            } else {
+                OwnedPat::OverwriteInLoop
+            };
+            self.pats.push(pat);
+        }
+
+        // Regardless of the original state, we clear everything else
+        self.states[bb].clear();
+        self.states[bb].state = State::Filled;
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
             && self.states[bb].remove_anon(place)
         {
-            if target.local.as_u32() == 0 {
-                self.pats.push(OwnedPat::Returned);
-            } else if !target.has_projections() {
-                self.states[bb].anons.insert(target.local);
-            } else {
-                todo!("{target:#?}\n{rval:#?}\n{bb:#?}")
+            match self.info.locals[&target.local].kind {
+                LocalKind::Return => self.pats.push(OwnedPat::Returned),
+                LocalKind::Arg(_) => {
+                    // Check if this assignment can escape the function
+                    todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self}")
+                },
+                LocalKind::UserVar(_) => {
+                    if place.has_projections() {
+                        self.pats.push(OwnedPat::MovedToVarPart);
+                    } else {
+                        self.pats.push(OwnedPat::MovedToVar);
+                    }
+                },
+                LocalKind::AnonVar => {
+                    assert!(!place.has_projections());
+                    self.states[bb].anons.insert(target.local);
+                },
+                LocalKind::Unused => unreachable!(),
             }
         }
     }
@@ -399,7 +454,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 });
                 for arg in args {
                     if self.states[bb].remove_anon(&arg) {
-                        self.pats.push(OwnedPat::MovedIntoFn);
+                        self.pats.push(OwnedPat::MovedToFn);
 
                         if let Some((did, _generic_args)) = func.const_fn_def()
                             && self.info.cx.tcx.is_diagnostic_item(sym::mem_drop, did)
