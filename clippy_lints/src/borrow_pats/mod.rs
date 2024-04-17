@@ -147,7 +147,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
                         if var_info.owned {
                             let pats = owned::OwnedAnalysis::run(&info, *local);
                             if self.print_pats {
-                                println!("- {:<15}: ({var_info}) {pats}", name.as_str());
+                                println!("- {:<15}: ({var_info}) {pats:?}", name.as_str());
                             }
                         } else {
                             eprintln!("TODO: implement analysis for named refs");

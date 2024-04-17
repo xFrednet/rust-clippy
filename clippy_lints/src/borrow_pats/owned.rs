@@ -23,19 +23,9 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
     local_kind: &'a LocalKind,
-    pats: OwnedPats,
+    pats: BTreeSet<OwnedPat>,
     /// Counts how many times a value was used. This starts at 1 for arguments otherwise 0.
     use_count: u32,
-}
-
-impl<'a, 'tcx> std::fmt::Display for OwnedAnalysis<'a, 'tcx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "- Owned: {} <State: {:?}>",
-            self.pats, self.states[self.info.return_block]
-        )
-    }
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
@@ -60,17 +50,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             name,
             states,
             local_kind,
-            pats: OwnedPats::new(),
+            pats: Default::default(),
             use_count,
         }
     }
 
-    pub fn run(info: &'a AnalysisInfo<'tcx>, local: Local) -> OwnedPats {
+    pub fn run(info: &'a AnalysisInfo<'tcx>, local: Local) -> BTreeSet<OwnedPat> {
         let mut anly = Self::new(info, local);
         visit_body_in_order(&mut anly, info);
 
         if anly.use_count == 1 {
-            anly.pats.push(OwnedPat::Unused);
+            anly.pats.insert(OwnedPat::Unused);
         }
 
         anly.pats
@@ -206,9 +196,6 @@ pub enum OwnedPat {
     OverwriteInLoop,
 }
 
-impl PatternEnum for OwnedPat {}
-pub type OwnedPats = PatternStorage<OwnedPat>;
-
 impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &mir::BasicBlockData<'tcx>) {
         self.init_state(bb);
@@ -263,7 +250,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
 
             if target.local.as_u32() == 0 {
-                self.pats.push(OwnedPat::Returned);
+                self.pats.insert(OwnedPat::Returned);
                 if self.local_kind.is_arg() {
                     self.info.return_pats.push(ReturnPat::Argument);
                 }
@@ -308,7 +295,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             } else {
                 OwnedPat::OverwriteInLoop
             };
-            self.pats.push(pat);
+            self.pats.insert(pat);
         }
 
         // Regardless of the original state, we clear everything else
@@ -321,17 +308,19 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && self.states[bb].remove_anon(place)
         {
             match self.info.locals[&target.local].kind {
-                LocalKind::Return => self.pats.push(OwnedPat::Returned),
+                LocalKind::Return => {
+                    self.pats.insert(OwnedPat::Returned);
+                },
                 LocalKind::UserVar(_, _) => {
                     if self.info.locals[&target.local].kind.is_arg() {
                         // Check if this assignment can escape the function
-                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self}")
+                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
                     }
                     if place.has_projections() {
-                        self.pats.push(OwnedPat::MovedToVarPart);
+                        self.pats.insert(OwnedPat::MovedToVarPart);
                     } else {
                         // TODO: Check for `let x = x`, where x was mut and x no longer is and assignment count = 0
-                        self.pats.push(OwnedPat::MovedToVar);
+                        self.pats.insert(OwnedPat::MovedToVar);
                     }
                 },
                 LocalKind::AnonVar => {
@@ -352,7 +341,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.states[bb].state = State::Dropped;
                         },
                         Validity::Maybe => {
-                            self.pats.push(OwnedPat::DynamicDrop);
+                            self.pats.insert(OwnedPat::DynamicDrop);
                             self.states[bb].state = State::Dropped;
                         },
                         Validity::Not => {
@@ -443,19 +432,19 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 });
                 for arg in args {
                     if self.states[bb].remove_anon(&arg) {
-                        self.pats.push(OwnedPat::MovedToFn);
+                        self.pats.insert(OwnedPat::MovedToFn);
 
                         if let Some((did, _generic_args)) = func.const_fn_def()
                             && self.info.cx.tcx.is_diagnostic_item(sym::mem_drop, did)
                         {
-                            self.pats.push(OwnedPat::ManualDrop);
+                            self.pats.insert(OwnedPat::ManualDrop);
                         }
                     } else if let Some(muta) = self.states[bb].remove_temp_bro(&arg) {
                         let pat = match muta {
                             Mutability::Not => OwnedPat::TempBorrow,
                             Mutability::Mut => OwnedPat::TempBorrowMut,
                         };
-                        self.pats.push(pat);
+                        self.pats.insert(pat);
                     }
                 }
 
