@@ -608,6 +608,11 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
             return;
         }
     }
+    
+    store.register_late_pass(move |_| Box::new(borrow_pats::BorrowPats::new(msrv())));
+    if !std::env::var("ENABLE_ALL_LINTS").eq(&Ok("1".to_string())) {
+        return;
+    }
 
     // all the internal lints
     #[cfg(feature = "internal")]
@@ -633,11 +638,6 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
         store.register_late_pass(|_| {
             Box::new(utils::internal_lints::almost_standard_lint_formulation::AlmostStandardFormulation::new())
         });
-    }
-
-    store.register_late_pass(|_| Box::new(borrow_pats::BorrowPats));
-    if !std::env::var("ENABLE_ALL_LINTS").eq(&Ok("1".to_string())) {
-        return;
     }
 
     store.register_late_pass(move |_| {
