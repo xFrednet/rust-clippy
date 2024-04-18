@@ -40,7 +40,7 @@ fn lifetime_outlives<'a, 'b: 'a, 'c: 'a>(b: &'b String, _c: &'c String) -> &'a S
 }
 
 #[warn(clippy::borrow_pats)]
-fn test(s1: String, s2: String, s3: String, pair: (String, String)) {
+fn test_return(s1: String, s2: String, s3: String, pair: (String, String)) {
     let _test = no_rep(1, s3);
     let _test = direct_dep(&s1, 2);
     let _test = lifetime_dep(&s1, &s2);
@@ -51,6 +51,44 @@ fn test(s1: String, s2: String, s3: String, pair: (String, String)) {
     let _test = lifetime_outlives_middle_2(&s1, &s2);
     let _test = lifetime_outlives(&s1, &s2);
     let _test = lifetime_outlives(&pair.0, &pair.1);
+}
+
+struct Owner<'a> {
+    val: &'a String,
+}
+
+fn immutable_owner(_owner: &Owner<'_>, _val: &String) {}
+
+fn mutable_owner(_owner: &mut Owner<'_>, _val: &String) {}
+
+fn mutable_owner_and_arg(_owner: &mut Owner<'_>, _val: &mut String) {}
+
+fn mutable_owner_and_lifetimed_str<'a>(owner: &mut Owner<'a>, val: &'a mut String) {
+    owner.val = val;
+}
+
+fn immutable_owner_and_lifetimed_str<'a>(_owner: &Owner<'a>, val: &'a mut String) {}
+
+fn mutable_owner_other_lifetimed_str<'a, 'b>(_owner: &'b &mut Owner<'a>, _val: &'b mut String) {}
+
+fn mutable_owner_self_lifetimed_str<'a>(_owner: &'a mut Owner<'a>, _val: &'a mut String) {}
+
+#[warn(clippy::borrow_pats)]
+fn test_mut_args_1<'a>(owner: &mut Owner<'a>, value: &'a mut String) {
+    immutable_owner(owner, value);
+    mutable_owner(owner, value);
+    mutable_owner_and_arg(owner, value);
+    mutable_owner_and_lifetimed_str(owner, value);
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_mut_args_2<'a>(owner: &mut Owner<'a>, value: &'a mut String) {
+    mutable_owner_other_lifetimed_str(&owner, value);
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_mut_args_3<'a>(owner: &'a mut Owner<'a>, value: &'a mut String) {
+    mutable_owner_self_lifetimed_str(owner, value);
 }
 
 fn main() {}

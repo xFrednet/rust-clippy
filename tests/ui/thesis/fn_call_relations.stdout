@@ -1,4 +1,4 @@
-# Relations for "test"
+# Relations for "test_return"
 {
     bb0: {},
     bb1: {
@@ -51,6 +51,29 @@
         _47: [
             _48,
             _50,
+        ],
+    },
+}
+# Relations for "test_mut_args_1"
+{
+    bb0: {},
+    bb1: {},
+    bb2: {},
+    bb3: {
+        _13: [
+            _14,
+        ],
+    },
+}
+# Relations for "test_mut_args_2"
+{
+    bb0: {},
+}
+# Relations for "test_mut_args_3"
+{
+    bb0: {
+        _4: [
+            _5,
         ],
     },
 }

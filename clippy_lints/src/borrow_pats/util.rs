@@ -110,7 +110,7 @@ impl<'tcx> FuncReals<'tcx> {
             let mut arg_rels = FxHashSet::default();
             for_each_ref_region(*arg_ty, &mut |_reg, child_ty, mutability| {
                 // `&mut &X` is not really interesting here
-                if matches!(mutability, Mutability::Mut) && !child_ty.is_ref() {
+                if matches!(mutability, Mutability::Mut) {
                     arg_rels.extend(self.find_relations(child_ty, arg_index));
                 }
             });
