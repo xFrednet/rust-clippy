@@ -94,7 +94,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn places_conflict(&self, a: Place<'tcx>, b: Place<'tcx>) -> bool {
         borrowck::consumers::places_conflict(
             self.tcx,

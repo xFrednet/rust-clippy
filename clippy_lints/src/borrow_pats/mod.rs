@@ -132,11 +132,11 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         if lint_level != Level::Allow && self.print_pats {
             println!("# {body_name:?}");
         }
-        
+
         if lint_level == Level::Forbid {
             print_debug_info(cx, body, def);
         }
-        
+
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def);
             if self.print_call_relations {
@@ -144,7 +144,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
                 println!("{:#?}", info.terms);
                 return;
             }
-            
+
             if lint_level == Level::Forbid {
                 // println!("{info:#?}");
             }

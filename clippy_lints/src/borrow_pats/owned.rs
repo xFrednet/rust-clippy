@@ -6,6 +6,7 @@ use super::ret::ReturnPat;
 use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
 
 use hir::Mutability;
+use itertools::Itertools;
 use mid::mir::visit::{MutatingUseContext, Visitor};
 use mid::mir::{Operand, StatementKind, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
 use mid::ty::TypeVisitableExt;
@@ -21,7 +22,7 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     local: Local,
     name: Symbol,
-    states: IndexVec<BasicBlock, StateInfo>,
+    states: IndexVec<BasicBlock, StateInfo<'tcx>>,
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
     local_kind: &'a LocalKind,
@@ -85,10 +86,38 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             .map(|bb| &self.states[bb])
             .fold(StateInfo::default(), |mut acc, b| acc.join(b));
     }
+
+    fn add_temp_bro(&mut self, bb: BasicBlock, anon: Place<'tcx>, broker: Place<'tcx>, muta: Mutability) {
+        assert!(anon.just_local());
+
+        self.update_bros(bb, broker, muta);
+
+        self.states[bb].temp_bros.insert(anon.local, (broker, muta));
+    }
+
+    fn update_bros(&mut self, bb: BasicBlock, broker: Place<'tcx>, muta: Mutability) {
+        let state = &mut self.states[bb];
+
+        if broker.just_local() && matches!(muta, Mutability::Mut) {
+            // If the entire thing is borrowed mut, every reference get's cleared
+            state.temp_bros.clear();
+        } else {
+            // I switch on muta before the `retain`, to make the `retain`` specialized and therefore faster.
+            match muta {
+                // Not mutable aka aliasable
+                Mutability::Not => state.temp_bros.retain(|_key, (broed_place, muta)| {
+                    !(matches!(muta, Mutability::Mut) && self.info.places_conflict(*broed_place, broker))
+                }),
+                Mutability::Mut => state
+                    .temp_bros
+                    .retain(|_key, (broed_place, _muta)| !self.info.places_conflict(*broed_place, broker)),
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
-struct StateInfo {
+struct StateInfo<'tcx> {
     state: State,
     /// This is a set of values that *might* contain the owned value.
     /// MIR has this *beautiful* habit of moving stuff into anonymous
@@ -100,7 +129,7 @@ struct StateInfo {
     /// Note: If I can confirm that these borrows are always used for
     /// temporary borrows, it might be possible to prevent tracking them
     /// to safe some performance.
-    temp_bros: BTreeMap<Local, Mutability>,
+    temp_bros: BTreeMap<Local, (Place<'tcx>, Mutability)>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -114,7 +143,7 @@ enum State {
     MaybeFilled,
 }
 
-impl StateInfo {
+impl<'tcx> StateInfo<'tcx> {
     /// Retruns true if this state contains valid data, which can be dropped or moved.
     fn validity(&self) -> Validity {
         match self.state {
@@ -125,7 +154,7 @@ impl StateInfo {
         }
     }
 
-    fn join(mut self, other: &StateInfo) -> StateInfo {
+    fn join(mut self, other: &StateInfo<'tcx>) -> StateInfo<'tcx> {
         assert_ne!(other.state, State::None);
         if self.state == State::None {
             return other.clone();
@@ -137,6 +166,7 @@ impl StateInfo {
             (_, _) => State::MaybeFilled,
         };
 
+        // FIXME: Here we can have collisions where two anons reference different places... oh no...
         self.anons.extend(other.anons.iter());
         self.temp_bros.extend(other.temp_bros.iter());
 
@@ -154,7 +184,7 @@ impl StateInfo {
         self.anons.remove(&anon.local)
     }
 
-    fn remove_temp_bro(&mut self, anon: &Place<'_>) -> Option<Mutability> {
+    fn remove_temp_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability)> {
         if !anon.just_local() {
             return None;
         }
@@ -192,6 +222,27 @@ pub enum OwnedPat {
     ManualDrop,
     TempBorrow,
     TempBorrowMut,
+    /// Two temp borrows might alias each other, for example like this:
+    /// ```
+    /// take_2(&self.field, &self.field);
+    /// ```
+    /// This also includes fields and sub fields
+    /// ```
+    /// take_2(&self.field, &self.field.sub_field);
+    /// ```
+    TempBorrowAliased,
+    /// A function takes mutliple `&mut` references to different parts of the object
+    /// ```
+    /// take_2(&mut self.field_a, &mut self.field_b);
+    /// ```
+    /// Mutable borrows can't be aliased.
+    MultipleMutBorrowsInArgs,
+    /// A function takes both a mutable and an immutable loan as the function input.
+    /// ```
+    /// take_2(&self.field_a, &mut self.field_b);
+    /// ```
+    /// The places can not be aliased.
+    MixedBorrowsInArgs,
     /// The value has been overwritten
     Overwrite,
     /// The value will be overwritten in a loop
@@ -271,8 +322,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         if let Rvalue::Ref(_region, kind, place) = &rval
             && place.local == self.local
         {
-            assert!(place.just_local());
-            self.states[bb].temp_bros.insert(target.local, kind.mutability());
+            if target.just_local() {
+                self.add_temp_bro(bb, *target, *place, kind.mutability())
+            } else {
+                todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+            }
         }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
@@ -441,12 +495,19 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
 
                 let args = args.iter().filter_map(|arg| {
+                    // AFAIK, anons are always moved into the function. This makes
+                    // sense as an IR property as well. So I'll go with it.
                     if let Operand::Move(place) = arg.node {
                         Some(place)
                     } else {
                         None
                     }
                 });
+
+                let mut temp_bros = vec![];
+                // Mutable borrows can't be aliased, therefore it's suffcient
+                // to just count them
+                let mut temp_bros_mut_ctn = 0;
                 for arg in args {
                     if self.states[bb].remove_anon(&arg) {
                         self.pats.insert(OwnedPat::MovedToFn);
@@ -456,13 +517,35 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
-                    } else if let Some(muta) = self.states[bb].remove_temp_bro(&arg) {
+                    } else if let Some((place, muta)) = self.states[bb].remove_temp_bro(&arg) {
                         let pat = match muta {
-                            Mutability::Not => OwnedPat::TempBorrow,
-                            Mutability::Mut => OwnedPat::TempBorrowMut,
+                            Mutability::Not => {
+                                temp_bros.push(place);
+                                OwnedPat::TempBorrow
+                            },
+                            Mutability::Mut => {
+                                temp_bros_mut_ctn += 1;
+                                OwnedPat::TempBorrowMut
+                            },
                         };
+
                         self.pats.insert(pat);
                     }
+                }
+
+                if temp_bros.len() > 1
+                    && temp_bros
+                        .iter()
+                        .tuple_combinations()
+                        .any(|(a, b)| self.info.places_conflict(*a, *b))
+                {
+                    self.pats.insert(OwnedPat::TempBorrowAliased);
+                }
+                if temp_bros_mut_ctn > 1 {
+                    self.pats.insert(OwnedPat::MultipleMutBorrowsInArgs);
+                }
+                if !temp_bros.is_empty() && temp_bros_mut_ctn >= 1 {
+                    self.pats.insert(OwnedPat::MixedBorrowsInArgs);
                 }
 
                 if dest.local == self.local {

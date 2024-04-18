@@ -6,6 +6,10 @@
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
 - Return (-, -, -, -, -) {Const, Unit, AllConst}
 
+# "temp_borrow_3"
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowAliased}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
+
 # "temp_borrow_mut_1"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut}
 - Return (-, -, -, -, -) {Const, Unit, AllConst}
@@ -15,36 +19,14 @@
 - Return (-, -, -, -, -) {Const, Unit, AllConst}
 
 # "temp_borrow_mut_3"
-=====
-Body for: DefId(0:10 ~ owned_borrows[a1d0]::temp_borrow_mut_3)
-bb0:
-    StorageLive(_2)
-    StorageLive(_3)
-    StorageLive(_4)
-    _4 = &mut (_1.0: std::string::String)
-    _3 = &mut (*_4)
-    StorageLive(_5)
-    StorageLive(_6)
-    _6 = &mut (_1.1: std::string::String)
-    _5 = &mut (*_6)
-    _2 = take_2_mut_loan(move _3, move _5) -> [return: bb1, unwind: bb3]
+- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut, MultipleMutBorrowsInArgs}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
-bb1:
-    StorageDead(_5)
-    StorageDead(_3)
-    StorageDead(_6)
-    StorageDead(_4)
-    StorageDead(_2)
-    _0 = const ()
-    drop(_1) -> [return: bb2, unwind: bb4]
+# "temp_borrow_mixed"
+- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
-bb2:
-    return
+# "temp_borrow_mixed_2"
+- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, MixedBorrowsInArgs}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
-bb3:
-    drop(_1) -> [return: bb4, unwind terminate(cleanup)]
-
-bb4:
-    resume
-
-=====

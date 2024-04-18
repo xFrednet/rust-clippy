@@ -65,7 +65,7 @@ impl PlaceMagic for mir::Place<'_> {
             )
         })
     }
-    
+
     fn just_local(&self) -> bool {
         self.projection.is_empty()
     }
