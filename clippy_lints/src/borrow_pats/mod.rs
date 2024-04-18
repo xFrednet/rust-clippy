@@ -134,11 +134,13 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             // eprintln!("{body:#?}");
             print_debug_info(cx, body, def);
         }
-        
+
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def);
             if lint_level == Level::Forbid {
                 println!("{info:#?}");
+            } else {
+                return;
             }
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
@@ -171,6 +173,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 }
 
 fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
+    eprintln!("Body for: {def:#?}");
     let borrowck = get_body_with_borrowck_facts(cx.tcx, def, ConsumerOptions::RegionInferenceContext);
     println!("=====");
     print_body(&borrowck.body);

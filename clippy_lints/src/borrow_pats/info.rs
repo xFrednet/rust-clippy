@@ -58,6 +58,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
         // In this context it is safe, this struct will never outlive `cx`
         let cx = unsafe { core::mem::transmute::<&LateContext<'tcx>, &'tcx LateContext<'tcx>>(cx) };
 
+        eprintln!("AnalysisInfo for: {def_id:#?}");
         let borrowck::consumers::BodyWithBorrowckFacts {
             body,
             // borrow_set, location_table

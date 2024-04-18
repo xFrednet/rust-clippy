@@ -39,7 +39,6 @@ fn temp_borrow_mixed_2(mut a: Animal) {
     take_2_mixed_loan(&a.science_name, &mut a.simple_name);
 }
 
-
 fn take_1_loan(_: &String) {}
 fn take_1_mut_loan(_: &String) {}
 fn take_2_mut_loan(_: &mut String, _: &mut String) {}

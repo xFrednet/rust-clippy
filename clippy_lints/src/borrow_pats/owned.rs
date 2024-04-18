@@ -236,7 +236,6 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
             self.use_count += 1;
         }
     }
-
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
@@ -332,7 +331,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
         }
 
-        if let mir::Rvalue::Ref(_reg, _kind, src) = &rval 
+        if let mir::Rvalue::Ref(_reg, _kind, src) = &rval
             && let Some(muta) = self.states[bb].temp_bros.get(&src.local).copied()
         {
             match src.projection.as_slice() {
