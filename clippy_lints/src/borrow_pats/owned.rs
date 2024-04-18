@@ -5,7 +5,7 @@ use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternSt
 
 use hir::Mutability;
 use mid::mir::visit::{MutatingUseContext, Visitor};
-use mid::mir::{Operand, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
+use mid::mir::{Operand, StatementKind, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
 use mid::ty::TypeVisitableExt;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
@@ -236,6 +236,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
             self.use_count += 1;
         }
     }
+
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
@@ -259,7 +260,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     assert!(!target.has_projections());
                     self.states[bb].anons.insert(target.local);
                 } else {
-                    todo!("{target:#?}\n{rval:#?}\n{self:#?}");
+                    todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
                 }
             } else {
                 // Copies are uninteresting to me
@@ -328,6 +329,19 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     self.states[bb].anons.insert(target.local);
                 },
                 LocalKind::Unused => unreachable!(),
+            }
+        }
+
+        if let mir::Rvalue::Ref(_reg, _kind, src) = &rval 
+            && let Some(muta) = self.states[bb].temp_bros.get(&src.local).copied()
+        {
+            match src.projection.as_slice() {
+                [mir::PlaceElem::Deref] => {
+                    // &(*_1) = Copy
+                    assert!(!target.has_projections());
+                    self.states[bb].temp_bros.insert(target.local, muta);
+                },
+                _ => todo!("Handle ref of anon ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}"),
             }
         }
     }

@@ -134,9 +134,12 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             // eprintln!("{body:#?}");
             print_debug_info(cx, body, def);
         }
-
+        
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def);
+            if lint_level == Level::Forbid {
+                println!("{info:#?}");
+            }
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 

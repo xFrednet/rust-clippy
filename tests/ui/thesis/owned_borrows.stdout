@@ -1,0 +1,9 @@
+# "temp_borrow_1"
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
+- Return (-, -, -, -, -) {}
+
+# "temp_borrow_2"
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
+
+# "temp_borrow_mut_1"

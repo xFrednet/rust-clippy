@@ -37,7 +37,7 @@ fn pat_maybe_return_owned_arg_1_test(a: u32) -> u32 {
     19
 }
 
-#[warn(clippy::borrow_pats)]
+#[forbid(clippy::borrow_pats)]
 /// FIXME: The argument return is not yet detected both in `a` and `Return`
 fn pat_maybe_return_owned_arg_2(a: String) -> String {
     let ret;
