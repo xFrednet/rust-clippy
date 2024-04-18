@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::borrow_pats::PlaceMagic;
+
 use super::ret::ReturnPat;
 use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
 
@@ -145,7 +147,7 @@ impl StateInfo {
     /// It will retrun `true`, if the removal was successfull.
     /// Places with projections will be ignored.
     fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
-        if anon.has_projections() {
+        if !anon.just_local() {
             return false;
         }
 
@@ -153,7 +155,7 @@ impl StateInfo {
     }
 
     fn remove_temp_bro(&mut self, anon: &Place<'_>) -> Option<Mutability> {
-        if anon.has_projections() {
+        if !anon.just_local() {
             return None;
         }
 
@@ -256,7 +258,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             } else if is_move {
                 if matches!(self.info.locals[&target.local].kind, LocalKind::AnonVar) {
-                    assert!(!target.has_projections());
+                    assert!(target.just_local());
                     self.states[bb].anons.insert(target.local);
                 } else {
                     todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
@@ -269,12 +271,12 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         if let Rvalue::Ref(_region, kind, place) = &rval
             && place.local == self.local
         {
-            assert!(!place.has_projections());
+            assert!(place.just_local());
             self.states[bb].temp_bros.insert(target.local, kind.mutability());
         }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
-        assert!(!target.has_projections());
+        assert!(target.just_local());
 
         let is_override = match self.states[bb].state {
             // No-op the most normal and simple state
@@ -316,15 +318,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         // Check if this assignment can escape the function
                         todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
                     }
-                    if place.has_projections() {
+                    if place.is_part() {
                         self.pats.insert(OwnedPat::MovedToVarPart);
-                    } else {
+                    } else if place.just_local() {
                         // TODO: Check for `let x = x`, where x was mut and x no longer is and assignment count = 0
                         self.pats.insert(OwnedPat::MovedToVar);
+                    } else {
+                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}");
                     }
                 },
                 LocalKind::AnonVar => {
-                    assert!(!place.has_projections());
+                    assert!(place.just_local());
                     self.states[bb].anons.insert(target.local);
                 },
                 LocalKind::Unused => unreachable!(),
@@ -337,7 +341,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             match src.projection.as_slice() {
                 [mir::PlaceElem::Deref] => {
                     // &(*_1) = Copy
-                    assert!(!target.has_projections());
+                    assert!(target.just_local());
                     self.states[bb].temp_bros.insert(target.local, muta);
                 },
                 _ => todo!("Handle ref of anon ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}"),

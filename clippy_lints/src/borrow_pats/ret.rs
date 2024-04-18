@@ -6,7 +6,7 @@ use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::{self, BasicBlock, Local, Operand, Rvalue};
 use rustc_middle::ty::TypeVisitableExt;
 
-use crate::borrow_pats::{DataInfo, LocalConstness};
+use crate::borrow_pats::{DataInfo, LocalConstness, PlaceMagic};
 
 use super::{AnalysisInfo, PatternEnum, PatternStorage, RETURN};
 
@@ -90,7 +90,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             return;
         }
 
-        assert!(!target.has_projections());
+        assert!(target.just_local());
 
         match rval {
             mir::Rvalue::Ref(_reg, _kind, src) => {
@@ -106,7 +106,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             },
             Rvalue::Repeat(op, _) | mir::Rvalue::Use(op) => match &op {
                 mir::Operand::Copy(other) | mir::Operand::Move(other) => {
-                    if !other.has_projections() && self.info.local_constness(other.local) == LocalConstness::Const {
+                    if other.just_local() && self.info.local_constness(other.local) == LocalConstness::Const {
                         self.pats.push(ReturnPat::Const);
                     }
                 },
@@ -119,7 +119,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
                     .iter()
                     .filter_map(rustc_middle::mir::Operand::place)
                     .map(|place| {
-                        assert!(!place.has_projections());
+                        assert!(place.just_local());
                         self.info.local_constness(place.local)
                     })
                     .max()
@@ -132,7 +132,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ReturnAnalysis<'a, 'tcx> {
             // Casts should depend on the input data
             Rvalue::Cast(_kind, op, _target) => {
                 if let Some(place) = op.place() {
-                    assert!(!place.has_projections());
+                    assert!(place.just_local());
                     if self.info.local_constness(place.local) == LocalConstness::Const {
                         self.pats.push(ReturnPat::Const);
                     }

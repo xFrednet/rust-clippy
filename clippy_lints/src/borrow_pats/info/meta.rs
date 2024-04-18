@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::borrow_pats::info::VarInfo;
-use crate::borrow_pats::PrintPrevent;
+use crate::borrow_pats::{PlaceMagic, PrintPrevent};
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
@@ -9,7 +9,7 @@ use super::LocalKind;
 use clippy_utils::ty::is_copy;
 use mid::mir::visit::Visitor;
 use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
-use mid::ty::{TyCtxt, TypeVisitableExt};
+use mid::ty::TyCtxt;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_index::bit_set::BitSet;
 use rustc_lint::LateContext;
@@ -276,7 +276,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
 impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
     fn visit_var_debug_info(&mut self, info: &mir::VarDebugInfo<'tcx>) {
         if let mir::VarDebugInfoContents::Place(place) = info.value {
-            assert!(!place.has_projections());
+            assert!(place.just_local());
             let local = place.local;
             if let Some(local_info) = self.locals.get_mut(&local) {
                 let decl = &self.body.local_decls[local];
@@ -325,7 +325,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             },
             mir::Rvalue::Use(op) => match &op {
                 mir::Operand::Copy(other) | mir::Operand::Move(other) => {
-                    if other.has_projections() {
+                    if other.is_part() {
                         DataInfo::Part(*other)
                     } else {
                         DataInfo::Local(other.local)
@@ -344,7 +344,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             // Casts should depend on the input data
             Rvalue::Cast(_kind, op, _target) => {
                 if let Some(place) = op.place() {
-                    assert!(!place.has_projections());
+                    assert!(place.just_local());
                     DataInfo::Cast(place.local)
                 } else {
                     DataInfo::Const

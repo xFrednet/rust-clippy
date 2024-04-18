@@ -9,8 +9,10 @@ use rustc_hir::def_id::DefId;
 use rustc_index::bit_set::BitSet;
 use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::{BasicBlock, Local, Operand};
-use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt, TypeVisitableExt};
+use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt};
 use rustc_span::source_map::Spanned;
+
+use crate::borrow_pats::PlaceMagic;
 
 use super::AnalysisInfo;
 
@@ -109,7 +111,7 @@ impl<'tcx> FuncReals<'tcx> {
         for (arg_index, arg_ty) in self.sig.inputs().iter().enumerate() {
             let mut arg_rels = FxHashSet::default();
             for_each_ref_region(*arg_ty, &mut |_reg, child_ty, mutability| {
-                // `&mut &X` is not really interesting here
+                // `&X` is not really interesting here
                 if matches!(mutability, Mutability::Mut) {
                     arg_rels.extend(self.find_relations(child_ty, arg_index));
                 }
@@ -118,7 +120,7 @@ impl<'tcx> FuncReals<'tcx> {
             if !arg_rels.is_empty() {
                 // It has to be a valid place, since we found a location
                 let place = args[arg_index].node.place().unwrap();
-                assert!(!place.has_projections());
+                assert!(place.just_local());
 
                 let locals: Vec<_> = arg_rels
                     .into_iter()

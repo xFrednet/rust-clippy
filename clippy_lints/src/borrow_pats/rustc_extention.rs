@@ -47,6 +47,10 @@ pub trait PlaceMagic {
     /// This returns true, if this is only a part of the local. A field or array
     /// element would be a part of a local.
     fn is_part(&self) -> bool;
+
+    /// Returns true if this is only a local. Any projections, field accesses or
+    /// other non local things will return false.
+    fn just_local(&self) -> bool;
 }
 
 impl PlaceMagic for mir::Place<'_> {
@@ -60,6 +64,10 @@ impl PlaceMagic for mir::Place<'_> {
                     | mir::PlaceElem::Subslice { .. }
             )
         })
+    }
+    
+    fn just_local(&self) -> bool {
+        self.projection.is_empty()
     }
 }
 

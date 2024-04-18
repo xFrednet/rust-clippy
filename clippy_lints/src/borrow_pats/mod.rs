@@ -146,14 +146,11 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             }
             
             if lint_level == Level::Forbid {
-                //println!("{info:#?}");
-            } else {
-                return;
+                // println!("{info:#?}");
             }
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
-            return;
             for (local, local_info) in info.locals.iter().skip(1) {
                 match &local_info.kind {
                     LocalKind::Return => unreachable!("Skipped before"),
@@ -182,8 +179,9 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 }
 
 fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
-    eprintln!("Body for: {def:#?}");
-    let body = cx.tcx.optimized_mir(def);
     println!("=====");
+    println!("Body for: {def:#?}");
+    let body = cx.tcx.optimized_mir(def);
     print_body(body);
+    println!("=====");
 }

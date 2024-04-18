@@ -9,11 +9,11 @@ use rustc_index::bit_set::BitSet;
 use rustc_lint::LateContext;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
-use rustc_middle::ty::{TyCtxt, TypeVisitableExt};
+use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
 
 use super::ret::ReturnPats;
-use super::PatternStorage;
+use super::{PatternStorage, PlaceMagic};
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
@@ -165,11 +165,13 @@ impl<'tcx> LocalInfo<'tcx> {
     }
 
     pub fn add_assign(&mut self, place: mir::Place<'tcx>, assign: DataInfo<'tcx>) {
-        if place.has_projections() {
+        if place.is_part() {
             self.data.part_assign();
-        } else {
+        } else if place.just_local() {
             self.assign_count += 1;
             self.data.mix(assign);
+        } else {
+            todo!("Handle weird assign {place:#?}\n{self:#?}");
         }
     }
 }
@@ -291,7 +293,7 @@ impl LocalOrConst {
 impl From<&mir::Operand<'_>> for LocalOrConst {
     fn from(value: &mir::Operand<'_>) -> Self {
         if let Some(place) = value.place() {
-            assert!(!value.has_projections());
+            assert!(place.just_local());
             Self::Local(place.local)
         } else {
             Self::Const
