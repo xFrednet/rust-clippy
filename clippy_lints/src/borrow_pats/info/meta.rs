@@ -10,6 +10,7 @@ use clippy_utils::ty::is_copy;
 use mid::mir::visit::Visitor;
 use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
 use mid::ty::{TyCtxt, TypeVisitableExt};
+use rustc_data_structures::fx::FxHashMap;
 use rustc_index::bit_set::BitSet;
 use rustc_lint::LateContext;
 use rustc_middle as mid;
@@ -28,7 +29,7 @@ pub struct MetaAnalysis<'a, 'tcx> {
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
-    pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
+    pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     pub return_block: BasicBlock,
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
     pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,

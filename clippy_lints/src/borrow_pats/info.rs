@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use hir::def_id::LocalDefId;
 use meta::MetaAnalysis;
-use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
+use rustc_data_structures::fx::FxHashMap;
 use rustc_index::bit_set::BitSet;
 use rustc_lint::LateContext;
 use rustc_middle::mir;
@@ -22,14 +22,14 @@ mod meta;
 pub struct AnalysisInfo<'tcx> {
     pub cx: &'tcx LateContext<'tcx>,
     pub tcx: TyCtxt<'tcx>,
-    pub body: mir::Body<'tcx>,
+    pub body: &'tcx mir::Body<'tcx>,
     pub def_id: LocalDefId,
     // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
     pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
-    pub terms: BTreeMap<BasicBlock, BTreeMap<Local, Vec<Local>>>,
+    pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     /// The final block that contains the return.
     pub return_block: BasicBlock,
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
@@ -58,14 +58,9 @@ impl<'tcx> AnalysisInfo<'tcx> {
         // In this context it is safe, this struct will never outlive `cx`
         let cx = unsafe { core::mem::transmute::<&LateContext<'tcx>, &'tcx LateContext<'tcx>>(cx) };
 
-        eprintln!("AnalysisInfo for: {def_id:#?}");
-        let borrowck::consumers::BodyWithBorrowckFacts {
-            body,
-            // borrow_set, location_table
-            ..
-        } = get_body_with_borrowck_facts(cx.tcx, def_id, ConsumerOptions::RegionInferenceContext);
+        let body = cx.tcx.optimized_mir(def_id);
 
-        let meta_analysis = MetaAnalysis::from_body(cx, &body);
+        let meta_analysis = MetaAnalysis::from_body(cx, body);
 
         // This needs deconstruction to kill the loan of self
         let MetaAnalysis {

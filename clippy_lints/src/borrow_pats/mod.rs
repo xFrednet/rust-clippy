@@ -80,6 +80,7 @@ pub struct BorrowPats {
     enabled: bool,
     /// Indicates if the collected patterns should be printed for each pattern.
     print_pats: bool,
+    print_call_relations: bool,
 }
 
 impl BorrowPats {
@@ -87,11 +88,13 @@ impl BorrowPats {
         // Determined by `check_crate`
         let enabled = true;
         let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
+        let print_call_relations = std::env::var("CLIPPY_PETS_TEST_RELATIONS").is_ok();
 
         Self {
             msrv,
             enabled,
             print_pats,
+            print_call_relations,
         }
     }
 }
@@ -129,22 +132,28 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         if lint_level != Level::Allow && self.print_pats {
             println!("# {body_name:?}");
         }
-
+        
         if lint_level == Level::Forbid {
-            // eprintln!("{body:#?}");
             print_debug_info(cx, body, def);
         }
-
+        
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def);
+            if self.print_call_relations {
+                println!("# Relations for {body_name:?}");
+                println!("{:#?}", info.terms);
+                return;
+            }
+            
             if lint_level == Level::Forbid {
-                println!("{info:#?}");
+                //println!("{info:#?}");
             } else {
                 return;
             }
 
             info.return_pats = ret::ReturnAnalysis::run(&info);
 
+            return;
             for (local, local_info) in info.locals.iter().skip(1) {
                 match &local_info.kind {
                     LocalKind::Return => unreachable!("Skipped before"),
@@ -174,26 +183,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
 fn print_debug_info<'tcx>(cx: &LateContext<'tcx>, body: &hir::Body<'tcx>, def: hir::def_id::LocalDefId) {
     eprintln!("Body for: {def:#?}");
-    let borrowck = get_body_with_borrowck_facts(cx.tcx, def, ConsumerOptions::RegionInferenceContext);
+    let body = cx.tcx.optimized_mir(def);
     println!("=====");
-    print_body(&borrowck.body);
-    println!();
-    println!("- location_map: {:#?}", borrowck.borrow_set.location_map);
-    println!("- activation_map: {:#?}", borrowck.borrow_set.activation_map);
-    println!("- local_map: {:#?}", borrowck.borrow_set.local_map);
-    match &borrowck.borrow_set.locals_state_at_exit {
-        rustc_borrowck::borrow_set::LocalsStateAtExit::AllAreInvalidated => {
-            println!("- locals_state_at_exit: AllAreInvalidated");
-        },
-        rustc_borrowck::borrow_set::LocalsStateAtExit::SomeAreInvalidated {
-            has_storage_dead_or_moved,
-        } => println!("- locals_state_at_exit: SomeAreInvalidated {has_storage_dead_or_moved:#?}"),
-    };
-    println!();
-    let scope_info = calculate_borrows_out_of_scope_at_location(
-        &borrowck.body,
-        &borrowck.region_inference_context,
-        &borrowck.borrow_set,
-    );
-    println!("- scope_info: {scope_info:#?}");
+    print_body(body);
 }

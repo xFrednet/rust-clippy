@@ -1,5 +1,6 @@
+#![warn(unused)]
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
@@ -7,7 +8,7 @@ use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::DefId;
 use rustc_index::bit_set::BitSet;
 use rustc_middle::mir::visit::Visitor;
-use rustc_middle::mir::{self, BasicBlock, Local, Operand, START_BLOCK};
+use rustc_middle::mir::{BasicBlock, Local, Operand};
 use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::source_map::Spanned;
 
@@ -27,7 +28,6 @@ impl<T> std::fmt::Debug for PrintPrevent<T> {
 /// of everything to make this work somehow tollerable.
 #[derive(Debug)]
 struct FuncReals<'tcx> {
-    tcx: PrintPrevent<TyCtxt<'tcx>>,
     /// A list of several universes
     ///
     /// Mapping from `'short` (key) is outlives by `'long` (value)
@@ -48,7 +48,6 @@ impl<'tcx> FuncReals<'tcx> {
         let fn_sig = fn_sig.skip_binder();
 
         let mut reals = Self {
-            tcx: PrintPrevent(tcx),
             multiverse: Default::default(),
             sig: fn_sig,
         };
@@ -67,8 +66,8 @@ impl<'tcx> FuncReals<'tcx> {
             .iter()
             .filter_map(|(clause, _span)| clause.as_region_outlives_clause());
 
-        /// I know this can be done in linear time, but I wasn't able to get this to
-        /// work quickly. So I'll do the n^2 version for now
+        // I know this can be done in linear time, but I wasn't able to get this to
+        // work quickly. So I'll do the n^2 version for now
         for binder in preds {
             // By now I believe (aka. wish) this is unimportant and can be removed.
             // But first I need to find something which actually triggers this todo.
@@ -109,7 +108,7 @@ impl<'tcx> FuncReals<'tcx> {
 
         for (arg_index, arg_ty) in self.sig.inputs().iter().enumerate() {
             let mut arg_rels = FxHashSet::default();
-            for_each_ref_region(*arg_ty, &mut |reg, child_ty, mutability| {
+            for_each_ref_region(*arg_ty, &mut |_reg, child_ty, mutability| {
                 // `&mut &X` is not really interesting here
                 if matches!(mutability, Mutability::Mut) && !child_ty.is_ref() {
                     arg_rels.extend(self.find_relations(child_ty, arg_index));
@@ -133,6 +132,16 @@ impl<'tcx> FuncReals<'tcx> {
         reals
     }
 
+    /// This function takes an operand, that identifies a function and returns the
+    /// indices of the arguments that might be parents of the return type.
+    ///
+    /// ```
+    /// fn example<'c, 'a: 'c, 'b: 'c>(cond: bool, a: &'a u32, b: &'b u32) -> &'c u32 {
+    /// #    todo!()
+    /// }
+    /// ```
+    /// This would return [1, 2], since the types in position 1 and 2 are related
+    /// to the return type.
     fn return_relations(&self) -> FxHashSet<usize> {
         self.find_relations(self.sig.output(), usize::MAX)
     }
@@ -140,7 +149,11 @@ impl<'tcx> FuncReals<'tcx> {
     fn find_relations(&self, child_ty: Ty<'tcx>, child_index: usize) -> FxHashSet<usize> {
         let mut child_regions = FxHashSet::default();
         for_each_region(child_ty, |region| {
-            child_regions.insert(region);
+            if child_regions.insert(region) {
+                if let Some(longer_regions) = self.multiverse.get(&region) {
+                    child_regions.extend(longer_regions);
+                }
+            }
         });
 
         let mut parents = FxHashSet::default();
@@ -154,7 +167,7 @@ impl<'tcx> FuncReals<'tcx> {
             }
 
             // "Here to stab things, don't case"
-            for_each_ref_region(*ty, &mut |reg, _ty, mutability| {
+            for_each_ref_region(*ty, &mut |reg, _ty, _mutability| {
                 if child_regions.contains(&reg) {
                     parents.insert(index);
                 }
@@ -170,99 +183,13 @@ pub fn calc_call_local_relations<'tcx>(
     func: &Operand<'tcx>,
     dest: Local,
     args: &Vec<Spanned<Operand<'tcx>>>,
-) -> BTreeMap<Local, Vec<Local>> {
-    return Default::default();
-    if let Some((def_id, generic_args)) = func.const_fn_def() && false {
+) -> FxHashMap<Local, Vec<Local>> {
+    if let Some((def_id, generic_args)) = func.const_fn_def() {
         let builder = FuncReals::from_fn_def(tcx, def_id, generic_args);
-        return Default::default();
         let relations = builder.relations(dest, args);
-        return Default::default();
-    }
-
-    let ret_rels = get_parents_of_return(tcx, func);
-    let mut rels = BTreeMap::new();
-    let locals: Vec<_> = ret_rels
-        .iter()
-        .map(|i| args[*i].node.place().unwrap())
-        .inspect(|p| assert!(p.projection.is_empty()))
-        .map(|place| place.local)
-        .collect();
-    rels.insert(dest, locals);
-
-    rels
-}
-
-/// This function takes an operand, that identifies a function and returns the
-/// indices of the arguments that might be parents of the return type.
-///
-/// ```
-/// fn example<'c, 'a: 'c, 'b: 'c>(cond: bool, a: &'a u32, b: &'b u32) -> &'c u32 {
-/// #    todo!()
-/// }
-/// ```
-/// This would return [1, 2], since the types in position 1 and 2 are related
-/// to the return type.
-///
-/// TODO: This should also consider return via modification of `&mut` params
-pub fn get_parents_of_return<'tcx>(tcx: TyCtxt<'tcx>, op: &mir::Operand<'tcx>) -> Vec<usize> {
-    if let Some((def_id, generic_args)) = op.const_fn_def() {
-        // FIXME: The proper and long therm solution would be to use HIR
-        // to find the call with generics that still have valid region markers.
-        // However, for now I need to get this zombie in the air and not pefect
-        let fn_sig = tcx.fn_sig(def_id).instantiate_identity();
-
-        // On other functions this shouldn't matter. Even if they have late bounds
-        // in their signature. We don't know how it's used and more imporantly,
-        // The input and return types still need to follow Rust's type rules
-        let fn_sig = fn_sig.skip_binder();
-
-        let mut ret_regions = vec![];
-        for_each_region(fn_sig.output(), |region| {
-            ret_regions.push(region);
-        });
-        let ret_ty_regions = ret_regions.len();
-
-        // FYI: Predicates don't include transitive bounds
-        let item_predicates = tcx.predicates_of(def_id);
-        // TODO Test: `inferred_outlives_of`
-
-        let mut prev_len = 0;
-        while prev_len != ret_regions.len() {
-            prev_len = ret_regions.len();
-            item_predicates
-                .predicates
-                .iter()
-                .filter_map(|(clause, _span)| clause.as_region_outlives_clause())
-                .for_each(|binder| {
-                    if !binder.bound_vars().is_empty() {
-                        todo!("Non empty depressing bounds 2: {binder:#?}");
-                    }
-
-                    let constaint = binder.skip_binder();
-                    if ret_regions.contains(&constaint.1) && !ret_regions.contains(&constaint.0) {
-                        ret_regions.push(constaint.0);
-                    }
-                });
-            // TODO: Check type outlives stuff
-        }
-        let ret_regions = ret_regions;
-
-        // Collect dependent input types
-        let mut input_indices = vec![];
-        for (index, input) in fn_sig.inputs().iter().enumerate() {
-            // "Here to stab things, don't case"
-            for_each_ref_region(*input, &mut |reg, _ty, mutability| {
-                // assert_eq!(mutability, Mutability::Not);
-                if ret_regions.contains(&reg) {
-                    input_indices.push(index);
-                }
-            });
-        }
-
-        // eprintln!("Dependent inputs: {input_indices:#?}");
-        input_indices
+        relations
     } else {
-        todo!("{op:#?}\n\n")
+        todo!()
     }
 }
 
@@ -306,6 +233,7 @@ impl<T: PatternEnum> PatternStorage<T> {
         self.pats.borrow_mut().insert(new_pat);
     }
 
+    #[expect(unused)]
     pub fn get(self) -> BTreeSet<T> {
         self.pats.take()
     }
