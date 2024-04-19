@@ -1,14 +1,23 @@
 #![expect(unused)]
 //! # TODOs
-//! - Insight: Loans are basically just special dependent typed
-//! - The output states need to be sorted... OH NO
-//! - Add Computed to Return
-//! - Track properties separatly and uniformly (Argument, Mutable, Owned, Dropable)
-//!
+//! - [ ] Update meta analysis
+//!     - [ ] Handle loops by partially retraverse them
+//!     - [ ] Determine value reachability (This might only be needed for returns)
+//! - [ ] Update Return analysis
+//!     - [ ] Add Computed to Return
+//!     - [ ] Check if the relations implied by the function signature aline with usage
+//! - [ ] Analysis for named references
+//! - [ ] Output and summary
+//!     - [ ] Collect and summarize all data per crate
+//!     - [ ] The output states need to be sorted... OH NO
+//! 
 //! # Done
+//! - [x] Track properties separatly and uniformly (Argument, Mutable, Owned, Dropable)
 //! - [x] Handle or abort on feature use
-//! - [x] Refactor events to have places instead of locals.
 //! - [x] Consider HIR based visitor `rustc_hir_typeck::expr_use_visitor::Delegate`
+//!
+//! # Notes
+//! - Insight: Loans are basically just special dependent typed
 //!
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint

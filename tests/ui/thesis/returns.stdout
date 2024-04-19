@@ -1,21 +1,21 @@
 # "main"
-- Return: [Const, Unit, AllConst]
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
 
 # "simple_const"
-- Return: [Const, AllConst]
+- Return (-, -, -, -, -) {Const, AllConst}
 
 # "fn_call"
-- Return: []
+- Return (-, -, -, -, -) {}
 
 # "simple_cond"
-- Return: [Const, Conditional, AllConst]
+- Return (-, -, -, -, -) {Const, Conditional, AllConst}
 
 # "static_slice"
-- Return: [Const, AllConst]
+- Return (-, -, -, -, -) {Const, AllConst}
 
 # "static_string"
-- Return: [Const, AllConst]
+- Return (-, -, -, -, -) {Const, AllConst}
 
 # "arg_or_default"
-- Return: [Const, Conditional]
+- Return (-, -, -, -, -) {Const, Conditional}
 
