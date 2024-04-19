@@ -1,3 +1,4 @@
+use mid::mir::{Local, Place};
 use rustc_hir as hir;
 use rustc_middle::{self as mid, mir};
 use std::collections::VecDeque;
@@ -68,6 +69,19 @@ impl PlaceMagic for mir::Place<'_> {
 
     fn just_local(&self) -> bool {
         self.projection.is_empty()
+    }
+}
+
+pub trait LocalMagic {
+    fn as_place(&self) -> Place<'static>;
+}
+
+impl LocalMagic for Local {
+    fn as_place(&self) -> Place<'static> {
+        Place {
+            local: *self,
+            projection: rustc_middle::ty::List::empty(),
+        }
     }
 }
 

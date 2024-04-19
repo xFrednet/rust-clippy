@@ -44,6 +44,7 @@ mod owned;
 mod ret;
 
 mod info;
+mod prelude;
 mod rustc_extention;
 mod util;
 pub use info::*;

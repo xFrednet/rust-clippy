@@ -1,21 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use crate::borrow_pats::PlaceMagic;
+use super::prelude::*;
 
 use super::ret::ReturnPat;
-use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternStorage, Validity};
+use super::visit_body_in_order;
 
-use hir::Mutability;
-use itertools::Itertools;
-use mid::mir::visit::{MutatingUseContext, Visitor};
-use mid::mir::{BorrowKind, Operand, StatementKind, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
-use mid::ty::TypeVisitableExt;
-use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_index::IndexVec;
 use rustc_middle::mir;
-use rustc_middle::mir::{BasicBlock, FakeReadCause, Local, Place, Rvalue};
-use rustc_span::{sym, Symbol};
-use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
+
+mod state;
+use state::*;
 
 #[derive(Debug)]
 pub struct OwnedAnalysis<'a, 'tcx> {
@@ -26,6 +17,7 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
     local_kind: &'a LocalKind,
+    /// This should be a `BTreeSet` to have it ordered and consistent.
     pats: BTreeSet<OwnedPat>,
     /// Counts how many times a value was used. This starts at 1 for arguments otherwise 0.
     use_count: u32,
@@ -88,155 +80,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     }
 
     fn add_borrow(&mut self, bb: BasicBlock, borrow: Place<'tcx>, broker: Place<'tcx>, kind: BorrowKind) {
-        self.update_bros(bb, broker, kind.mutability());
-
-        if matches!(kind, BorrowKind::Shared)
-            && let Some((_loc, phase_place)) = self.states[bb].phase_borrow
-            && self.info.places_conflict(phase_place, broker)
-        {
-            self.pats.insert(OwnedPat::TwoPhasedBorrow);
-        }
-
-        // So: It turns out that MIR is an inconsisten hot mess. Two-Phase-Borrows are apparently
-        // allowed to violate rust borrow semantics...
-        //
-        // Simple example: `x.push(x.len())`
-        if matches!(self.info.locals[&borrow.local].kind, LocalKind::AnonVar) {
-            assert!(borrow.just_local());
-            if kind.allows_two_phase_borrow() {
-                let old = self.states[bb].phase_borrow.replace((borrow.local, broker));
-                assert_eq!(old, None);
-            } else {
-                self.states[bb]
-                    .temp_bros
-                    .insert(borrow.local, (broker, kind.mutability()));
-            }
-        } else {
-            todo!("Named Local: {borrow:#?} = {broker:#?} (at {bb:#?})\n{self:#?}");
-        }
-    }
-
-    fn update_bros(&mut self, bb: BasicBlock, broker: Place<'tcx>, muta: Mutability) {
-        let state = &mut self.states[bb];
-
-        if broker.just_local() && matches!(muta, Mutability::Mut) {
-            // If the entire thing is borrowed mut, every reference get's cleared
-            state.temp_bros.clear();
-        } else {
-            // I switch on muta before the `retain`, to make the `retain`` specialized and therefore faster.
-            match muta {
-                // Not mutable aka aliasable
-                Mutability::Not => state.temp_bros.retain(|_key, (broed_place, muta)| {
-                    !(matches!(muta, Mutability::Mut) && self.info.places_conflict(*broed_place, broker))
-                }),
-                Mutability::Mut => state
-                    .temp_bros
-                    .retain(|_key, (broed_place, _muta)| !self.info.places_conflict(*broed_place, broker)),
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct StateInfo<'tcx> {
-    state: State,
-    /// This is a set of values that *might* contain the owned value.
-    /// MIR has this *beautiful* habit of moving stuff into anonymous
-    /// locals first before using it further.
-    anons: BTreeSet<Local>,
-    /// This set contains anonymous borrows, these are AFAIK always used
-    /// for temporary borrows.
-    ///
-    /// Note: If I can confirm that these borrows are always used for
-    /// temporary borrows, it might be possible to prevent tracking them
-    /// to safe some performance.
-    temp_bros: BTreeMap<Local, (Place<'tcx>, Mutability)>,
-    /// This tracks mut borrows, which might be used for two phased borrows.
-    /// Based on the docs, it sounds like there can always only be one. Let's
-    /// use an option and cry when it fails.
-    ///
-    /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
-    phase_borrow: Option<(Local, Place<'tcx>)>,
-}
-
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
-enum State {
-    #[default]
-    None,
-    Empty,
-    Filled,
-    Moved,
-    Dropped,
-    MaybeFilled,
-}
-
-impl<'tcx> StateInfo<'tcx> {
-    /// Retruns true if this state contains valid data, which can be dropped or moved.
-    fn validity(&self) -> Validity {
-        match self.state {
-            State::None => unreachable!(),
-            State::Filled => Validity::Valid,
-            State::MaybeFilled => Validity::Maybe,
-            State::Empty | State::Moved | State::Dropped => Validity::Not,
-        }
-    }
-
-    fn join(mut self, other: &StateInfo<'tcx>) -> StateInfo<'tcx> {
-        assert_ne!(other.state, State::None);
-        if self.state == State::None {
-            return other.clone();
-        }
-
-        self.state = match (self.validity(), other.validity()) {
-            (Validity::Valid, Validity::Valid) => State::Filled,
-            (Validity::Not, Validity::Not) => State::Empty,
-            (_, _) => State::MaybeFilled,
-        };
-
-        // FIXME: Here we can have collisions where two anons reference different places... oh no...
-        self.anons.extend(other.anons.iter());
-        self.temp_bros.extend(other.temp_bros.iter());
-
-        assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
-        self.phase_borrow = self.phase_borrow.or(other.phase_borrow);
-
-        self
-    }
-
-    fn take_phase_borrow(&mut self, anon: &Place<'_>) -> Option<Place<'tcx>> {
-        assert!(anon.just_local());
-
-        self.phase_borrow
-            .take_if(|(local, _)| *local == anon.local)
-            .map(|(_, place)| place)
-    }
-
-    /// This tries to remove the given place from the known anons that hold this value.
-    /// It will retrun `true`, if the removal was successfull.
-    /// Places with projections will be ignored.
-    fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
-        assert!(anon.just_local());
-        self.anons.remove(&anon.local)
-    }
-
-    fn remove_anon_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability)> {
-        assert!(anon.just_local());
-
-        if let Some((_loc, place)) = self.phase_borrow.take_if(|(local, _place)| *local == anon.local) {
-            // TwoPhaseBorrows are always mutable
-            Some((place, Mutability::Mut))
-        } else {
-            self.temp_bros.remove(&anon.local)
-        }
-    }
-
-    /// This clears this state. The `state` field has to be set afterwards
-    fn clear(&mut self) {
-        self.anons.clear();
-        self.temp_bros.clear();
-        self.phase_borrow = None;
-
-        self.state = State::None;
+        self.states[bb].add_borrow(borrow, broker, kind, self.info, &mut self.pats);
     }
 }
 
@@ -315,11 +159,14 @@ pub enum OwnedPat {
     /// I really don't understand why. Creating the refernce later would be totally valid, at
     /// least in all cases I looked at. This just creates a complete mess, but at this point
     /// I'm giving up on asking questions. MIR is an inconsitent pain end of story.
+    ///
+    /// This pattern is only added, if the two phased borrows was actually used, so if the
+    /// code wouldn't work without it.
     TwoPhasedBorrow,
 }
 
 impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
-    fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &mir::BasicBlockData<'tcx>) {
+    fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &BasicBlockData<'tcx>) {
         self.init_state(bb);
         self.super_basic_block_data(bb, bbd);
     }
@@ -329,17 +176,17 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     // is nice but context is better. Imagine `_0 = move X`. So at last, I need
     // to write these things with other visitors.
 
-    fn visit_statement(&mut self, stmt: &mir::Statement<'tcx>, loc: mir::Location) {
+    fn visit_statement(&mut self, stmt: &Statement<'tcx>, loc: Location) {
         if let StatementKind::StorageDead(local) = &stmt.kind {
-            self.states[loc.block].temp_bros.remove(local);
+            self.states[loc.block].remove_anon_bro(&local.as_place());
         }
         self.super_statement(stmt, loc);
     }
 
-    fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: mir::Location) {
+    fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: Location) {
         // TODO Ensure that moves always invalidate all borrows. IE. that the current
         // borrow check is really CFG insensitive.
-        if let Rvalue::Ref(_region, mir::BorrowKind::Fake, _place) = &rvalue {
+        if let Rvalue::Ref(_region, BorrowKind::Fake, _place) = &rvalue {
             return;
         }
 
@@ -353,13 +200,13 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         self.super_assign(target, rvalue, loc);
     }
 
-    fn visit_terminator(&mut self, term: &mir::Terminator<'tcx>, loc: mir::Location) {
+    fn visit_terminator(&mut self, term: &Terminator<'tcx>, loc: Location) {
         self.visit_terminator_for_args(term, loc.block);
         self.visit_terminator_for_anons(term, loc.block);
         self.super_terminator(term, loc);
     }
 
-    fn visit_local(&mut self, local: Local, context: mir::visit::PlaceContext, loc: mir::Location) {
+    fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, loc: Location) {
         // TODO: Check that this isn't called for StorageLife and StorageDead
         if local == self.local {
             self.use_count += 1;
@@ -465,23 +312,23 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
         }
 
-        if let mir::Rvalue::Ref(_reg, _kind, src) = &rval
-            && let Some(muta) = self.states[bb].temp_bros.get(&src.local).copied()
+        if let Rvalue::Ref(_reg, _kind, src) = &rval
+            && self.states[bb].has_anon_ref(src.local)
         {
             match src.projection.as_slice() {
-                [mir::PlaceElem::Deref] => {
+                [PlaceElem::Deref] => {
                     // &(*_1) = Copy
                     assert!(target.just_local());
-                    self.states[bb].temp_bros.insert(target.local, muta);
+                    self.states[bb].add_ref_copy(target.local, src.local)
                 },
                 _ => todo!("Handle ref of anon ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}"),
             }
         }
     }
 
-    fn visit_terminator_for_args(&mut self, term: &mir::Terminator<'tcx>, bb: BasicBlock) {
+    fn visit_terminator_for_args(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            mir::TerminatorKind::Drop { place, .. } => {
+            TerminatorKind::Drop { place, .. } => {
                 if place.local == self.local {
                     match self.states[bb].validity() {
                         Validity::Valid => {
@@ -503,7 +350,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     }
                 }
             },
-            mir::TerminatorKind::Call {
+            TerminatorKind::Call {
                 func,
                 args,
                 destination: dest,
@@ -530,7 +377,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
             // Both of these operate on copy types. They are uninteresting for now.
             // They can still be important since these a reads which cancel mutable borrows and fields can be read
-            mir::TerminatorKind::SwitchInt { discr: op, .. } | mir::TerminatorKind::Assert { cond: op, .. } => {
+            TerminatorKind::SwitchInt { discr: op, .. } | TerminatorKind::Assert { cond: op, .. } => {
                 if let Some(place) = op.place()
                     && place.local == self.local
                 {
@@ -538,27 +385,27 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             },
             // Controll flow or unstable features. Uninteresting for values
-            mir::TerminatorKind::Goto { .. }
-            | mir::TerminatorKind::UnwindResume
-            | mir::TerminatorKind::UnwindTerminate(_)
-            | mir::TerminatorKind::Return
-            | mir::TerminatorKind::Unreachable
-            | mir::TerminatorKind::Yield { .. }
-            | mir::TerminatorKind::CoroutineDrop
-            | mir::TerminatorKind::FalseEdge { .. }
-            | mir::TerminatorKind::FalseUnwind { .. }
-            | mir::TerminatorKind::InlineAsm { .. } => {},
+            TerminatorKind::Goto { .. }
+            | TerminatorKind::UnwindResume
+            | TerminatorKind::UnwindTerminate(_)
+            | TerminatorKind::Return
+            | TerminatorKind::Unreachable
+            | TerminatorKind::Yield { .. }
+            | TerminatorKind::CoroutineDrop
+            | TerminatorKind::FalseEdge { .. }
+            | TerminatorKind::FalseUnwind { .. }
+            | TerminatorKind::InlineAsm { .. } => {},
         }
     }
-    fn visit_terminator_for_anons(&mut self, term: &mir::Terminator<'tcx>, bb: BasicBlock) {
+    fn visit_terminator_for_anons(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            mir::TerminatorKind::Drop { place, .. } => {
+            TerminatorKind::Drop { place, .. } => {
                 // TODO: Is this even interesting or can we just ignore this?
                 // if let Some((index, _)) = find_anon(place.local) {
                 //     self.states[bb].anons.swap_remove(index);
                 // }
             },
-            mir::TerminatorKind::Call {
+            TerminatorKind::Call {
                 func,
                 args,
                 destination: dest,
@@ -593,9 +440,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
-                    } else if let Some(place) = self.states[bb].take_phase_borrow(&arg) {
-                        temp_bros_mut_ctn += 1;
-                        self.pats.insert(OwnedPat::TempBorrowMut);
                     } else if let Some((place, muta)) = self.states[bb].remove_anon_bro(&arg) {
                         let pat = match muta {
                             Mutability::Not => {
@@ -634,7 +478,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
             // Both of these operate on copy types. They are uninteresting for now.
             // They can still be important since these a reads which cancel mutable borrows and fields can be read
-            mir::TerminatorKind::SwitchInt { discr: op, .. } | mir::TerminatorKind::Assert { cond: op, .. } => {
+            TerminatorKind::SwitchInt { discr: op, .. } | TerminatorKind::Assert { cond: op, .. } => {
                 if let Some(place) = op.place()
                     && place.local == self.local
                 {
@@ -642,16 +486,16 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             },
             // Controll flow or unstable features. Uninteresting for values
-            mir::TerminatorKind::Goto { .. }
-            | mir::TerminatorKind::UnwindResume
-            | mir::TerminatorKind::UnwindTerminate(_)
-            | mir::TerminatorKind::Return
-            | mir::TerminatorKind::Unreachable
-            | mir::TerminatorKind::Yield { .. }
-            | mir::TerminatorKind::CoroutineDrop
-            | mir::TerminatorKind::FalseEdge { .. }
-            | mir::TerminatorKind::FalseUnwind { .. }
-            | mir::TerminatorKind::InlineAsm { .. } => {},
+            TerminatorKind::Goto { .. }
+            | TerminatorKind::UnwindResume
+            | TerminatorKind::UnwindTerminate(_)
+            | TerminatorKind::Return
+            | TerminatorKind::Unreachable
+            | TerminatorKind::Yield { .. }
+            | TerminatorKind::CoroutineDrop
+            | TerminatorKind::FalseEdge { .. }
+            | TerminatorKind::FalseUnwind { .. }
+            | TerminatorKind::InlineAsm { .. } => {},
         }
     }
 }
