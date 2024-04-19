@@ -8,7 +8,7 @@ use super::{visit_body_in_order, AnalysisInfo, LocalKind, PatternEnum, PatternSt
 use hir::Mutability;
 use itertools::Itertools;
 use mid::mir::visit::{MutatingUseContext, Visitor};
-use mid::mir::{Operand, StatementKind, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
+use mid::mir::{BorrowKind, Operand, StatementKind, VarDebugInfo, VarDebugInfoContents, START_BLOCK};
 use mid::ty::TypeVisitableExt;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::IndexVec;
@@ -87,12 +87,33 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             .fold(StateInfo::default(), |mut acc, b| acc.join(b));
     }
 
-    fn add_temp_bro(&mut self, bb: BasicBlock, anon: Place<'tcx>, broker: Place<'tcx>, muta: Mutability) {
-        assert!(anon.just_local());
+    fn add_borrow(&mut self, bb: BasicBlock, borrow: Place<'tcx>, broker: Place<'tcx>, kind: BorrowKind) {
+        self.update_bros(bb, broker, kind.mutability());
 
-        self.update_bros(bb, broker, muta);
+        if matches!(kind, BorrowKind::Shared)
+            && let Some((_loc, phase_place)) = self.states[bb].phase_borrow
+            && self.info.places_conflict(phase_place, broker)
+        {
+            self.pats.insert(OwnedPat::TwoPhasedBorrow);
+        }
 
-        self.states[bb].temp_bros.insert(anon.local, (broker, muta));
+        // So: It turns out that MIR is an inconsisten hot mess. Two-Phase-Borrows are apparently
+        // allowed to violate rust borrow semantics...
+        //
+        // Simple example: `x.push(x.len())`
+        if matches!(self.info.locals[&borrow.local].kind, LocalKind::AnonVar) {
+            assert!(borrow.just_local());
+            if kind.allows_two_phase_borrow() {
+                let old = self.states[bb].phase_borrow.replace((borrow.local, broker));
+                assert_eq!(old, None);
+            } else {
+                self.states[bb]
+                    .temp_bros
+                    .insert(borrow.local, (broker, kind.mutability()));
+            }
+        } else {
+            todo!("Named Local: {borrow:#?} = {broker:#?} (at {bb:#?})\n{self:#?}");
+        }
     }
 
     fn update_bros(&mut self, bb: BasicBlock, broker: Place<'tcx>, muta: Mutability) {
@@ -130,6 +151,12 @@ struct StateInfo<'tcx> {
     /// temporary borrows, it might be possible to prevent tracking them
     /// to safe some performance.
     temp_bros: BTreeMap<Local, (Place<'tcx>, Mutability)>,
+    /// This tracks mut borrows, which might be used for two phased borrows.
+    /// Based on the docs, it sounds like there can always only be one. Let's
+    /// use an option and cry when it fails.
+    ///
+    /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
+    phase_borrow: Option<(Local, Place<'tcx>)>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -170,32 +197,44 @@ impl<'tcx> StateInfo<'tcx> {
         self.anons.extend(other.anons.iter());
         self.temp_bros.extend(other.temp_bros.iter());
 
+        assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
+        self.phase_borrow = self.phase_borrow.or(other.phase_borrow);
+
         self
+    }
+
+    fn take_phase_borrow(&mut self, anon: &Place<'_>) -> Option<Place<'tcx>> {
+        assert!(anon.just_local());
+
+        self.phase_borrow
+            .take_if(|(local, _)| *local == anon.local)
+            .map(|(_, place)| place)
     }
 
     /// This tries to remove the given place from the known anons that hold this value.
     /// It will retrun `true`, if the removal was successfull.
     /// Places with projections will be ignored.
     fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
-        if !anon.just_local() {
-            return false;
-        }
-
+        assert!(anon.just_local());
         self.anons.remove(&anon.local)
     }
 
-    fn remove_temp_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability)> {
-        if !anon.just_local() {
-            return None;
-        }
+    fn remove_anon_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability)> {
+        assert!(anon.just_local());
 
-        self.temp_bros.remove(&anon.local)
+        if let Some((_loc, place)) = self.phase_borrow.take_if(|(local, _place)| *local == anon.local) {
+            // TwoPhaseBorrows are always mutable
+            Some((place, Mutability::Mut))
+        } else {
+            self.temp_bros.remove(&anon.local)
+        }
     }
 
     /// This clears this state. The `state` field has to be set afterwards
     fn clear(&mut self) {
         self.anons.clear();
         self.temp_bros.clear();
+        self.phase_borrow = None;
 
         self.state = State::None;
     }
@@ -247,6 +286,36 @@ pub enum OwnedPat {
     Overwrite,
     /// The value will be overwritten in a loop
     OverwriteInLoop,
+    /// This value is involved in a two phased borrow. Meaning that an argument is calculated
+    /// using the value itself. Example:
+    ///
+    /// ```
+    /// fn two_phase_borrow_1(mut vec: Vec<usize>) {
+    ///     vec.push(vec.len());
+    /// }
+    /// ```
+    ///
+    /// See: <https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html>
+    ///
+    /// This case is special, since MIR for some reason creates an aliased mut reference.
+    ///
+    /// ```text
+    /// bb0:
+    ///     _3 = &mut _1
+    ///     _5 = &_1
+    ///     _4 = std::vec::Vec::<usize>::len(move _5) -> [return: bb1, unwind: bb4]
+    /// bb1:
+    ///     _2 = std::vec::Vec::<usize>::push(move _3, move _4) -> [return: bb2, unwind: bb4]
+    /// bb2:
+    ///     drop(_1) -> [return: bb3, unwind: bb5]
+    /// bb3:
+    ///     return
+    /// ```
+    ///
+    /// I really don't understand why. Creating the refernce later would be totally valid, at
+    /// least in all cases I looked at. This just creates a complete mess, but at this point
+    /// I'm giving up on asking questions. MIR is an inconsitent pain end of story.
+    TwoPhasedBorrow,
 }
 
 impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -259,6 +328,13 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     // provice any information about the result of the usage. Knowing that X was moved
     // is nice but context is better. Imagine `_0 = move X`. So at last, I need
     // to write these things with other visitors.
+
+    fn visit_statement(&mut self, stmt: &mir::Statement<'tcx>, loc: mir::Location) {
+        if let StatementKind::StorageDead(local) = &stmt.kind {
+            self.states[loc.block].temp_bros.remove(local);
+        }
+        self.super_statement(stmt, loc);
+    }
 
     fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: mir::Location) {
         // TODO Ensure that moves always invalidate all borrows. IE. that the current
@@ -323,7 +399,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && place.local == self.local
         {
             if target.just_local() {
-                self.add_temp_bro(bb, *target, *place, kind.mutability())
+                self.add_borrow(bb, *target, *place, *kind)
             } else {
                 todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
             }
@@ -349,7 +425,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             let pat = if self.info.find_loop(bb).is_some() {
                 OwnedPat::OverwriteInLoop
             } else {
-                OwnedPat::OverwriteInLoop
+                OwnedPat::Overwrite
             };
             self.pats.insert(pat);
         }
@@ -517,7 +593,10 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
-                    } else if let Some((place, muta)) = self.states[bb].remove_temp_bro(&arg) {
+                    } else if let Some(place) = self.states[bb].take_phase_borrow(&arg) {
+                        temp_bros_mut_ctn += 1;
+                        self.pats.insert(OwnedPat::TempBorrowMut);
+                    } else if let Some((place, muta)) = self.states[bb].remove_anon_bro(&arg) {
                         let pat = match muta {
                             Mutability::Not => {
                                 temp_bros.push(place);

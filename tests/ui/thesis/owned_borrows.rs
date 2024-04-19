@@ -46,6 +46,20 @@ fn temp_borrow_mixed_2(mut a: Animal) {
     take_2_mixed_loan(&a.science_name, &mut a.simple_name);
 }
 
+/// https://github.com/nikomatsakis/nll-rfc/issues/37
+#[warn(clippy::borrow_pats)]
+fn two_phase_borrow_1(mut vec: Vec<usize>) {
+    vec.push(vec.len());
+}
+
+#[warn(clippy::borrow_pats)]
+fn two_phase_borrow_2(mut num: usize, mut vec: Vec<usize>) {
+    vec.push({
+        num = vec.len();
+        num
+    })
+}
+
 fn take_1_loan(_: &String) {}
 fn take_2_loan(_: &String, _: &String) {}
 fn take_1_mut_loan(_: &String) {}

@@ -1,0 +1,4 @@
+# "two_phase_borrow"
+- x              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
+

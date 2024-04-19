@@ -30,3 +30,12 @@
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, MixedBorrowsInArgs}
 - Return (-, -, -, -, -) {Const, Unit, AllConst}
 
+# "two_phase_borrow_1"
+- vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
+
+# "two_phase_borrow_2"
+- num            : (Mutable  , Owned    , Argument, Copy   , NonDrop) {Overwrite}
+- vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- Return (-, -, -, -, -) {Const, Unit, AllConst}
+
