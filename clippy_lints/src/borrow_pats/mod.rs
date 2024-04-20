@@ -10,7 +10,7 @@
 //! - [ ] Output and summary
 //!     - [ ] Collect and summarize all data per crate
 //!     - [ ] The output states need to be sorted... OH NO
-//! 
+//!
 //! # Done
 //! - [x] Track properties separatly and uniformly (Argument, Mutable, Owned, Dropable)
 //! - [x] Handle or abort on feature use

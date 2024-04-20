@@ -1,9 +1,9 @@
+#![warn(unused)]
+
 use super::prelude::*;
+use super::{visit_body_in_order, MyVisitor};
 
 use super::ret::ReturnPat;
-use super::visit_body_in_order;
-
-use rustc_middle::mir;
 
 mod state;
 use state::*;
@@ -11,8 +11,9 @@ use state::*;
 #[derive(Debug)]
 pub struct OwnedAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
+    /// The name of the local, used for debugging
+    _name: Symbol,
     local: Local,
-    name: Symbol,
     states: IndexVec<BasicBlock, StateInfo<'tcx>>,
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
@@ -28,12 +29,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         let local_kind = &info.locals[&local].kind;
         let name = local_kind.name().unwrap();
 
-        // Safety: Is this unsafe? Theoretically yes practically no. I was actually
-        // surprized that they changed the changed the return type, as it used
-        // to be `&'static str`
-        let name_str = unsafe { std::mem::transmute::<&str, &'static str>(name.as_str()) };
-
-        /// Arguments are assigned outside and therefore have at least a use of 1
+        // Arguments are assigned outside and therefore have at least a use of 1
         let use_count = u32::from(local_kind.is_arg());
 
         let mut states = IndexVec::new();
@@ -42,7 +38,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         Self {
             info,
             local,
-            name,
+            _name: name,
             states,
             local_kind,
             pats: Default::default(),
@@ -59,24 +55,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
 
         anly.pats
-    }
-
-    fn init_state(&mut self, bb: BasicBlock) {
-        if bb == START_BLOCK {
-            if self.local_kind.is_arg() {
-                self.states[bb].state = State::Filled;
-            } else {
-                self.states[bb].state = State::Empty;
-            }
-
-            return;
-        }
-
-        let preds = &self.info.preds[&bb];
-        self.states[bb] = preds
-            .iter()
-            .map(|bb| &self.states[bb])
-            .fold(StateInfo::default(), |mut acc, b| acc.join(b));
     }
 
     fn add_borrow(&mut self, bb: BasicBlock, borrow: Place<'tcx>, broker: Place<'tcx>, kind: BorrowKind) {
@@ -165,12 +143,23 @@ pub enum OwnedPat {
     TwoPhasedBorrow,
 }
 
-impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
-    fn visit_basic_block_data(&mut self, bb: BasicBlock, bbd: &BasicBlockData<'tcx>) {
-        self.init_state(bb);
-        self.super_basic_block_data(bb, bbd);
+impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
+    type State = StateInfo<'tcx>;
+
+    fn init_start_block_state(&mut self) {
+        if self.local_kind.is_arg() {
+            self.states[START_BLOCK].state = State::Filled;
+        } else {
+            self.states[START_BLOCK].state = State::Empty;
+        }
     }
 
+    fn set_state(&mut self, bb: BasicBlock, state: Self::State) {
+        self.states[bb] = state;
+    }
+}
+
+impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     // Note: visit_place sounds perfect, with the mild inconvinience, that it doesn't
     // provice any information about the result of the usage. Knowing that X was moved
     // is nice but context is better. Imagine `_0 = move X`. So at last, I need
@@ -206,7 +195,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         self.super_terminator(term, loc);
     }
 
-    fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, loc: Location) {
+    fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, _loc: Location) {
         // TODO: Check that this isn't called for StorageLife and StorageDead
         if local == self.local {
             self.use_count += 1;
@@ -252,7 +241,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
         }
     }
-    fn visit_assign_to_self(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
+    fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.just_local());
 
         let is_override = match self.states[bb].state {
@@ -399,12 +388,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     }
     fn visit_terminator_for_anons(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            TerminatorKind::Drop { place, .. } => {
-                // TODO: Is this even interesting or can we just ignore this?
-                // if let Some((index, _)) = find_anon(place.local) {
-                //     self.states[bb].anons.swap_remove(index);
-                // }
-            },
             TerminatorKind::Call {
                 func,
                 args,
@@ -480,10 +463,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             // They can still be important since these a reads which cancel mutable borrows and fields can be read
             TerminatorKind::SwitchInt { discr: op, .. } | TerminatorKind::Assert { cond: op, .. } => {
                 if let Some(place) = op.place()
-                    && place.local == self.local
+                    && self.states[bb].remove_anon(&place)
                 {
                     todo!();
                 }
+            },
+            TerminatorKind::Drop { place, .. } => {
+                debug_assert!(
+                    !self.states[bb].remove_anon(place),
+                    "AFAIK, the field is always dropped directly"
+                );
+                // I believe this is uninteresting
             },
             // Controll flow or unstable features. Uninteresting for values
             TerminatorKind::Goto { .. }

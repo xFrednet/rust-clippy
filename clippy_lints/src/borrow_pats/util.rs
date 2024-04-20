@@ -7,14 +7,14 @@ use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::DefId;
 use rustc_index::bit_set::BitSet;
-use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::{BasicBlock, Local, Operand};
 use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt};
 use rustc_span::source_map::Spanned;
 
 use crate::borrow_pats::PlaceMagic;
 
-use super::AnalysisInfo;
+mod visitor;
+pub use visitor::*;
 
 pub struct PrintPrevent<T>(pub T);
 
@@ -250,14 +250,4 @@ pub enum Validity {
     Maybe,
     /// Not filled with valid data
     Not,
-}
-
-pub fn visit_body_in_order<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
-    for info in &info.body.var_debug_info {
-        vis.visit_var_debug_info(info);
-    }
-
-    for bb in info.visit_order.iter().copied() {
-        vis.visit_basic_block_data(bb, &info.body.basic_blocks[bb]);
-    }
 }

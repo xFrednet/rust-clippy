@@ -48,6 +48,8 @@ impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
             .field("loops", &self.loops)
             .field("terms", &self.terms)
             .field("locals", &self.locals)
+            .field("preds", &self.preds)
+            .field("preds_unlooped", &self.preds_unlooped)
             .finish()
     }
 }

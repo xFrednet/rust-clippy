@@ -1,9 +1,11 @@
 #![warn(unused)]
 
+use crate::borrow_pats::MyStateInfo;
+
 use super::super::prelude::*;
 use super::OwnedPat;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StateInfo<'tcx> {
     pub state: State,
     /// This is a set of values that *might* contain the owned value.
@@ -45,28 +47,6 @@ impl<'tcx> StateInfo<'tcx> {
             State::MaybeFilled => Validity::Maybe,
             State::Empty | State::Moved | State::Dropped => Validity::Not,
         }
-    }
-
-    pub fn join(mut self, other: &StateInfo<'tcx>) -> StateInfo<'tcx> {
-        assert_ne!(other.state, State::None);
-        if self.state == State::None {
-            return other.clone();
-        }
-
-        self.state = match (self.validity(), other.validity()) {
-            (Validity::Valid, Validity::Valid) => State::Filled,
-            (Validity::Not, Validity::Not) => State::Empty,
-            (_, _) => State::MaybeFilled,
-        };
-
-        // FIXME: Here we can have collisions where two anons reference different places... oh no...
-        self.anons.extend(other.anons.iter());
-        self.anon_bros.extend(other.anon_bros.iter());
-
-        assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
-        self.phase_borrow = self.phase_borrow.or(other.phase_borrow);
-
-        self
     }
 
     /// This tries to remove the given place from the known anons that hold this value.
@@ -158,5 +138,41 @@ impl<'tcx> StateInfo<'tcx> {
         } else {
             self.anon_bros.remove(&anon.local)
         }
+    }
+}
+
+impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
+    fn join(&mut self, state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, bb: BasicBlock) -> bool {
+        let other = &state_owner.states[bb];
+        let mut changed = false;
+
+        assert_ne!(other.state, State::None);
+        if self.state == State::None {
+            *self = other.clone();
+            return true;
+        }
+
+        let new_state = match (self.validity(), other.validity()) {
+            (Validity::Valid, Validity::Valid) => State::Filled,
+            (Validity::Not, Validity::Not) => State::Empty,
+            (_, _) => State::MaybeFilled,
+        };
+        changed |= self.state != new_state;
+        self.state = new_state;
+
+        // FIXME: Here we can have collisions where two anons reference different places... oh no...
+        let anons_previous_len = self.anons.len();
+        let anon_bros_previous_len = self.anon_bros.len();
+        self.anons.extend(other.anons.iter());
+        self.anon_bros.extend(other.anon_bros.iter());
+        changed |= (self.anons.len() != anons_previous_len) || (self.anon_bros.len() != anon_bros_previous_len);
+
+        assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
+        if let Some(data) = other.phase_borrow {
+            self.phase_borrow = Some(data);
+            changed = true;
+        }
+
+        changed
     }
 }
