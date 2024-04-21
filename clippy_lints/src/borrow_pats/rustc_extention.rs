@@ -73,13 +73,13 @@ impl PlaceMagic for mir::Place<'_> {
 }
 
 pub trait LocalMagic {
-    fn as_place(&self) -> Place<'static>;
+    fn as_place(self) -> Place<'static>;
 }
 
 impl LocalMagic for Local {
-    fn as_place(&self) -> Place<'static> {
+    fn as_place(self) -> Place<'static> {
         Place {
-            local: *self,
+            local: self,
             projection: rustc_middle::ty::List::empty(),
         }
     }

@@ -27,13 +27,14 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::ops::ControlFlow;
 
+use self::body::BodyContext;
 use borrowck::borrow_set::BorrowSet;
 use borrowck::consumers::calculate_borrows_out_of_scope_at_location;
 use clippy_config::msrvs::Msrv;
 use clippy_utils::ty::{for_each_ref_region, for_each_region, for_each_top_level_late_bound_region};
 use clippy_utils::{fn_has_unsatisfiable_preds, is_lint_allowed};
-use hir::def_id::LocalDefId;
-use hir::{HirId, Mutability};
+use hir::def_id::{DefId, LocalDefId};
+use hir::{BodyId, HirId, Mutability};
 use mid::mir::visit::Visitor;
 use mid::mir::Location;
 use rustc_borrowck::consumers::{get_body_with_borrowck_facts, ConsumerOptions};
@@ -47,10 +48,11 @@ use rustc_middle::ty::{Clause, List, TyCtxt};
 use rustc_session::{declare_lint_pass, impl_lint_pass};
 use rustc_span::source_map::Spanned;
 use rustc_span::Symbol;
+
 use {rustc_borrowck as borrowck, rustc_hir as hir, rustc_middle as mid};
 
+mod body;
 mod owned;
-mod ret;
 
 mod info;
 mod prelude;
@@ -107,59 +109,50 @@ impl BorrowPats {
             print_call_relations,
         }
     }
-}
 
-impl<'tcx> LateLintPass<'tcx> for BorrowPats {
-    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
-        self.enabled = cx.tcx.features().all_features().iter().all(|x| *x == 0);
-
-        if !self.enabled && self.print_pats {
-            println!("Disabled due to feature use");
-        }
-    }
-
-    fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) {
+    fn check_fn_body<'tcx>(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        def_id: LocalDefId,
+        body_id: BodyId,
+        hir_sig: &hir::FnSig<'tcx>,
+        context: BodyContext,
+    ) {
         if !self.enabled {
             return;
         }
 
-        // FIXME: Check what happens for closures
-        let def = cx.tcx.hir().body_owner_def_id(body.id());
-        let Some(body_name) = cx.tcx.opt_item_name(def.into()) else {
+        if fn_has_unsatisfiable_preds(cx, def_id.into()) {
+            return;
+        }
+
+        let Some(body_name) = cx.tcx.opt_item_name(def_id.into()) else {
             return;
         };
 
-        // TODO: Mention in report that const can't be considered due to rustc internals
-        match cx.tcx.def_kind(def) {
-            hir::def::DefKind::Const => return,
-            hir::def::DefKind::Fn | hir::def::DefKind::AssocFn if fn_has_unsatisfiable_preds(cx, def.into()) => return,
-            _ => {},
-        }
-
-        let body_hir = cx.tcx.local_def_id_to_hir_id(def);
-        let lint_level = cx.tcx.lint_level_at_node(BORROW_PATS, body_hir).0;
+        let lint_level = cx
+            .tcx
+            .lint_level_at_node(BORROW_PATS, cx.tcx.local_def_id_to_hir_id(def_id))
+            .0;
+        let body = cx.tcx.hir().body(body_id);
 
         if lint_level != Level::Allow && self.print_pats {
             println!("# {body_name:?}");
         }
 
         if lint_level == Level::Forbid {
-            print_debug_info(cx, body, def);
+            print_debug_info(cx, body, def_id);
         }
 
         if lint_level != Level::Allow {
-            let mut info = AnalysisInfo::new(cx, def);
+            let mut info = AnalysisInfo::new(cx, def_id);
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
                 println!("{:#?}", info.terms);
                 return;
             }
 
-            if lint_level == Level::Forbid {
-                // println!("{info:#?}");
-            }
-
-            info.return_pats = ret::ReturnAnalysis::run(&info);
+            let (body_info, body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
 
             for (local, local_info) in info.locals.iter().skip(1) {
                 match &local_info.kind {
@@ -181,9 +174,48 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
             if self.print_pats {
                 // Return must be printed at the end, as it might be modified by
                 // the following analysis thingies
-                println!("- Return (-, -, -, -, -) {}", info.return_pats);
+                println!("- Body: {} {:?}", body_info, body_pats);
                 println!();
             }
+        }
+    }
+}
+
+impl<'tcx> LateLintPass<'tcx> for BorrowPats {
+    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
+        self.enabled = cx.tcx.features().all_features().iter().all(|x| *x == 0);
+
+        if !self.enabled && self.print_pats {
+            println!("Disabled due to feature use");
+        }
+    }
+
+    fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
+        match &item.kind {
+            hir::ItemKind::Fn(sig, _generics, body_id) => {
+                self.check_fn_body(cx, item.owner_id.def_id, *body_id, sig, BodyContext::Free);
+            },
+            hir::ItemKind::Impl(impl_item) => {
+                let context = match impl_item.of_trait {
+                    Some(_) => BodyContext::TraitImpl,
+                    None => BodyContext::Impl,
+                };
+
+                for sub_item_ref in impl_item.items {
+                    if matches!(sub_item_ref.kind, hir::AssocItemKind::Fn { .. }) {
+                        let sub_item = cx.tcx.hir().impl_item(sub_item_ref.id);
+                        let (sig, body_id) = sub_item.expect_fn();
+                        self.check_fn_body(cx, sub_item.owner_id.def_id, body_id, sig, context)
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'tcx>) {
+        if let hir::TraitItemKind::Fn(sig, hir::TraitFn::Provided(body_id)) = &item.kind {
+            self.check_fn_body(cx, item.owner_id.def_id, *body_id, sig, BodyContext::TraitDef)
         }
     }
 }

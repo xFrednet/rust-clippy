@@ -1,9 +1,9 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::{visit_body_in_order, MyVisitor};
+use super::{visit_body_with_state, MyVisitor};
 
-use super::ret::ReturnPat;
+use super::body::ReturnPat;
 
 mod state;
 use state::*;
@@ -48,7 +48,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
     pub fn run(info: &'a AnalysisInfo<'tcx>, local: Local) -> BTreeSet<OwnedPat> {
         let mut anly = Self::new(info, local);
-        visit_body_in_order(&mut anly, info);
+        visit_body_with_state(&mut anly, info);
 
         if anly.use_count == 1 {
             anly.pats.insert(OwnedPat::Unused);
@@ -141,6 +141,18 @@ pub enum OwnedPat {
     /// This pattern is only added, if the two phased borrows was actually used, so if the
     /// code wouldn't work without it.
     TwoPhasedBorrow,
+    /// This value was constructed in a body, used and then deconstructed at the end, to take
+    /// some data and return it.
+    ///
+    /// ```ignore
+    /// fn collect_something() -> Patterns {
+    ///     let mut cx = Context::new();
+    ///     cx.scan(cyz);
+    ///     cx.patterns
+    /// }
+    /// ```
+    #[expect(unused)]
+    ConstructedForCalc,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {

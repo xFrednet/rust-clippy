@@ -27,6 +27,7 @@ unicode-script = { version = "0.5", default-features = false }
 semver = "1.0"
 rustc-semver = "1.1"
 url = "2.2"
+smallvec = { version = "1.8.1", features = ["union", "may_dangle"] }
 
 [dev-dependencies]
 walkdir = "2.3"

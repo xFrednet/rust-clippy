@@ -12,7 +12,7 @@ pub trait MyVisitor<'tcx>: Visitor<'tcx> + std::marker::Sized {
     fn set_state(&mut self, bb: BasicBlock, state: Self::State);
 }
 
-pub fn visit_body_in_order<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
+pub fn visit_body_with_state<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
     for bb in info.visit_order.iter().copied() {
         // Init state
         if bb == START_BLOCK {
@@ -26,6 +26,13 @@ pub fn visit_body_in_order<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &Analysi
             vis.set_state(bb, state);
         }
 
+        // Walk block
+        vis.visit_basic_block_data(bb, &info.body.basic_blocks[bb]);
+    }
+}
+
+pub fn visit_body<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>) {
+    for bb in info.visit_order.iter().copied() {
         // Walk block
         vis.visit_basic_block_data(bb, &info.body.basic_blocks[bb]);
     }

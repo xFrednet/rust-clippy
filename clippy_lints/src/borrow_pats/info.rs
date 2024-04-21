@@ -12,7 +12,7 @@ use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
 
-use super::ret::ReturnPats;
+use super::body::ReturnPats;
 use super::{PatternStorage, PlaceMagic};
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
@@ -108,26 +108,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
 
     pub fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
         super::find_loop(&self.loops, bb)
-    }
-
-    pub fn local_constness(&self, local: Local) -> LocalConstness {
-        match &self.locals[&local].data {
-            DataInfo::Unresolved => unreachable!("{self:#?}"),
-            DataInfo::Computed | DataInfo::Argument => LocalConstness::Nope,
-            DataInfo::Mixed => LocalConstness::Maybe,
-            DataInfo::Local(other) => self.local_constness(*other),
-            DataInfo::Loan(place) | DataInfo::Part(place) => {
-                LocalConstness::max(LocalConstness::Maybe, self.local_constness(place.local))
-            },
-            DataInfo::Const => LocalConstness::Const,
-            DataInfo::Cast(other) => self.local_constness(*other),
-            DataInfo::Ctor(others) => others
-                .iter()
-                .filter_map(LocalOrConst::local)
-                .map(|local| self.local_constness(local))
-                .max()
-                .unwrap_or(LocalConstness::Const),
-        }
     }
 }
 
@@ -282,15 +262,6 @@ pub enum LocalOrConst {
     Const,
 }
 
-impl LocalOrConst {
-    fn local(&self) -> Option<Local> {
-        match self {
-            LocalOrConst::Local(local) => Some(*local),
-            LocalOrConst::Const => None,
-        }
-    }
-}
-
 impl From<&mir::Operand<'_>> for LocalOrConst {
     fn from(value: &mir::Operand<'_>) -> Self {
         if let Some(place) = value.place() {
@@ -305,9 +276,12 @@ impl From<&mir::Operand<'_>> for LocalOrConst {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LocalConstness {
     /// Is const
+    #[expect(unused)]
     Const,
     /// Maybe const
+    #[expect(unused)]
     Maybe,
     /// Def not const
+    #[expect(unused)]
     Nope,
 }
