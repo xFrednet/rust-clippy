@@ -42,7 +42,7 @@ impl<'a, 'tcx> DfWalker<'a, 'tcx> {
 
             for assign in &self.assignments[parent] {
                 match assign {
-                    AssignInfo::Place { from, .. } | AssignInfo::Dep { from, .. } | AssignInfo::Ctor { from, .. } => {
+                    AssignInfo::Place { from, .. } | AssignInfo::Dep { from, .. } | AssignInfo::Ctor { from, .. } | AssignInfo::MutRef { loan: from, .. } => {
                         let grandparent = from.local;
                         if seen.insert(grandparent) {
                             stack.push(grandparent);

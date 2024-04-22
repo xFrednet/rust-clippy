@@ -31,44 +31,40 @@ pub struct BodyAnalysis<'a, 'tcx> {
 }
 
 /// This indicates an assignment to `to`. In most cases, there is also a `from`.
-///
-/// TODO: Maybe handle &mut
 #[derive(Debug, Copy, Clone)]
 enum AssignInfo<'tcx> {
     Place {
         from: Place<'tcx>,
+        #[expect(unused)]
         to: Place<'tcx>,
     },
     Const {
+        #[expect(unused)]
         to: Place<'tcx>,
     },
     Calc {
+        #[expect(unused)]
         to: Place<'tcx>,
     },
     /// This is typical for loans and function calls. If a places might depend
     /// multiple things this will be added mutiple times.
     Dep {
         from: Place<'tcx>,
+        #[expect(unused)]
         to: Place<'tcx>,
     },
     /// A value was constructed with this data
     Ctor {
         from: Place<'tcx>,
         /// The `to` indicates the part of the target, that hols the from value.
+        #[expect(unused)]
         to: Place<'tcx>,
     },
-}
-
-impl<'tcx> AssignInfo<'tcx> {
-    #[expect(unused)]
-    fn to(&self) -> Place<'tcx> {
-        match self {
-            Self::Place { to, .. }
-            | Self::Const { to }
-            | Self::Calc { to }
-            | Self::Dep { to, .. }
-            | Self::Ctor { to, .. } => *to,
-        }
+    /// This is not an assignment, but the notification that a mut borrow was created
+    MutRef {
+        #[expect(unused)]
+        broker: Place<'tcx>,
+        loan: Place<'tcx>,
     }
 }
 
@@ -159,7 +155,10 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
     fn visit_assign(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, _loc: mir::Location) {
         match rval {
-            Rvalue::Ref(_reg, _kind, src) => {
+            Rvalue::Ref(_reg, kind, src) => {
+                if let BorrowKind::Mut { .. } = kind {
+                    self.data_flow[src.local].push(AssignInfo::MutRef { broker: *src, loan: *target });
+                }
                 match src.projection.as_slice() {
                     [mir::PlaceElem::Deref] => {
                         // &(*_1) => Copy

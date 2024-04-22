@@ -1,10 +1,162 @@
-Connection from _1 to _2 was not confirmed
+# Relations for "no_rep"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "direct_dep"
+Self relations: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_dep"
+Self relations: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_dep_more"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_dep_or"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 2,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_dep_const"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_dep_prim"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_outlives_middle_1"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_outlives_middle_2"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 2,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "lifetime_outlives"
+Self relations: BodyStats {
+    return_relations_signature: 2,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "immutable_owner"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "mutable_owner"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "mutable_owner_and_arg"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "mutable_owner_and_lifetimed_str"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 1,
+    arg_relations_found: 1,
+}
+Called function relations: {}
+
+# Relations for "immutable_owner_and_lifetimed_str"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "mutable_owner_other_lifetimed_str"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+Called function relations: {}
+
+# Relations for "mutable_owner_self_lifetimed_str"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 1,
+    arg_relations_found: 1,
+}
+Called function relations: {}
+
 # Relations for "test_mut_args_1"
 Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 0,
+    arg_relations_found: 1,
 }
 Called function relations: {
     bb0: {},
@@ -29,13 +181,12 @@ Called function relations: {
     bb0: {},
 }
 
-Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_3"
 Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 0,
+    arg_relations_found: 1,
 }
 Called function relations: {
     bb0: {
