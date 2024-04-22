@@ -1,0 +1,47 @@
+Connection from _1 to _2 was not confirmed
+# Relations for "test_mut_args_1"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 1,
+    arg_relations_found: 0,
+}
+Called function relations: {
+    bb0: {},
+    bb1: {},
+    bb2: {},
+    bb3: {
+        _13: [
+            _14,
+        ],
+    },
+}
+
+Connection from _1 to _2 was not confirmed
+# Relations for "test_mut_args_2"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 1,
+    arg_relations_found: 0,
+}
+Called function relations: {
+    bb0: {},
+}
+
+Connection from _1 to _2 was not confirmed
+# Relations for "test_mut_args_3"
+Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 1,
+    arg_relations_found: 0,
+}
+Called function relations: {
+    bb0: {
+        _4: [
+            _5,
+        ],
+    },
+}
+

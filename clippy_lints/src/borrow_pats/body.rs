@@ -13,10 +13,12 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::visit_body;
+use super::{calc_fn_arg_relations, visit_body};
 
 mod pattern;
 pub use pattern::*;
+mod flow;
+use flow::*;
 
 use super::{PatternEnum, PatternStorage};
 
@@ -25,10 +27,12 @@ pub struct BodyAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     pats: BTreeSet<BodyPat>,
     data_flow: IndexVec<Local, SmallVec<[AssignInfo<'tcx>; 2]>>,
+    stats: BodyStats,
 }
 
 /// This indicates an assignment to `to`. In most cases, there is also a `from`.
-#[expect(unused)]
+///
+/// TODO: Maybe handle &mut
 #[derive(Debug, Copy, Clone)]
 enum AssignInfo<'tcx> {
     Place {
@@ -49,9 +53,9 @@ enum AssignInfo<'tcx> {
     },
     /// A value was constructed with this data
     Ctor {
+        from: Place<'tcx>,
         /// The `to` indicates the part of the target, that hols the from value.
         to: Place<'tcx>,
-        from: Place<'tcx>,
     },
 }
 
@@ -76,21 +80,79 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
             info,
             pats: BTreeSet::default(),
             data_flow,
+            stats: Default::default(),
         }
     }
 
     pub fn run(
         info: &'a AnalysisInfo<'tcx>,
-        _def_id: LocalDefId,
+        def_id: LocalDefId,
         hir_sig: &rustc_hir::FnSig<'_>,
         context: BodyContext,
-    ) -> (BodyInfo, BTreeSet<BodyPat>) {
+    ) -> (BodyInfo, BTreeSet<BodyPat>, BodyStats) {
         let mut anly = Self::new(info);
 
         visit_body(&mut anly, info);
+        anly.check_fn_relations(def_id);
 
         let body_info = BodyInfo::from_sig(hir_sig, context);
-        (body_info, anly.pats)
+        (body_info, anly.pats, anly.stats)
+    }
+
+    fn check_fn_relations(&mut self, def_id: LocalDefId) {
+        let mut rels = calc_fn_arg_relations(self.info.cx.tcx, def_id);
+        let return_rels = rels.remove(&RETURN_LOCAL).unwrap_or_default();
+
+        // TODO: Add special check for _0 = `const` | &'static _
+        self.check_return_relations(&return_rels);
+
+        // Argument relations
+        for (child, maybe_parents) in &rels {
+            self.check_arg_relation(child, maybe_parents)
+        }
+    }
+
+    fn check_return_relations(&mut self, sig_parents: &[Local]) {
+        self.stats.return_relations_signature = sig_parents.len();
+
+        let arg_ctn = self.info.body.arg_count;
+        let args: Vec<_> = (0..arg_ctn).map(|i| Local::from(i + 1)).collect();
+
+        let mut checker = DfWalker::new(self.info, &self.data_flow, RETURN_LOCAL, &args);
+        checker.walk();
+
+        for arg in &args {
+            if checker.found_connection(*arg) {
+                // These two branches are mutually exclusive:
+                if sig_parents.contains(arg) {
+                    self.stats.return_relations_found += 1;
+                } else if !self.info.body.local_decls[*arg].ty.is_ref() {
+                    println!("TODO: Track owned argument returned");
+                }
+            }
+        }
+
+        // let relation_count = 0;
+        // relation_count += 1;
+        // TODO: Also check for mut borrows here
+        // if relation_count == 0 && checker.has_const_assign() && !checker.has_computed_assign() {
+        //     self.pats.insert(BodyPat)
+        // }
+    }
+
+    fn check_arg_relation(&mut self, child: &Local, maybe_parents: &[Local]) {
+        let mut checker = DfWalker::new(self.info, &self.data_flow, *child, maybe_parents);
+        checker.walk();
+
+        self.stats.arg_relations_signature += maybe_parents.len();
+        self.stats.arg_relations_found += checker.connection_count();
+
+        // Debugging
+        for maybe in maybe_parents {
+            if !checker.found_connection(*maybe) {
+                println!("Connection from {child:?} to {maybe:?} was not confirmed");
+            }
+        }
     }
 }
 

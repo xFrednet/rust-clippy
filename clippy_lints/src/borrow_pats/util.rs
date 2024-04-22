@@ -5,16 +5,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::def_id::DefId;
+use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_index::bit_set::BitSet;
-use rustc_middle::mir::{BasicBlock, Local, Operand};
-use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt};
+use rustc_middle::mir::{BasicBlock, Local, Operand, Place};
+use rustc_middle::ty::{FnSig, GenericPredicates, Region, Ty, TyCtxt};
 use rustc_span::source_map::Spanned;
 
-use crate::borrow_pats::PlaceMagic;
+use crate::borrow_pats::{LocalMagic, PlaceMagic};
 
 mod visitor;
 pub use visitor::*;
+
+use super::prelude::RETURN_LOCAL;
+
+const RETURN_RELEATION_INDEX: usize = usize::MAX;
 
 pub struct PrintPrevent<T>(pub T);
 
@@ -38,7 +42,7 @@ struct FuncReals<'tcx> {
 }
 
 impl<'tcx> FuncReals<'tcx> {
-    fn from_fn_def(tcx: TyCtxt<'tcx>, def_id: DefId, _args: GenericArgsRef<'tcx>) -> Self {
+    fn from_fn_def(tcx: TyCtxt<'tcx>, def_id: DefId) -> Self {
         // FIXME: The proper and long therm solution would be to use HIR
         // to find the call with generics that still have valid region markers.
         // However, for now I need to get this zombie in the air and not pefect
@@ -96,7 +100,7 @@ impl<'tcx> FuncReals<'tcx> {
         }
     }
 
-    fn relations(&self, dest: Local, args: &Vec<Spanned<Operand<'tcx>>>) -> FxHashMap<Local, Vec<Local>> {
+    fn relations(&self, dest: Local, args: &[Spanned<Operand<'tcx>>]) -> FxHashMap<Local, Vec<Local>> {
         let mut reals = FxHashMap::default();
         let ret_rels = self.return_relations();
         if !ret_rels.is_empty() {
@@ -105,7 +109,9 @@ impl<'tcx> FuncReals<'tcx> {
                 .filter_map(|idx| args[idx].node.place())
                 .map(|place| place.local)
                 .collect();
-            reals.insert(dest, locals);
+            if !locals.is_empty() {
+                reals.insert(dest, locals);
+            }
         }
 
         for (arg_index, arg_ty) in self.sig.inputs().iter().enumerate() {
@@ -127,7 +133,9 @@ impl<'tcx> FuncReals<'tcx> {
                     .filter_map(|idx| args[idx].node.place())
                     .map(|place| place.local)
                     .collect();
-                reals.insert(place.local, locals);
+                if !locals.is_empty() {
+                    reals.insert(place.local, locals);
+                }
             }
         }
 
@@ -145,7 +153,7 @@ impl<'tcx> FuncReals<'tcx> {
     /// This would return [1, 2], since the types in position 1 and 2 are related
     /// to the return type.
     fn return_relations(&self) -> FxHashSet<usize> {
-        self.find_relations(self.sig.output(), usize::MAX)
+        self.find_relations(self.sig.output(), RETURN_RELEATION_INDEX)
     }
 
     fn find_relations(&self, child_ty: Ty<'tcx>, child_index: usize) -> FxHashSet<usize> {
@@ -184,15 +192,35 @@ pub fn calc_call_local_relations<'tcx>(
     tcx: TyCtxt<'tcx>,
     func: &Operand<'tcx>,
     dest: Local,
-    args: &Vec<Spanned<Operand<'tcx>>>,
+    args: &[Spanned<Operand<'tcx>>],
 ) -> FxHashMap<Local, Vec<Local>> {
-    if let Some((def_id, generic_args)) = func.const_fn_def() {
-        let builder = FuncReals::from_fn_def(tcx, def_id, generic_args);
+    if let Some((def_id, _generic_args)) = func.const_fn_def() {
+        let builder = FuncReals::from_fn_def(tcx, def_id);
         let relations = builder.relations(dest, args);
         relations
     } else {
         todo!()
     }
+}
+
+pub fn calc_fn_arg_relations<'tcx>(tcx: TyCtxt<'tcx>, fn_id: LocalDefId) -> FxHashMap<Local, Vec<Local>> {
+    // This function is amazingly hacky, but at this point I really don't care anymore
+    let builder = FuncReals::from_fn_def(tcx, fn_id.into());
+    let arg_ctn = builder.sig.inputs().len();
+    let fake_args: Vec<_> = (0..arg_ctn)
+        .map(|idx| {
+            // `_0` is the return, the arguments start at `_1`
+            let place = Local::from_usize(idx + 1).as_place();
+            let place = unsafe { std::mem::transmute::<Place<'static>, Place<'tcx>>(place) };
+            Spanned {
+                node: Operand::Move(place),
+                span: rustc_span::DUMMY_SP,
+            }
+        })
+        .collect();
+
+    let relations = builder.relations(RETURN_LOCAL, &fake_args[..]);
+    relations
 }
 
 pub fn find_loop(

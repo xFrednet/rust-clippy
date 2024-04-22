@@ -146,13 +146,16 @@ impl BorrowPats {
 
         if lint_level != Level::Allow {
             let mut info = AnalysisInfo::new(cx, def_id);
+
+            let (body_info, body_pats, body_stats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
+
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
-                println!("{:#?}", info.terms);
+                println!("Self relations: {:#?}", body_stats);
+                println!("Called function relations: {:#?}", info.terms);
+                println!();
                 return;
             }
-
-            let (body_info, body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
 
             for (local, local_info) in info.locals.iter().skip(1) {
                 match &local_info.kind {

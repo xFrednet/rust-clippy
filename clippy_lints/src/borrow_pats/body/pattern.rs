@@ -76,3 +76,17 @@ pub enum BodyContext {
     /// The function is inside a trait definition.
     TraitDef,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct BodyStats {
+    /// Number of relations between the arguments and the return value accoring
+    /// to the function signature
+    pub return_relations_signature: usize,
+    /// Number of relations between the arguments and the return value that have
+    /// been found inside the body
+    pub return_relations_found: usize,
+    /// Number of relations between arguments according to the signature
+    pub arg_relations_signature: usize,
+    /// Number of relations between arguments that have been found in the body
+    pub arg_relations_found: usize,
+}
