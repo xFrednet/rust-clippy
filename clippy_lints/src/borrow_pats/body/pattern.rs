@@ -89,4 +89,20 @@ pub struct BodyStats {
     pub arg_relations_signature: usize,
     /// Number of relations between arguments that have been found in the body
     pub arg_relations_found: usize,
+    /// The number of borrows into anonymous values.
+    ///
+    /// These are collected by the BodyAnalysis
+    pub anon_borrow_count: usize,
+    pub anon_borrow_count_mut: usize,
+    /// The number of borrows into named values.
+    ///
+    /// These are collected by the BodyAnalysis
+    pub named_borrow_count: usize,
+    pub named_borrow_count_mut: usize,
+    /// These are collected by the OnwedAnalysis and LoanAnalysis respectivly
+    ///
+    /// Note:
+    /// - This only counts the confirmed two phased borrows.
+    /// - The borrows that produce the two phased borrow are also counted above.
+    pub two_phase_borrows: usize,
 }

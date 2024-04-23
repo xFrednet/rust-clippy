@@ -1,5 +1,4 @@
 #![warn(unused)]
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use clippy_utils::ty::{for_each_ref_region, for_each_region};
@@ -119,6 +118,7 @@ impl<'tcx> FuncReals<'tcx> {
             for_each_ref_region(*arg_ty, &mut |_reg, child_ty, mutability| {
                 // `&X` is not really interesting here
                 if matches!(mutability, Mutability::Mut) {
+                    // This should be added here for composed types, like (&mut u32, &mut f32)
                     arg_rels.extend(self.find_relations(child_ty, arg_index));
                 }
             });
@@ -233,40 +233,13 @@ pub fn find_loop(
         .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
 }
 
-pub trait PatternEnum: Copy + Clone + std::fmt::Debug + std::hash::Hash + Eq + PartialEq + Ord + PartialOrd {}
-
-/// A convinient wrapper to make sure patterns are tracked correctly.
-pub struct PatternStorage<T: PatternEnum> {
-    pats: RefCell<BTreeSet<T>>,
-}
-
-impl<T: PatternEnum> std::fmt::Display for PatternStorage<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.pats.borrow())
-    }
-}
-
-impl<T: PatternEnum> std::fmt::Debug for PatternStorage<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.pats.borrow().fmt(f)
-    }
-}
-
-impl<T: PatternEnum> PatternStorage<T> {
-    pub fn new() -> Self {
-        Self {
-            pats: Default::default(),
-        }
-    }
-
-    pub fn push(&self, new_pat: T) {
-        self.pats.borrow_mut().insert(new_pat);
-    }
-
-    #[expect(unused)]
-    pub fn get(self) -> BTreeSet<T> {
-        self.pats.take()
-    }
+pub fn has_mut_ref<'tcx>(ty: Ty<'tcx>) -> bool {
+    let mut has_mut = false;
+    for_each_ref_region(ty, &mut |_reg, _ref_ty, mutability| {
+        // `&X` is not really interesting here
+        has_mut |= matches!(mutability, Mutability::Mut);
+    });
+    has_mut
 }
 
 /// Indicates the validity of a value.

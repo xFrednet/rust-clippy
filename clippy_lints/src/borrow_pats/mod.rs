@@ -19,6 +19,9 @@
 //! # Notes
 //! - Insight: Loans are basically just special dependent typed
 //!
+//! # Report
+//! - Mention Crater Blacklist: https://github.com/rust-lang/crater/blob/master/config.toml (170)
+//!
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
 
@@ -151,8 +154,9 @@ impl BorrowPats {
 
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
-                println!("Self relations: {:#?}", body_stats);
-                println!("Called function relations: {:#?}", info.terms);
+                println!("- Self relations: {:#?}", body_stats);
+                println!("- Called function relations: {:#?}", info.terms);
+                println!("- Body: {} {:?}", body_info, body_pats);
                 println!();
                 return;
             }

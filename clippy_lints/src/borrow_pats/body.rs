@@ -13,65 +13,48 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::{calc_fn_arg_relations, visit_body};
+use super::{calc_fn_arg_relations, has_mut_ref, visit_body};
+
+use clippy_utils::ty::for_each_region;
 
 mod pattern;
 pub use pattern::*;
 mod flow;
 use flow::*;
-
-use super::{PatternEnum, PatternStorage};
+use rustc_middle::ty::Region;
 
 #[derive(Debug)]
 pub struct BodyAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     pats: BTreeSet<BodyPat>,
-    data_flow: IndexVec<Local, SmallVec<[AssignInfo<'tcx>; 2]>>,
+    data_flow: IndexVec<Local, SmallVec<[MutInfo; 2]>>,
     stats: BodyStats,
 }
 
 /// This indicates an assignment to `to`. In most cases, there is also a `from`.
-#[derive(Debug, Copy, Clone)]
-enum AssignInfo<'tcx> {
-    Place {
-        from: Place<'tcx>,
-        #[expect(unused)]
-        to: Place<'tcx>,
-    },
-    Const {
-        #[expect(unused)]
-        to: Place<'tcx>,
-    },
-    Calc {
-        #[expect(unused)]
-        to: Place<'tcx>,
-    },
-    /// This is typical for loans and function calls. If a places might depend
-    /// multiple things this will be added mutiple times.
-    Dep {
-        from: Place<'tcx>,
-        #[expect(unused)]
-        to: Place<'tcx>,
-    },
-    /// A value was constructed with this data
-    Ctor {
-        from: Place<'tcx>,
-        /// The `to` indicates the part of the target, that hols the from value.
-        #[expect(unused)]
-        to: Place<'tcx>,
-    },
+#[derive(Debug, Clone)]
+enum MutInfo {
+    /// A different place was copied or moved into this one
+    Place(Local),
+    Const,
+    Arg,
+    Calc,
+    /// This is typical for loans and function calls.
+    Dep(Vec<Local>),
+    /// A value was constructed from this data
+    Ctor(Vec<Local>),
     /// This is not an assignment, but the notification that a mut borrow was created
-    MutRef {
-        #[expect(unused)]
-        broker: Place<'tcx>,
-        loan: Place<'tcx>,
-    }
+    Loan(Local),
+    MutRef(Local),
 }
 
 impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
-    fn new(info: &'a AnalysisInfo<'tcx>) -> Self {
-        let mut data_flow = IndexVec::default();
+    fn new(info: &'a AnalysisInfo<'tcx>, arg_ctn: usize) -> Self {
+        let mut data_flow: IndexVec<Local, SmallVec<[MutInfo; 2]>> = IndexVec::default();
         data_flow.resize(info.locals.len(), Default::default());
+
+        (0..arg_ctn).for_each(|idx| data_flow[Local::from_usize(idx + 1)].push(MutInfo::Arg));
+
         Self {
             info,
             pats: BTreeSet::default(),
@@ -86,7 +69,7 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
         hir_sig: &rustc_hir::FnSig<'_>,
         context: BodyContext,
     ) -> (BodyInfo, BTreeSet<BodyPat>, BodyStats) {
-        let mut anly = Self::new(info);
+        let mut anly = Self::new(info, hir_sig.decl.inputs.len());
 
         visit_body(&mut anly, info);
         anly.check_fn_relations(def_id);
@@ -99,16 +82,15 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
         let mut rels = calc_fn_arg_relations(self.info.cx.tcx, def_id);
         let return_rels = rels.remove(&RETURN_LOCAL).unwrap_or_default();
 
-        // TODO: Add special check for _0 = `const` | &'static _
-        self.check_return_relations(&return_rels);
-
         // Argument relations
         for (child, maybe_parents) in &rels {
             self.check_arg_relation(child, maybe_parents)
         }
+
+        self.check_return_relations(&return_rels, def_id);
     }
 
-    fn check_return_relations(&mut self, sig_parents: &[Local]) {
+    fn check_return_relations(&mut self, sig_parents: &[Local], def_id: LocalDefId) {
         self.stats.return_relations_signature = sig_parents.len();
 
         let arg_ctn = self.info.body.arg_count;
@@ -122,18 +104,47 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
                 // These two branches are mutually exclusive:
                 if sig_parents.contains(arg) {
                     self.stats.return_relations_found += 1;
-                } else if !self.info.body.local_decls[*arg].ty.is_ref() {
-                    println!("TODO: Track owned argument returned");
                 }
+                // FIXME: It would be nice if we can say, if an argument was
+                // returned, but it feels like all we can say is that there is an connection between
+                // this and the other thing else if !self.info.body.local_decls[*
+                // arg].ty.is_ref() {     println!("Track owned argument returned");
+                // }
             }
         }
 
-        // let relation_count = 0;
-        // relation_count += 1;
-        // TODO: Also check for mut borrows here
-        // if relation_count == 0 && checker.has_const_assign() && !checker.has_computed_assign() {
-        //     self.pats.insert(BodyPat)
-        // }
+        // check for static returns
+        let mut all_regions_static = true;
+        let mut region_count = 0;
+        let fn_sig = self.info.cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+        for_each_region(fn_sig.output(), &mut |region: Region<'_>| {
+            region_count += 1;
+            all_regions_static &= region.is_static();
+        });
+
+        // Check if there can be static returns
+        if region_count >= 1 && !all_regions_static {
+            let mut pending_return_df = std::mem::take(&mut self.data_flow[RETURN_LOCAL]);
+            let mut checked_return_df = SmallVec::with_capacity(pending_return_df.len());
+            // We check for every assignment, if it's constant and therefore static
+            while let Some(return_df) = pending_return_df.pop() {
+                self.data_flow[RETURN_LOCAL].push(return_df);
+
+                let mut checker = DfWalker::new(self.info, &self.data_flow, RETURN_LOCAL, &args);
+                checker.walk();
+                let all_const = checker.all_const();
+
+                checked_return_df.push(self.data_flow[RETURN_LOCAL].pop().unwrap());
+
+                if all_const {
+                    self.pats.insert(BodyPat::ReturnedStaticLoanForNonStatic);
+                    break;
+                }
+            }
+
+            checked_return_df.append(&mut pending_return_df);
+            self.data_flow[RETURN_LOCAL] = checked_return_df;
+        }
     }
 
     fn check_arg_relation(&mut self, child: &Local, maybe_parents: &[Local]) {
@@ -155,56 +166,71 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
     fn visit_assign(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, _loc: mir::Location) {
         match rval {
+            Rvalue::Ref(_reg, BorrowKind::Fake, _src) => {
+                return;
+            },
             Rvalue::Ref(_reg, kind, src) => {
-                if let BorrowKind::Mut { .. } = kind {
-                    self.data_flow[src.local].push(AssignInfo::MutRef { broker: *src, loan: *target });
+                let is_mut = matches!(kind, BorrowKind::Mut { .. });
+                if is_mut {
+                    self.data_flow[src.local].push(MutInfo::MutRef(target.local));
                 }
-                match src.projection.as_slice() {
-                    [mir::PlaceElem::Deref] => {
-                        // &(*_1) => Copy
-                        self.data_flow[target.local].push(AssignInfo::Place {
-                            from: *src,
-                            to: *target,
-                        });
+                if matches!(src.projection.as_slice(), [mir::PlaceElem::Deref]) {
+                    // &(*_1) => Copy
+                    self.data_flow[target.local].push(MutInfo::Place(src.local));
+                    return;
+                }
+
+                // _1 = &_2 => simple loan
+                self.data_flow[target.local].push(MutInfo::Loan(src.local));
+
+                match self.info.locals[&target.local].kind {
+                    LocalKind::UserVar(_, _) => {
+                        self.pats.insert(BodyPat::HasNamedBorrow);
+                        if is_mut {
+                            self.stats.named_borrow_count_mut += 1;
+                        } else {
+                            self.stats.named_borrow_count += 1;
+                        }
                     },
-                    _ => {
-                        // _1 = &_2 => simple loan
-                        self.data_flow[target.local].push(AssignInfo::Dep {
-                            from: *src,
-                            to: *target,
-                        });
+                    // Returns are also counted as anon borrows. The
+                    // relations are checked later. Otherwise, it's hard to
+                    // correctly handle `_2 = &_1; _0 = _1`
+                    LocalKind::Return | LocalKind::AnonVar => {
+                        self.pats.insert(BodyPat::HasAnonBorrow);
+                        if is_mut {
+                            self.stats.anon_borrow_count_mut += 1;
+                        } else {
+                            self.stats.anon_borrow_count += 1;
+                        }
                     },
+                    LocalKind::Unused => unreachable!(),
                 }
             },
             Rvalue::Cast(_, op, _) | Rvalue::Use(op) => {
                 let event = match &op {
-                    Operand::Constant(_) => AssignInfo::Const { to: *target },
-                    Operand::Copy(from) | Operand::Move(from) => AssignInfo::Place {
-                        from: *from,
-                        to: *target,
-                    },
+                    Operand::Constant(_) => MutInfo::Const,
+                    Operand::Copy(from) | Operand::Move(from) => MutInfo::Place(from.local),
                 };
                 self.data_flow[target.local].push(event);
             },
             Rvalue::CopyForDeref(from) => {
-                self.data_flow[target.local].push(AssignInfo::Place {
-                    from: *from,
-                    to: *target,
-                });
+                self.data_flow[target.local].push(MutInfo::Place(from.local));
             },
             Rvalue::Repeat(op, _) => {
                 let event = match &op {
-                    Operand::Constant(_) => AssignInfo::Const { to: *target },
-                    Operand::Copy(from) | Operand::Move(from) => AssignInfo::Ctor {
-                        from: *from,
-                        to: *target,
-                    },
+                    Operand::Constant(_) => MutInfo::Const,
+                    Operand::Copy(from) | Operand::Move(from) => MutInfo::Ctor(vec![from.local]),
                 };
                 self.data_flow[target.local].push(event);
             },
             // Constructed Values
-            Rvalue::Aggregate(_, _fields) => {
-                todo!();
+            Rvalue::Aggregate(_, fields) => {
+                let args = fields
+                    .iter()
+                    .filter_map(|op| op.place())
+                    .map(|place| place.local)
+                    .collect();
+                self.data_flow[target.local].push(MutInfo::Ctor(args))
             },
             // Casts should depend on the input data
             Rvalue::ThreadLocalRef(_)
@@ -216,56 +242,36 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
             | Rvalue::BinaryOp(_, _)
             | Rvalue::UnaryOp(_, _)
             | Rvalue::CheckedBinaryOp(_, _) => {
-                self.data_flow[target.local].push(AssignInfo::Calc { to: *target });
+                self.data_flow[target.local].push(MutInfo::Calc);
             },
         }
     }
 
     fn visit_terminator(&mut self, term: &Terminator<'tcx>, loc: Location) {
-        let TerminatorKind::Call { destination: dest, .. } = &term.kind else {
+        let TerminatorKind::Call {
+            destination: dest,
+            args,
+            ..
+        } = &term.kind
+        else {
             return;
         };
 
-        let rels = &self.info.terms[&loc.block];
-
-        assert!(dest.just_local());
-        if !rels.contains_key(&dest.local) {
-            self.data_flow[dest.local].push(AssignInfo::Calc { to: *dest });
+        for arg in args {
+            if let Some(place) = arg.node.place() {
+                let ty = self.info.body.local_decls[place.local].ty;
+                if has_mut_ref(ty) {
+                    self.data_flow[place.local].push(MutInfo::Calc);
+                }
+            }
         }
 
+        assert!(dest.just_local());
+        self.data_flow[dest.local].push(MutInfo::Calc);
+
+        let rels = &self.info.terms[&loc.block];
         for (target, sources) in rels {
-            for src in sources {
-                // At this point, I don't care anymore
-                let from = unsafe { std::mem::transmute::<Place<'static>, Place<'tcx>>((*src).as_place()) };
-                let to = unsafe { std::mem::transmute::<Place<'static>, Place<'tcx>>((*target).as_place()) };
-                self.data_flow[*target].push(AssignInfo::Dep { from, to });
-            }
+            self.data_flow[*target].push(MutInfo::Dep(sources.clone()));
         }
     }
 }
-
-#[expect(unused)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub enum ReturnPat {
-    /// A constant value is returned.
-    Const,
-    /// A argument is returned
-    Argument,
-    /// This is a part of an argument
-    ArgumentPart,
-    /// A computed value is returned
-    Computed,
-    /// A loan to a constant value. This only means that the lifetime can be
-    /// static. The lifetime for calling functions still depends on the
-    /// function signature.
-    StaticLoan,
-
-    /// Just the unit type is returned, nothing interesting
-    Unit,
-    /// The return depends on some kind of condition
-    Conditional,
-    /// All returned values are constant
-    AllConst,
-}
-impl PatternEnum for ReturnPat {}
-pub type ReturnPats = PatternStorage<ReturnPat>;

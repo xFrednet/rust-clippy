@@ -110,4 +110,33 @@ fn test_mut_args_3<'a>(owner: &'a mut Owner<'a>, value: &'a mut String) {
     mutable_owner_self_lifetimed_str(owner, value);
 }
 
+#[warn(clippy::borrow_pats)]
+fn test_return_regions_static() -> &'static str {
+    "Ducks"
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_return_regions_non_static(_arg: &str) -> &str {
+    "Ducks"
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_return_regions_non_static_or_default(arg: &str) -> &str {
+    if arg.is_empty() { "Ducks" } else { arg }
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_return_static_tuple_for_non_static(arg: &str) -> (&str, &str) {
+    if arg.is_empty() { ("hey", "you") } else { (arg, arg) }
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_return_static_tuple(arg: &str) -> (&'static str, &'static str) {
+    if arg.is_empty() {
+        ("hey", "you")
+    } else {
+        ("duck", "cat")
+    }
+}
+
 fn main() {}

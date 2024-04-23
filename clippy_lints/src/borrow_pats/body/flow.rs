@@ -1,21 +1,20 @@
 use super::super::prelude::*;
-use super::AssignInfo;
+use super::MutInfo;
 
 #[derive(Debug)]
 pub struct DfWalker<'a, 'tcx> {
     _info: &'a AnalysisInfo<'tcx>,
-    assignments: &'a IndexVec<Local, SmallVec<[AssignInfo<'tcx>; 2]>>,
+    assignments: &'a IndexVec<Local, SmallVec<[MutInfo; 2]>>,
     child: Local,
     maybe_parents: &'a [Local],
     found_parents: Vec<Local>,
-    const_parent: bool,
-    computed_parent: bool,
+    all_const: bool,
 }
 
 impl<'a, 'tcx> DfWalker<'a, 'tcx> {
     pub fn new(
         info: &'a AnalysisInfo<'tcx>,
-        assignments: &'a IndexVec<Local, SmallVec<[AssignInfo<'tcx>; 2]>>,
+        assignments: &'a IndexVec<Local, SmallVec<[MutInfo; 2]>>,
         child: Local,
         maybe_parents: &'a [Local],
     ) -> Self {
@@ -25,8 +24,7 @@ impl<'a, 'tcx> DfWalker<'a, 'tcx> {
             child,
             maybe_parents,
             found_parents: vec![],
-            const_parent: false,
-            computed_parent: false,
+            all_const: true,
         }
     }
 
@@ -42,17 +40,24 @@ impl<'a, 'tcx> DfWalker<'a, 'tcx> {
 
             for assign in &self.assignments[parent] {
                 match assign {
-                    AssignInfo::Place { from, .. } | AssignInfo::Dep { from, .. } | AssignInfo::Ctor { from, .. } | AssignInfo::MutRef { loan: from, .. } => {
-                        let grandparent = from.local;
-                        if seen.insert(grandparent) {
-                            stack.push(grandparent);
+                    MutInfo::Dep(sources) | MutInfo::Ctor(sources) => {
+                        stack.extend(sources.iter().filter(|local| seen.insert(**local)));
+                    },
+                    MutInfo::Place(from) | MutInfo::Loan(from) | MutInfo::MutRef(from) => {
+                        if matches!(assign, MutInfo::MutRef(_)) {
+                            self.all_const = false;
+                        }
+
+                        if seen.insert(*from) {
+                            stack.push(*from);
                         }
                     },
-                    AssignInfo::Const { .. } => {
-                        self.const_parent = true;
+                    MutInfo::Const => {
+                        continue;
                     },
-                    AssignInfo::Calc { .. } => {
-                        self.computed_parent = true;
+                    MutInfo::Calc | MutInfo::Arg => {
+                        self.all_const = false;
+                        continue;
                     },
                 }
             }
@@ -67,13 +72,7 @@ impl<'a, 'tcx> DfWalker<'a, 'tcx> {
         self.found_parents.contains(&maybe_parent)
     }
 
-    #[expect(unused)]
-    pub fn has_const_assign(&self) -> bool {
-        self.const_parent
-    }
-
-    #[expect(unused)]
-    pub fn has_computed_assign(&self) -> bool {
-        self.computed_parent
+    pub fn all_const(&self) -> bool {
+        self.all_const
     }
 }

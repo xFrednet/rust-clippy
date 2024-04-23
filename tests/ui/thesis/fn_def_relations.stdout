@@ -1,164 +1,181 @@
 # Relations for "no_rep"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "direct_dep"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_more"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_or"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_const"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_prim"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_1"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_2"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_arg"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_lifetimed_str"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner_and_lifetimed_str"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_other_lifetimed_str"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_self_lifetimed_str"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
 }
-Called function relations: {}
+- Called function relations: {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_1"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
 }
-Called function relations: {
+- Called function relations: {
     bb0: {},
     bb1: {},
     bb2: {},
@@ -168,31 +185,90 @@ Called function relations: {
         ],
     },
 }
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 0,
 }
-Called function relations: {
+- Called function relations: {
     bb0: {},
 }
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # Relations for "test_mut_args_3"
-Self relations: BodyStats {
+- Self relations: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
 }
-Called function relations: {
+- Called function relations: {
     bb0: {
         _4: [
             _5,
         ],
     },
 }
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+
+# Relations for "test_return_regions_static"
+- Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+
+# Relations for "test_return_regions_non_static"
+- Self relations: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+- Called function relations: {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+
+# Relations for "test_return_regions_non_static_or_default"
+- Self relations: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+- Called function relations: {
+    bb0: {},
+}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+
+# Relations for "test_return_static_tuple_for_non_static"
+- Self relations: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 1,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+- Called function relations: {
+    bb0: {},
+}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+
+# Relations for "test_return_static_tuple"
+- Self relations: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+}
+- Called function relations: {
+    bb0: {},
+}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
 

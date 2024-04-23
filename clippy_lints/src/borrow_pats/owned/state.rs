@@ -81,6 +81,7 @@ impl<'tcx> StateInfo<'tcx> {
             && info.places_conflict(phase_place, broker)
         {
             pats.insert(OwnedPat::TwoPhasedBorrow);
+            info.stats.borrow_mut().two_phase_borrows += 1;
         }
 
         // So: It turns out that MIR is an inconsisten hot mess. Two-Phase-Borrows are apparently

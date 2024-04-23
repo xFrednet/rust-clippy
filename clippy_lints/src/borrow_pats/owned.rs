@@ -3,8 +3,6 @@
 use super::prelude::*;
 use super::{visit_body_with_state, MyVisitor};
 
-use super::body::ReturnPat;
-
 mod state;
 use state::*;
 
@@ -228,9 +226,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
             if target.local.as_u32() == 0 {
                 self.pats.insert(OwnedPat::Returned);
-                if self.local_kind.is_arg() {
-                    self.info.return_pats.push(ReturnPat::Argument);
-                }
             } else if is_move {
                 if matches!(self.info.locals[&target.local].kind, LocalKind::AnonVar) {
                     assert!(target.just_local());

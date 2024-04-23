@@ -1,5 +1,6 @@
 #![warn(unused)]
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use hir::def_id::LocalDefId;
@@ -12,8 +13,8 @@ use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
 
-use super::body::ReturnPats;
-use super::{PatternStorage, PlaceMagic};
+use super::body::BodyStats;
+use super::PlaceMagic;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
@@ -32,11 +33,12 @@ pub struct AnalysisInfo<'tcx> {
     pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     /// The final block that contains the return.
     pub return_block: BasicBlock,
+    // FIXME: This should be a IndexVec
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
-    pub return_pats: ReturnPats,
     pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub visit_order: Vec<BasicBlock>,
+    pub stats: RefCell<BodyStats>,
 }
 
 impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
@@ -89,10 +91,10 @@ impl<'tcx> AnalysisInfo<'tcx> {
             terms,
             return_block,
             locals,
-            return_pats: PatternStorage::new(),
             preds,
             preds_unlooped,
             visit_order,
+            stats: Default::default(),
         }
     }
 
