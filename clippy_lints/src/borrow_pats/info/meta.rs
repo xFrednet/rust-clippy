@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::borrow_pats::info::VarInfo;
-use crate::borrow_pats::{PlaceMagic, PrintPrevent};
+use crate::borrow_pats::{PlaceMagic, PrintPrevent, SimpleTyKind};
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
@@ -287,6 +287,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                     // return false if only fields require drops. Strings are a
                     // good testing example for this.
                     drop: decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env),
+                    ty: SimpleTyKind::from_ty(decl.ty),
                 };
 
                 local_info.kind = LocalKind::UserVar(info.name, var_info);

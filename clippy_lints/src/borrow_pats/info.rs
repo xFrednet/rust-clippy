@@ -198,6 +198,7 @@ pub struct VarInfo {
     pub copy: bool,
     /// Indicates if this type needs to be dropped
     pub drop: bool,
+    pub ty: SimpleTyKind,
 }
 
 impl std::fmt::Debug for VarInfo {
@@ -212,7 +213,76 @@ impl std::fmt::Display for VarInfo {
         let argument = if self.argument { "Argument" } else { "Local" };
         let copy = if self.copy { "Copy" } else { "NonCopy" };
         let dropable = if self.drop { "Drop" } else { "NonDrop" };
-        write!(f, "{mutable:<9}, {owned:<9}, {argument:<8}, {copy:<7}, {dropable:<7}")
+        let ty = format!("{:?}", self.ty);
+        write!(
+            f,
+            "{mutable:<9}, {owned:<9}, {argument:<8}, {copy:<7}, {dropable:<7}, {ty:<9}"
+        )
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum SimpleTyKind {
+    /// The pretty unit type
+    Unit,
+    /// A primitive type.
+    Primitive,
+    /// A tuple
+    Tuple,
+    /// A sequence type, this will either be an array or a slice
+    Sequence,
+    /// A user defined typed
+    UserDef,
+    /// Functions, function pointers, and closures
+    Fn,
+    TraitObj,
+    Reference,
+    Never,
+    Generic,
+    Idk,
+}
+
+impl SimpleTyKind {
+    fn from_ty<'tcx>(ty: rustc_middle::ty::Ty<'tcx>) -> Self {
+        match ty.kind() {
+            rustc_middle::ty::TyKind::Tuple(tys) if tys.is_empty() => SimpleTyKind::Unit,
+            rustc_middle::ty::TyKind::Tuple(_) => SimpleTyKind::Tuple,
+
+            rustc_middle::ty::TyKind::Never => SimpleTyKind::Never,
+
+            rustc_middle::ty::TyKind::Bool
+            | rustc_middle::ty::TyKind::Char
+            | rustc_middle::ty::TyKind::Int(_)
+            | rustc_middle::ty::TyKind::Uint(_)
+            | rustc_middle::ty::TyKind::Float(_)
+            | rustc_middle::ty::TyKind::Str => SimpleTyKind::Primitive,
+
+            rustc_middle::ty::TyKind::Adt(_, _) => SimpleTyKind::UserDef,
+
+            rustc_middle::ty::TyKind::Array(_, _) | rustc_middle::ty::TyKind::Slice(_) => SimpleTyKind::Sequence,
+
+            rustc_middle::ty::TyKind::Ref(_, _, _) => SimpleTyKind::Reference,
+
+            rustc_middle::ty::TyKind::Foreign(_) => todo!(),
+            rustc_middle::ty::TyKind::RawPtr(_) => todo!(),
+
+            rustc_middle::ty::TyKind::FnDef(_, _)
+            | rustc_middle::ty::TyKind::FnPtr(_)
+            | rustc_middle::ty::TyKind::Closure(_, _) => SimpleTyKind::Fn,
+
+            rustc_middle::ty::TyKind::Alias(rustc_middle::ty::AliasKind::Opaque, _)
+            | rustc_middle::ty::TyKind::Dynamic(_, _, _) => SimpleTyKind::TraitObj,
+
+            rustc_middle::ty::TyKind::Param(_) => SimpleTyKind::Generic,
+            rustc_middle::ty::TyKind::Bound(_, _) | rustc_middle::ty::TyKind::Alias(_, _) => SimpleTyKind::Idk,
+
+            rustc_middle::ty::TyKind::CoroutineClosure(_, _)
+            | rustc_middle::ty::TyKind::Coroutine(_, _)
+            | rustc_middle::ty::TyKind::CoroutineWitness(_, _)
+            | rustc_middle::ty::TyKind::Placeholder(_)
+            | rustc_middle::ty::TyKind::Infer(_)
+            | rustc_middle::ty::TyKind::Error(_) => unreachable!("{ty:#?}"),
+        }
     }
 }
 

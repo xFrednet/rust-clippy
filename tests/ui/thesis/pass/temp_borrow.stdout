@@ -1,32 +1,32 @@
 # "temp_borrow_arg_1"
-- owned          : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
+- owned          : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mixed_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_local_1"
-- owned          : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
+- owned          : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {TempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mixed_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mixed_mutltiple_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
-- b              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
-- c              : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
-- d              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
+- b              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
+- c              : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
+- d              : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "main"

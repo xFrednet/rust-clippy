@@ -1,26 +1,26 @@
 # "mut_move_to_immut"
-- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
-- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
+- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "init_with_mut_block"
-- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
-- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
+- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "mut_copy_to_immut_shadow"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite, ModMutShadowUnmut}
-- counter        : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {CopiedToVar, Overwrite, ModMutShadowUnmut}
+- counter        : (Immutable, Owned    , Local   , Copy   , NonDrop, Primitive) {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # "mut_copy_to_immut"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite}
-- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {CopiedToVar, Overwrite}
+- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop, Primitive) {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # "mut_copy_to_immut_and_use_after"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite}
-- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {CopiedToVar, Overwrite}
+- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop, Primitive) {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
 
 # "main"
@@ -59,6 +59,6 @@ bb5:
     resume
 
 =====
-- s              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {TempBorrowMut}
+- s              : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrowMut}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 

@@ -18,7 +18,7 @@
 //!
 //! # Insights:
 //! - Loans are basically just special dependent typed
-//! - Binary Assign Ops on primitive types result in overwrites instead of `&mut` borrows 
+//! - Binary Assign Ops on primitive types result in overwrites instead of `&mut` borrows
 //!
 //! # Report
 //! - Mention Crater Blacklist: https://github.com/rust-lang/crater/blob/master/config.toml (170)

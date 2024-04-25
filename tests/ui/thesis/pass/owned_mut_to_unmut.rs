@@ -44,11 +44,11 @@ fn mut_copy_to_immut() {
 fn mut_copy_to_immut_and_use_after() {
     let mut counter = 1;
     counter += 10;
-    
+
     let snapshot = counter;
-    
+
     counter += 3;
-    
+
     let _ = snapshot + counter;
 }
 
