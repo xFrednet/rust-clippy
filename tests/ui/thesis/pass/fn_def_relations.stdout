@@ -4,6 +4,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -14,6 +19,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -24,6 +34,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -34,6 +49,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -44,6 +64,11 @@
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -54,6 +79,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -64,6 +94,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -74,6 +109,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -84,6 +124,11 @@
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -94,6 +139,11 @@
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -104,6 +154,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -114,6 +169,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -124,6 +184,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -134,6 +199,11 @@
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -144,6 +214,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -154,6 +229,11 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -164,6 +244,11 @@
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
@@ -174,6 +259,11 @@
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {},
@@ -194,6 +284,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 0,
+    anon_borrow_count: 1,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {},
@@ -206,6 +301,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {
@@ -222,6 +322,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
@@ -232,6 +337,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {}
 - Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
@@ -242,6 +352,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {},
@@ -254,6 +369,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {},
@@ -266,6 +386,11 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    anon_borrow_count: 0,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
 }
 - Called function relations: {
     bb0: {},

@@ -1,41 +1,41 @@
 # "temp_borrow_1"
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
-- Return (-, -, -, -, -) {}
+- Body: OtherReturn, NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_2"
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_3"
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowAliased}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_1"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_2"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_3"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrowMut, MultipleMutBorrowsInArgs}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mixed"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mixed_2"
 - a              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, MixedBorrowsInArgs}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "two_phase_borrow_1"
 - vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "two_phase_borrow_2"
 - num            : (Mutable  , Owned    , Argument, Copy   , NonDrop) {Overwrite}
 - vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
