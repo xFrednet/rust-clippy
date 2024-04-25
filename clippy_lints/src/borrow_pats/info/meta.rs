@@ -85,8 +85,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             info.kind = LocalKind::Return;
         }
 
-        // The arg and named variable info will be filled in `visit_debug_info` thingy
-
         local_infos
     }
 

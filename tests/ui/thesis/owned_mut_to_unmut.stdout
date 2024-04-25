@@ -1,0 +1,64 @@
+# "mut_move_to_immut"
+- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+
+# "init_with_mut_block"
+- x2             : (Immutable, Owned    , Local   , NonCopy, Drop   ) {TempBorrow}
+- x              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {MovedToVar, TempBorrowMut, ModMutShadowUnmut}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+
+# "mut_copy_to_immut_shadow"
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite, ModMutShadowUnmut}
+- counter        : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+
+# "mut_copy_to_immut"
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite}
+- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+
+# "mut_copy_to_immut_and_use_after"
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop) {CopiedToVar, Overwrite}
+- snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop) {}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+
+# "main"
+=====
+Body for: DefId(0:8 ~ owned_mut_to_unmut[4ffe]::main)
+bb0:
+    StorageLive(_1)
+    _1 = std::string::String::new() -> [return: bb1, unwind continue]
+
+bb1:
+    StorageLive(_2)
+    StorageLive(_3)
+    _3 = &mut _1
+    StorageLive(_4)
+    StorageLive(_5)
+    _5 = const "Hey"
+    _4 = &(*_5)
+    _2 = <std::string::String as std::ops::AddAssign<&str>>::add_assign(move _3, move _4) -> [return: bb2, unwind: bb4]
+
+bb2:
+    StorageDead(_4)
+    StorageDead(_3)
+    StorageDead(_5)
+    StorageDead(_2)
+    _0 = const ()
+    drop(_1) -> [return: bb3, unwind: bb5]
+
+bb3:
+    StorageDead(_1)
+    return
+
+bb4:
+    drop(_1) -> [return: bb5, unwind terminate(cleanup)]
+
+bb5:
+    resume
+
+=====
+- s              : (Mutable  , Owned    , Local   , NonCopy, Drop   ) {TempBorrowMut}
+- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+

@@ -16,8 +16,9 @@
 //! - [x] Handle or abort on feature use
 //! - [x] Consider HIR based visitor `rustc_hir_typeck::expr_use_visitor::Delegate`
 //!
-//! # Notes
-//! - Insight: Loans are basically just special dependent typed
+//! # Insights:
+//! - Loans are basically just special dependent typed
+//! - Binary Assign Ops on primitive types result in overwrites instead of `&mut` borrows 
 //!
 //! # Report
 //! - Mention Crater Blacklist: https://github.com/rust-lang/crater/blob/master/config.toml (170)
@@ -174,7 +175,7 @@ impl BorrowPats {
                             eprintln!("TODO: implement analysis for named refs");
                         }
                     },
-                    LocalKind::AnonVar | LocalKind::Unused => break,
+                    LocalKind::AnonVar | LocalKind::Unused => continue,
                 }
             }
 

@@ -1,7 +1,7 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::{visit_body_with_state, MyVisitor};
+use super::{visit_body_with_state, MyVisitor, VarInfo};
 
 mod state;
 use state::*;
@@ -10,12 +10,13 @@ use state::*;
 pub struct OwnedAnalysis<'a, 'tcx> {
     info: &'a AnalysisInfo<'tcx>,
     /// The name of the local, used for debugging
-    _name: Symbol,
+    name: Symbol,
     local: Local,
     states: IndexVec<BasicBlock, StateInfo<'tcx>>,
     /// The kind can diviate from the kind in info, in cases where we determine
     /// that this is most likely a deconstructed argument.
     local_kind: &'a LocalKind,
+    local_info: &'a VarInfo,
     /// This should be a `BTreeSet` to have it ordered and consistent.
     pats: BTreeSet<OwnedPat>,
     /// Counts how many times a value was used. This starts at 1 for arguments otherwise 0.
@@ -25,6 +26,9 @@ pub struct OwnedAnalysis<'a, 'tcx> {
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     pub fn new(info: &'a AnalysisInfo<'tcx>, local: Local) -> Self {
         let local_kind = &info.locals[&local].kind;
+        let LocalKind::UserVar(_name, local_info) = local_kind else {
+            unreachable!();
+        };
         let name = local_kind.name().unwrap();
 
         // Arguments are assigned outside and therefore have at least a use of 1
@@ -36,9 +40,10 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         Self {
             info,
             local,
-            _name: name,
+            name,
             states,
             local_kind,
+            local_info,
             pats: Default::default(),
             use_count,
         }
@@ -77,6 +82,10 @@ pub enum OwnedPat {
     MovedToVar,
     /// This value was moved info a different local. `_other.field = _self`
     MovedToVarPart,
+    /// This value was moved to a different local. `_other = _self`
+    CopiedToVar,
+    /// This value was moved info a different local. `_other.field = _self`
+    CopiedToVarPart,
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
     TempBorrow,
@@ -151,6 +160,21 @@ pub enum OwnedPat {
     /// ```
     #[expect(unused)]
     ConstructedForCalc,
+    /// A value is first mutably initilized and then moved into an unmut value.
+    ///
+    /// ```
+    /// fn mut_and_shadow_immut() {
+    ///     let mut x = "Hello World".to_string();
+    ///     x.push('x');
+    ///     x.clear();
+    ///     let x2 = x;
+    ///     let _ = x2.len();
+    /// }
+    /// ```
+    ///
+    /// For `Copy` types this is only tracked, if the values have the same name.
+    /// as the value is otherwise still accessible.
+    ModMutShadowUnmut,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -227,13 +251,46 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             if target.local.as_u32() == 0 {
                 self.pats.insert(OwnedPat::Returned);
             } else if is_move {
-                if matches!(self.info.locals[&target.local].kind, LocalKind::AnonVar) {
-                    assert!(target.just_local());
-                    self.states[bb].anons.insert(target.local);
-                } else {
-                    todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+                match &self.info.locals[&target.local].kind {
+                    LocalKind::AnonVar => {
+                        assert!(target.just_local());
+                        self.states[bb].anons.insert(target.local);
+                    },
+                    LocalKind::UserVar(_name, other_info) => {
+                        if self.local_info.mutable && !other_info.mutable {
+                            self.pats.insert(OwnedPat::ModMutShadowUnmut);
+                        }
+
+                        if target.just_local() {
+                            self.pats.insert(OwnedPat::MovedToVar);
+                        } else {
+                            self.pats.insert(OwnedPat::MovedToVarPart);
+                        }
+                    },
+                    _ => {
+                        todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+                    },
                 }
             } else {
+                match &self.info.locals[&target.local].kind {
+                    LocalKind::AnonVar => {
+                        // This is nothing really interesting
+                    },
+                    LocalKind::UserVar(other_name, other_info) => {
+                        if self.local_info.mutable && !other_info.mutable && self.name == *other_name {
+                            self.pats.insert(OwnedPat::ModMutShadowUnmut);
+                        }
+
+                        if target.just_local() {
+                            self.pats.insert(OwnedPat::CopiedToVar);
+                        } else {
+                            self.pats.insert(OwnedPat::CopiedToVarPart);
+                        }
+                    },
+                    _ => {
+                        // This is nothing really interesting
+                    },
+                }
                 // Copies are uninteresting to me
             }
         }
@@ -362,12 +419,16 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     if let Some(place) = arg.node.place()
                         && place.local == self.local
                     {
-                        todo!();
+                        unreachable!();
                     }
                 }
 
                 if dest.local == self.local {
-                    todo!()
+                    if self.states[bb].state == State::Empty {
+                        self.states[bb].add_assign(bb);
+                    } else {
+                        todo!();
+                    }
                 }
             },
 
@@ -461,8 +522,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     self.pats.insert(OwnedPat::MixedBorrowsInArgs);
                 }
 
-                if dest.local == self.local {
-                    todo!()
+                if self.states[bb].remove_anon(&dest) {
+                    unreachable!()
                 }
             },
 
@@ -470,7 +531,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             // They can still be important since these a reads which cancel mutable borrows and fields can be read
             TerminatorKind::SwitchInt { discr: op, .. } | TerminatorKind::Assert { cond: op, .. } => {
                 if let Some(place) = op.place()
-                    && self.states[bb].remove_anon(&place)
+                    && self.states[bb].remove_anon_place(&place)
                 {
                     todo!();
                 }

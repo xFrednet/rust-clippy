@@ -25,6 +25,10 @@ pub struct StateInfo<'tcx> {
     ///
     /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
     phase_borrow: Option<(Local, Place<'tcx>)>,
+    /// This tracks assignment to the local itself. Assignments to parts should
+    /// not be tracked here.
+    assignments: SmallVec<[BasicBlock; 2]>,
+    // TODO: Include this in merging. Detect patterns from it, be happy
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -53,7 +57,12 @@ impl<'tcx> StateInfo<'tcx> {
     /// It will retrun `true`, if the removal was successfull.
     /// Places with projections will be ignored.
     pub fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
-        assert!(anon.just_local());
+        let found = self.remove_anon_place(anon);
+        assert!(!found || anon.just_local(), "{self:#?} - {anon:#?}");
+        found
+    }
+
+    pub fn remove_anon_place(&mut self, anon: &Place<'_>) -> bool {
         self.anons.remove(&anon.local)
     }
 
@@ -140,6 +149,11 @@ impl<'tcx> StateInfo<'tcx> {
             self.anon_bros.remove(&anon.local)
         }
     }
+
+    pub fn add_assign(&mut self, bb: BasicBlock) {
+        self.state = State::Filled;
+        self.assignments.push(bb);
+    }
 }
 
 impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
@@ -173,6 +187,19 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
             self.phase_borrow = Some(data);
             changed = true;
         }
+
+        // if let Some(bb_a) = self.assignments.last().copied()
+        //     && let Some(bb_b) = other.assignments.last().copied()
+        //     && bb_a != bb_b
+        // {
+        //     match (self.assignments.contains(&bb_b), other.assignments.contains(&bb_a)) {
+        //         (true, true) => todo!("Loop="),
+        //         (true, false) | (false, true) => todo!(),
+        //         (false, false) => todo!(),
+        //     }
+
+        //     changed = true;
+        // }
 
         changed
     }
