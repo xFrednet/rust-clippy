@@ -55,9 +55,14 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 
         (0..arg_ctn).for_each(|idx| data_flow[Local::from_usize(idx + 1)].push(MutInfo::Arg));
 
+        let mut pats = BTreeSet::default();
+        if arg_ctn == 0 {
+            pats.insert(BodyPat::NoArguments);
+        }
+
         Self {
             info,
-            pats: BTreeSet::default(),
+            pats,
             data_flow,
             stats: Default::default(),
         }
@@ -74,7 +79,7 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
         visit_body(&mut anly, info);
         anly.check_fn_relations(def_id);
 
-        let body_info = BodyInfo::from_sig(hir_sig, context);
+        let body_info = BodyInfo::from_sig(hir_sig, info, context);
         (body_info, anly.pats, anly.stats)
     }
 

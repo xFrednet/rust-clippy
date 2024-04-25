@@ -65,7 +65,7 @@
         ],
     },
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # Relations for "test_mut_args_1"
 - Self relations: BodyStats {
@@ -89,7 +89,7 @@
         ],
     },
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
@@ -107,7 +107,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # Relations for "test_mut_args_3"
 - Self relations: BodyStats {
@@ -128,5 +128,5 @@ Connection from _1 to _2 was not confirmed
         ],
     },
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 

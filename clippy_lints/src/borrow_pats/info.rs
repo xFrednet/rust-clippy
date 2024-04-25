@@ -243,7 +243,7 @@ pub enum SimpleTyKind {
 }
 
 impl SimpleTyKind {
-    fn from_ty<'tcx>(ty: rustc_middle::ty::Ty<'tcx>) -> Self {
+    pub fn from_ty<'tcx>(ty: rustc_middle::ty::Ty<'tcx>) -> Self {
         match ty.kind() {
             rustc_middle::ty::TyKind::Tuple(tys) if tys.is_empty() => SimpleTyKind::Unit,
             rustc_middle::ty::TyKind::Tuple(_) => SimpleTyKind::Tuple,

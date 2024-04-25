@@ -11,7 +11,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "direct_dep"
 - Self relations: BodyStats {
@@ -26,7 +26,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep"
 - Self relations: BodyStats {
@@ -41,7 +41,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_more"
 - Self relations: BodyStats {
@@ -56,7 +56,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_or"
 - Self relations: BodyStats {
@@ -71,7 +71,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_const"
 - Self relations: BodyStats {
@@ -86,7 +86,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_prim"
 - Self relations: BodyStats {
@@ -101,7 +101,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_1"
 - Self relations: BodyStats {
@@ -116,7 +116,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_2"
 - Self relations: BodyStats {
@@ -131,7 +131,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives"
 - Self relations: BodyStats {
@@ -146,7 +146,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner"
 - Self relations: BodyStats {
@@ -161,7 +161,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner"
 - Self relations: BodyStats {
@@ -176,7 +176,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_arg"
 - Self relations: BodyStats {
@@ -191,7 +191,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_lifetimed_str"
 - Self relations: BodyStats {
@@ -206,7 +206,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner_and_lifetimed_str"
 - Self relations: BodyStats {
@@ -221,7 +221,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_other_lifetimed_str"
 - Self relations: BodyStats {
@@ -236,7 +236,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_self_lifetimed_str"
 - Self relations: BodyStats {
@@ -251,7 +251,7 @@
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_1"
 - Self relations: BodyStats {
@@ -275,7 +275,7 @@
         ],
     },
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
@@ -293,7 +293,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # Relations for "test_mut_args_3"
 - Self relations: BodyStats {
@@ -314,7 +314,7 @@ Connection from _1 to _2 was not confirmed
         ],
     },
 }
-- Body: UnitReturn , NotConst , Safe  , Sync , Free       {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_return_regions_static"
 - Self relations: BodyStats {
@@ -329,7 +329,7 @@ Connection from _1 to _2 was not confirmed
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {NoArguments}
 
 # Relations for "test_return_regions_non_static"
 - Self relations: BodyStats {
@@ -344,7 +344,7 @@ Connection from _1 to _2 was not confirmed
     two_phase_borrows: 0,
 }
 - Called function relations: {}
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_regions_non_static_or_default"
 - Self relations: BodyStats {
@@ -361,7 +361,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple_for_non_static"
 - Self relations: BodyStats {
@@ -378,7 +378,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple"
 - Self relations: BodyStats {
@@ -395,5 +395,5 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: OtherReturn, NotConst , Safe  , Sync , Free       {}
+- Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {}
 

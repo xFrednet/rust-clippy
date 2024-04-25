@@ -1,5 +1,9 @@
 use rustc_hir::FnSig;
 
+use crate::borrow_pats::SimpleTyKind;
+
+use super::{AnalysisInfo, RETURN_LOCAL};
+
 #[expect(unused)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum BodyPat {
@@ -20,7 +24,7 @@ pub enum BodyPat {
 
 #[derive(Clone)]
 pub struct BodyInfo {
-    pub(super) unit_return: bool,
+    pub(super) return_ty: SimpleTyKind,
     pub(super) is_const: bool,
     pub(super) is_safe: bool,
     pub(super) is_sync: bool,
@@ -28,15 +32,9 @@ pub struct BodyInfo {
 }
 
 impl BodyInfo {
-    pub fn from_sig(hir_sig: &FnSig<'_>, context: BodyContext) -> Self {
-        let unit_return = match hir_sig.decl.output {
-            rustc_hir::FnRetTy::DefaultReturn(_) => true,
-            rustc_hir::FnRetTy::Return(hir_ty) => {
-                matches!(hir_ty.kind, rustc_hir::TyKind::Tup(&[]))
-            },
-        };
+    pub fn from_sig(hir_sig: &FnSig<'_>, info: &AnalysisInfo<'_>, context: BodyContext) -> Self {
         Self {
-            unit_return,
+            return_ty: SimpleTyKind::from_ty(info.body.local_decls[RETURN_LOCAL].ty),
             is_const: hir_sig.header.is_const(),
             is_safe: !hir_sig.header.is_unsafe(),
             is_sync: !hir_sig.header.is_async(),
@@ -53,14 +51,14 @@ impl std::fmt::Debug for BodyInfo {
 
 impl std::fmt::Display for BodyInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let unit_return = if self.unit_return { "UnitReturn" } else { "OtherReturn" };
+        let return_ty = format!("Output({:?})", self.return_ty);
         let constness = if self.is_const { "Const" } else { "NotConst" };
         let safety = if self.is_safe { "Safe" } else { "Unsafe" };
         let sync = if self.is_sync { "Sync" } else { "Async" };
         let context = format!("{:?}", self.context);
         write!(
             f,
-            "{unit_return:<11}, {constness:<9}, {safety:<6}, {sync:<5}, {context:<10}"
+            "{return_ty:<17}, {constness:<9}, {safety:<6}, {sync:<5}, {context:<10}"
         )
     }
 }
