@@ -7,7 +7,7 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowAliased}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, AliasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "temp_borrow_mut_1"

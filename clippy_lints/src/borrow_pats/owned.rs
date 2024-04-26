@@ -60,8 +60,15 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         anly.pats
     }
 
-    fn add_borrow(&mut self, bb: BasicBlock, borrow: Place<'tcx>, broker: Place<'tcx>, kind: BorrowKind) {
-        self.states[bb].add_borrow(borrow, broker, kind, self.info, &mut self.pats);
+    fn add_borrow(
+        &mut self,
+        bb: BasicBlock,
+        borrow: Place<'tcx>,
+        broker: Place<'tcx>,
+        kind: BorrowKind,
+        bro: Option<BroKind>,
+    ) {
+        self.states[bb].add_borrow(borrow, broker, kind, bro, self.info, &mut self.pats);
     }
 }
 
@@ -89,7 +96,9 @@ pub enum OwnedPat {
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
     TempBorrow,
+    TempBorrowExtended,
     TempBorrowMut,
+    TempBorrowMutExtended,
     /// Two temp borrows might alias each other, for example like this:
     /// ```
     /// take_2(&self.field, &self.field);
@@ -98,7 +107,7 @@ pub enum OwnedPat {
     /// ```
     /// take_2(&self.field, &self.field.sub_field);
     /// ```
-    TempBorrowAliased,
+    AliasedBorrow,
     /// A function takes mutliple `&mut` references to different parts of the object
     /// ```
     /// take_2(&mut self.field_a, &mut self.field_b);
@@ -201,7 +210,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
 
     fn visit_statement(&mut self, stmt: &Statement<'tcx>, loc: Location) {
         if let StatementKind::StorageDead(local) = &stmt.kind {
-            self.states[loc.block].remove_anon_bro(&local.as_place());
+            self.states[loc.block].kill_local(*local);
         }
         self.super_statement(stmt, loc);
     }
@@ -217,7 +226,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
             self.visit_assign_to_self(target, rvalue, loc.block);
         }
 
-        self.visit_assign_for_args(target, rvalue, loc.block);
+        self.visit_assign_for_self_in_args(target, rvalue, loc.block);
         self.visit_assign_for_anon(target, rvalue, loc.block);
 
         self.super_assign(target, rvalue, loc);
@@ -238,7 +247,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
-    fn visit_assign_for_args(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
+    fn visit_assign_for_self_in_args(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Some(place) = op.place()
             && place.local == self.local
@@ -299,7 +308,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && place.local == self.local
         {
             if target.just_local() {
-                self.add_borrow(bb, *target, *place, *kind)
+                self.add_borrow(bb, *target, *place, *kind, None)
             } else {
                 todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
             }
@@ -456,12 +465,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     }
     fn visit_terminator_for_anons(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            TerminatorKind::Call {
-                func,
-                args,
-                destination: dest,
-                ..
-            } => {
+            TerminatorKind::Call { func, args, .. } => {
                 if let Some(place) = func.place()
                     && self.states[bb].remove_anon(&place)
                 {
@@ -478,10 +482,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     }
                 });
 
-                let mut temp_bros = vec![];
+                let mut immut_bros = vec![];
                 // Mutable borrows can't be aliased, therefore it's suffcient
                 // to just count them
-                let mut temp_bros_mut_ctn = 0;
+                let mut mut_bro_ctn = 0;
+                let mut dep_loans: Vec<(Local, Place<'tcx>, Mutability)> = vec![];
                 for arg in args {
                     if self.states[bb].remove_anon(&arg) {
                         self.pats.insert(OwnedPat::MovedToFn);
@@ -491,39 +496,66 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
-                    } else if let Some((place, muta)) = self.states[bb].remove_anon_bro(&arg) {
-                        let pat = match muta {
-                            Mutability::Not => {
-                                temp_bros.push(place);
-                                OwnedPat::TempBorrow
-                            },
-                            Mutability::Mut => {
-                                temp_bros_mut_ctn += 1;
-                                OwnedPat::TempBorrowMut
-                            },
+                    } else if let Some((place, muta, bro_kind)) = self.states[bb].has_bro(&arg) {
+                        // Regardless of bro, we're interested in extentions
+                        let loan_extended = {
+                            let dep_loans_len = dep_loans.len();
+                            dep_loans.extend(self.info.terms[&bb].iter().filter_map(|(local, deps)| {
+                                deps.contains(&arg.local).then_some((*local, place, muta))
+                            }));
+                            dep_loans_len != dep_loans.len()
                         };
 
-                        self.pats.insert(pat);
+                        match muta {
+                            Mutability::Not => {
+                                immut_bros.push(place);
+
+                                if matches!(bro_kind, BroKind::Anon) {
+                                    self.pats.insert(OwnedPat::TempBorrow);
+                                    if loan_extended {
+                                        self.pats.insert(OwnedPat::TempBorrowExtended);
+                                    }
+                                }
+                            },
+                            Mutability::Mut => {
+                                mut_bro_ctn += 1;
+                                if matches!(bro_kind, BroKind::Anon) {
+                                    self.pats.insert(OwnedPat::TempBorrowMut);
+                                    if loan_extended {
+                                        self.pats.insert(OwnedPat::TempBorrowMutExtended);
+                                    }
+                                }
+                            },
+                        };
                     }
                 }
 
-                if temp_bros.len() > 1
-                    && temp_bros
+                if immut_bros.len() > 1
+                    && immut_bros
                         .iter()
                         .tuple_combinations()
                         .any(|(a, b)| self.info.places_conflict(*a, *b))
                 {
-                    self.pats.insert(OwnedPat::TempBorrowAliased);
+                    self.pats.insert(OwnedPat::AliasedBorrow);
                 }
-                if temp_bros_mut_ctn > 1 {
+
+                if mut_bro_ctn > 1 {
                     self.pats.insert(OwnedPat::MultipleMutBorrowsInArgs);
                 }
-                if !temp_bros.is_empty() && temp_bros_mut_ctn >= 1 {
+
+                if !immut_bros.is_empty() && mut_bro_ctn >= 1 {
                     self.pats.insert(OwnedPat::MixedBorrowsInArgs);
                 }
 
-                if self.states[bb].remove_anon(&dest) {
-                    unreachable!()
+                for (borrower, broker, muta) in dep_loans {
+                    let kind = match muta {
+                        Mutability::Not => BorrowKind::Shared,
+                        Mutability::Mut => BorrowKind::Mut {
+                            kind: mir::MutBorrowKind::Default,
+                        },
+                    };
+                    let borrow = unsafe { std::mem::transmute::<Place<'static>, Place<'tcx>>(borrower.as_place()) };
+                    self.add_borrow(bb, borrow, broker, kind, Some(BroKind::Dep));
                 }
             },
 

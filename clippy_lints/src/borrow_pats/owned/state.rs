@@ -18,17 +18,13 @@ pub struct StateInfo<'tcx> {
     /// Note: If I can confirm that these borrows are always used for
     /// temporary borrows, it might be possible to prevent tracking them
     /// to safe some performance.
-    anon_bros: FxHashMap<Local, (Place<'tcx>, Mutability)>,
+    borrows: FxHashMap<Local, (Place<'tcx>, Mutability, BroKind)>,
     /// This tracks mut borrows, which might be used for two phased borrows.
     /// Based on the docs, it sounds like there can always only be one. Let's
     /// use an option and cry when it fails.
     ///
     /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
     phase_borrow: Option<(Local, Place<'tcx>)>,
-    /// This tracks assignment to the local itself. Assignments to parts should
-    /// not be tracked here.
-    assignments: SmallVec<[BasicBlock; 2]>,
-    // TODO: Include this in merging. Detect patterns from it, be happy
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -42,6 +38,23 @@ pub enum State {
     MaybeFilled,
 }
 
+#[expect(unused)]
+enum Event<'tcx> {
+    Init,
+    Loan,
+    Mutated,
+    // Moved or Dropped
+    Moved(Place<'tcx>),
+    Drop,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum BroKind {
+    Anon,
+    Named,
+    Dep,
+}
+
 impl<'tcx> StateInfo<'tcx> {
     /// Retruns true if this state contains valid data, which can be dropped or moved.
     pub fn validity(&self) -> Validity {
@@ -51,6 +64,13 @@ impl<'tcx> StateInfo<'tcx> {
             State::MaybeFilled => Validity::Maybe,
             State::Empty | State::Moved | State::Dropped => Validity::Not,
         }
+    }
+
+    /// Notifies the state that a local has been killed
+    pub fn kill_local(&mut self, local: Local) {
+        self.anons.remove(&local);
+        self.borrows.remove(&local);
+        self.phase_borrow.take_if(|(phase_local, _place)| *phase_local == local);
     }
 
     /// This tries to remove the given place from the known anons that hold this value.
@@ -69,7 +89,7 @@ impl<'tcx> StateInfo<'tcx> {
     /// This clears this state. The `state` field has to be set afterwards
     pub fn clear(&mut self) {
         self.anons.clear();
-        self.anon_bros.clear();
+        self.borrows.clear();
         self.phase_borrow = None;
 
         self.state = State::None;
@@ -80,6 +100,7 @@ impl<'tcx> StateInfo<'tcx> {
         borrow: Place<'tcx>,
         broker: Place<'tcx>,
         kind: BorrowKind,
+        bro_kind: Option<BroKind>,
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
@@ -93,17 +114,26 @@ impl<'tcx> StateInfo<'tcx> {
             info.stats.borrow_mut().two_phase_borrows += 1;
         }
 
+        let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
+        let bro_kind = if let Some(bro_kind) = bro_kind {
+            bro_kind
+        } else if is_named {
+            BroKind::Named
+        } else {
+            BroKind::Anon
+        };
+
         // So: It turns out that MIR is an inconsisten hot mess. Two-Phase-Borrows are apparently
         // allowed to violate rust borrow semantics...
         //
         // Simple example: `x.push(x.len())`
-        if matches!(info.locals[&borrow.local].kind, LocalKind::AnonVar) {
+        if !is_named {
             assert!(borrow.just_local());
             if kind.allows_two_phase_borrow() {
                 let old = self.phase_borrow.replace((borrow.local, broker));
                 assert_eq!(old, None);
             } else {
-                self.anon_bros.insert(borrow.local, (broker, kind.mutability()));
+                self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
             }
         } else {
             todo!("Named Local: {borrow:#?} = {broker:#?}\n{self:#?}");
@@ -111,48 +141,49 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     pub fn has_anon_ref(&self, src: Local) -> bool {
-        self.anon_bros.contains_key(&src)
+        self.borrows.contains_key(&src)
     }
 
     /// This function informs the state, that a local loan was just copied.
     pub fn add_ref_copy(&mut self, dst: Local, src: Local) {
-        if let Some(data) = self.anon_bros.get(&src).copied() {
-            self.anon_bros.insert(dst, data);
+        if let Some(data) = self.borrows.get(&src).copied() {
+            self.borrows.insert(dst, data);
         }
     }
 
     fn update_bros(&mut self, broker: Place<'tcx>, muta: Mutability, info: &AnalysisInfo<'tcx>) {
+        // TODO: Check if this function is even needed with the kill command.
+
         if broker.just_local() && matches!(muta, Mutability::Mut) {
             // If the entire thing is borrowed mut, every reference get's cleared
-            self.anon_bros.clear();
+            self.borrows.clear();
         } else {
             // I switch on muta before the `retain`, to make the `retain`` specialized and therefore faster.
             match muta {
                 // Not mutable aka aliasable
-                Mutability::Not => self.anon_bros.retain(|_key, (broed_place, muta)| {
+                Mutability::Not => self.borrows.retain(|_key, (broed_place, muta, _bro)| {
                     !(matches!(muta, Mutability::Mut) && info.places_conflict(*broed_place, broker))
                 }),
                 Mutability::Mut => self
-                    .anon_bros
-                    .retain(|_key, (broed_place, _muta)| !info.places_conflict(*broed_place, broker)),
+                    .borrows
+                    .retain(|_key, (broed_place, _muta, _kind)| !info.places_conflict(*broed_place, broker)),
             }
         }
     }
 
-    pub fn remove_anon_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability)> {
+    pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability, BroKind)> {
         assert!(anon.just_local());
 
-        if let Some((_loc, place)) = self.phase_borrow.take_if(|(local, _place)| *local == anon.local) {
+        if let Some((_loc, place)) = self.phase_borrow.as_ref().filter(|(local, _place)| *local == anon.local) {
             // TwoPhaseBorrows are always mutable
-            Some((place, Mutability::Mut))
+            Some((*place, Mutability::Mut, BroKind::Anon))
         } else {
-            self.anon_bros.remove(&anon.local)
+            self.borrows.get(&anon.local).copied()
         }
     }
 
-    pub fn add_assign(&mut self, bb: BasicBlock) {
+    pub fn add_assign(&mut self, _bb: BasicBlock) {
         self.state = State::Filled;
-        self.assignments.push(bb);
     }
 }
 
@@ -177,10 +208,10 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
 
         // FIXME: Here we can have collisions where two anons reference different places... oh no...
         let anons_previous_len = self.anons.len();
-        let anon_bros_previous_len = self.anon_bros.len();
+        let anon_bros_previous_len = self.borrows.len();
         self.anons.extend(other.anons.iter());
-        self.anon_bros.extend(other.anon_bros.iter());
-        changed |= (self.anons.len() != anons_previous_len) || (self.anon_bros.len() != anon_bros_previous_len);
+        self.borrows.extend(other.borrows.iter());
+        changed |= (self.anons.len() != anons_previous_len) || (self.borrows.len() != anon_bros_previous_len);
 
         assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
         if let Some(data) = other.phase_borrow {

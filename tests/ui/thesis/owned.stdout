@@ -1,23 +1,23 @@
 # "take_one"
-- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "take_two"
-- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
-- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
+- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "pat_return_owned_arg"
-- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop) {}
-- Return (-, -, -, -, -) {}
+- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Returned}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {}
-- Return (-, -, -, -, -) {Conditional}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {Returned, TempBorrow}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "pat_maybe_return_owned_arg_1_test"
-- a              : (Immutable, Owned    , Argument, Copy   , NonDrop) {}
-- Return (-, -, -, -, -) {Const, Conditional}
+- a              : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {Returned}
+- Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
 =====
@@ -170,12 +170,12 @@ bb16:
     switchInt(_35) -> [0: bb12, otherwise: bb15]
 
 =====
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   ) {}
-- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   ) {Unused}
-- Return (-, -, -, -, -) {}
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow}
+- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {Returned}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # "pub_dynamic_drop_1"
-- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   ) {}
-- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop) {}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToFn, ManualDrop}
+- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
