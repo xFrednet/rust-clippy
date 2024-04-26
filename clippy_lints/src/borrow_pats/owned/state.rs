@@ -24,7 +24,7 @@ pub struct StateInfo<'tcx> {
     /// use an option and cry when it fails.
     ///
     /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
-    phase_borrow: Option<(Local, Place<'tcx>)>,
+    phase_borrow: Vec<(Local, Place<'tcx>)>,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -70,7 +70,7 @@ impl<'tcx> StateInfo<'tcx> {
     pub fn kill_local(&mut self, local: Local) {
         self.anons.remove(&local);
         self.borrows.remove(&local);
-        self.phase_borrow.take_if(|(phase_local, _place)| *phase_local == local);
+        self.phase_borrow.retain(|(phase_local, _place)| *phase_local != local);
     }
 
     /// This tries to remove the given place from the known anons that hold this value.
@@ -90,7 +90,7 @@ impl<'tcx> StateInfo<'tcx> {
     pub fn clear(&mut self) {
         self.anons.clear();
         self.borrows.clear();
-        self.phase_borrow = None;
+        self.phase_borrow.clear();
 
         self.state = State::None;
     }
@@ -107,8 +107,10 @@ impl<'tcx> StateInfo<'tcx> {
         self.update_bros(broker, kind.mutability(), info);
 
         if matches!(kind, BorrowKind::Shared)
-            && let Some((_loc, phase_place)) = self.phase_borrow
-            && info.places_conflict(phase_place, broker)
+            && self
+                .phase_borrow
+                .iter()
+                .any(|(_loc, phase_place)| info.places_conflict(*phase_place, broker))
         {
             pats.insert(OwnedPat::TwoPhasedBorrow);
             info.stats.borrow_mut().two_phase_borrows += 1;
@@ -130,8 +132,7 @@ impl<'tcx> StateInfo<'tcx> {
         if !is_named {
             assert!(borrow.just_local());
             if kind.allows_two_phase_borrow() {
-                let old = self.phase_borrow.replace((borrow.local, broker));
-                assert_eq!(old, None);
+                self.phase_borrow.push((borrow.local, broker));
             } else {
                 self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
             }
@@ -174,7 +175,7 @@ impl<'tcx> StateInfo<'tcx> {
     pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability, BroKind)> {
         assert!(anon.just_local());
 
-        if let Some((_loc, place)) = self.phase_borrow.as_ref().filter(|(local, _place)| *local == anon.local) {
+        if let Some((_loc, place)) = self.phase_borrow.iter().find(|(local, _place)| *local == anon.local) {
             // TwoPhaseBorrows are always mutable
             Some((*place, Mutability::Mut, BroKind::Anon))
         } else {
@@ -213,10 +214,10 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
         self.borrows.extend(other.borrows.iter());
         changed |= (self.anons.len() != anons_previous_len) || (self.borrows.len() != anon_bros_previous_len);
 
-        assert!(!(self.phase_borrow.is_some() && other.phase_borrow.is_some()));
-        if let Some(data) = other.phase_borrow {
-            self.phase_borrow = Some(data);
-            changed = true;
+        {
+            let phase_borrow_len = self.phase_borrow.len();
+            self.phase_borrow.extend(other.phase_borrow.iter());
+            changed |= self.phase_borrow.len() != phase_borrow_len;
         }
 
         // if let Some(bb_a) = self.assignments.last().copied()

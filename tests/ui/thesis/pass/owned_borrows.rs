@@ -60,6 +60,19 @@ fn two_phase_borrow_2(mut num: usize, mut vec: Vec<usize>) {
     })
 }
 
+#[warn(clippy::borrow_pats)]
+fn nested_two_phase_borrow(mut vecs: NestedVecs) {
+    vecs.a.push({
+        vecs.b.push(vecs.a.len());
+        vecs.b.len()
+    });
+}
+
+struct NestedVecs {
+    a: Vec<usize>,
+    b: Vec<usize>,
+}
+
 fn take_1_loan(_: &String) {}
 fn take_2_loan(_: &String, _: &String) {}
 fn take_1_mut_loan(_: &String) {}

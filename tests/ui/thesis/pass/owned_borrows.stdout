@@ -39,3 +39,7 @@
 - vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
+# "nested_two_phase_borrow"
+- vecs           : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+
