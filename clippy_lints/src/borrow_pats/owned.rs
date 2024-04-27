@@ -191,9 +191,7 @@ pub enum OwnedPat {
     /// A loan of this value was assigned to a named place
     NamedBorrow,
     NamedBorrowMut,
-    #[expect(unused)]
-    ConditionalAssign,
-    #[expect(unused)]
+    ConditionalOverwride,
     ConditionalInit,
 }
 
@@ -351,8 +349,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
 
         // Regardless of the original state, we clear everything else
-        self.states[bb].clear();
-        self.states[bb].set_state(State::Filled);
+        self.states[bb].clear(State::Filled);
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -413,11 +410,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if place.local == self.local {
                     match self.states[bb].validity() {
                         Validity::Valid => {
-                            self.states[bb].set_state(State::Dropped);
+                            self.states[bb].clear(State::Dropped);
                         },
                         Validity::Maybe => {
                             self.pats.insert(OwnedPat::DynamicDrop);
-                            self.states[bb].set_state(State::Dropped);
+                            self.states[bb].clear(State::Dropped);
                         },
                         Validity::Not => {
                             // // It can happen that drop is called on a moved value like in this

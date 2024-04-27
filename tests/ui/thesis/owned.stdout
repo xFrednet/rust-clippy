@@ -12,6 +12,9 @@
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
+- Merge:
+    - [(Filled, bb0), (Moved, bb3)]
+    - [(Filled, bb0), (Dropped, bb4)]
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
@@ -170,11 +173,26 @@ bb16:
     switchInt(_35) -> [0: bb12, otherwise: bb15]
 
 =====
+- Merge:
+    - [(Filled, bb0), (Moved, bb3)]
+    - [(Filled, bb0)]
+- Merge:
+    - [(Filled, bb0), (Moved, bb3), (MaybeFilled, bb10)]
+    - [(Filled, bb0), (Moved, bb3), (MaybeFilled, bb10), (Dropped, bb14)]
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, TempBorrowExtended}
-- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {}
+- Merge:
+    - [(Empty, bb0), (Filled, bb3)]
+    - [(Empty, bb0), (Filled, bb4)]
+- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pub_dynamic_drop_1"
+- Merge:
+    - [(Filled, bb0), (Moved, bb1)]
+    - [(Filled, bb0)]
+- Merge:
+    - [(Filled, bb0), (Moved, bb1), (MaybeFilled, bb4), (Dropped, bb7)]
+    - [(Filled, bb0), (Moved, bb1), (MaybeFilled, bb4)]
 - animal         : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToFn, ManualDrop}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}

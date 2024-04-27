@@ -124,12 +124,12 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     /// This clears this state. The `state` field has to be set afterwards
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, new_state: State) {
         self.anons.clear();
         self.borrows.clear();
         self.phase_borrow.clear();
 
-        self.state.push((State::None, self.bb));
+        self.state.push((new_state, self.bb));
     }
 
     pub fn add_borrow(
@@ -297,15 +297,54 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
 
     fn join(&mut self, state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, bb: BasicBlock) -> bool {
         let other = &state_owner.states[bb];
+        assert_ne!(other.state(), State::None);
         let mut changed = false;
 
-        assert_ne!(other.state(), State::None);
+        // Base case where `self` is uninit
         if self.state.is_empty() {
+            let bb = self.bb;
             *self = other.clone();
+            self.bb = bb;
             return true;
         }
 
-        if self.state.len() != other.state.len() || self.state.last() != other.state.last() {
+        let self_state = self.state.last().copied().unwrap();
+        let other_state = other.state.last().copied().unwrap();
+        if self.state.len() != other.state.len() || self_state != other_state {
+            println!("- Merge:");
+            println!("    - {:?}", self.state);
+            println!("    - {:?}", other.state);
+            inspect_deviation(
+                &self.state,
+                &other.state,
+                &mut state_owner.pats,
+                |(base, _), deviation, pats| {
+                    // println!("- Case 1 | 2:");
+                    // println!("    - {base:?}");
+                    // println!("    - {deviation:?}");
+                    if matches!(base, State::Filled) {
+                        let has_fill = deviation.iter().any(|(state, _)| matches!(state, State::Filled));
+                        if has_fill {
+                            pats.insert(OwnedPat::ConditionalOverwride);
+                        }
+                    }
+                },
+                |(base, _), a, b, pats| {
+                    // println!("- Case 3:");
+                    // println!("    - {base:?}");
+                    // println!("    - {a:?}");
+                    // println!("    - {b:?}");
+                    if matches!(base, State::Empty) {
+                        let a_fill = a.iter().any(|(state, _)| matches!(state, State::Filled));
+                        let b_fill = b.iter().any(|(state, _)| matches!(state, State::Filled));
+
+                        if a_fill && b_fill {
+                            pats.insert(OwnedPat::ConditionalInit);
+                        }
+                    }
+                },
+            );
+
             // TODO: Proper merging here
             let new_state = match (self.validity(), other.validity()) {
                 (Validity::Valid, Validity::Valid) => State::Filled,
@@ -317,31 +356,69 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
         }
 
         // FIXME: Here we can have collisions where two anons reference different places... oh no...
-        let anons_previous_len = self.anons.len();
-        let anon_bros_previous_len = self.borrows.len();
+        let anons_prev_len = self.anons.len();
         self.anons.extend(other.anons.iter());
+        changed |= self.anons.len() != anons_prev_len;
+
+        let borrows_prev_len = self.borrows.len();
         self.borrows.extend(other.borrows.iter());
-        changed |= (self.anons.len() != anons_previous_len) || (self.borrows.len() != anon_bros_previous_len);
+        changed |= self.borrows.len() != borrows_prev_len;
 
-        {
-            let phase_borrow_len = self.phase_borrow.len();
-            self.phase_borrow.extend(other.phase_borrow.iter());
-            changed |= self.phase_borrow.len() != phase_borrow_len;
-        }
-
-        // if let Some(bb_a) = self.assignments.last().copied()
-        //     && let Some(bb_b) = other.assignments.last().copied()
-        //     && bb_a != bb_b
-        // {
-        //     match (self.assignments.contains(&bb_b), other.assignments.contains(&bb_a)) {
-        //         (true, true) => todo!("Loop="),
-        //         (true, false) | (false, true) => todo!(),
-        //         (false, false) => todo!(),
-        //     }
-
-        //     changed = true;
-        // }
+        let phase_borrow_len = self.phase_borrow.len();
+        self.phase_borrow.extend(other.phase_borrow.iter());
+        changed |= self.phase_borrow.len() != phase_borrow_len;
 
         changed
+    }
+}
+
+/// ```text
+///     Case 1       Case 2          Case 3    //
+///       x            x               x       //
+///     / |            | \           /   \     //
+///    *  |            |  *         *     *    //
+///     \ |            | /           \   /     //
+///       x            x               x       //
+/// ```
+fn inspect_deviation(
+    a: &[(State, BasicBlock)],
+    b: &[(State, BasicBlock)],
+    pats: &mut BTreeSet<OwnedPat>,
+    mut single_devitation: impl FnMut((State, BasicBlock), &[(State, BasicBlock)], &mut BTreeSet<OwnedPat>),
+    mut split_devitation: impl FnMut(
+        (State, BasicBlock),
+        &[(State, BasicBlock)],
+        &[(State, BasicBlock)],
+        &mut BTreeSet<OwnedPat>,
+    ),
+) {
+    let a_state = a.last().copied().unwrap();
+    let b_state = b.last().copied().unwrap();
+
+    // Case 1
+    if let Some(idx) = a.iter().rposition(|state| *state == b_state) {
+        let base = a[idx];
+        single_devitation(base, &a[(idx + 1)..], pats);
+        return;
+    }
+
+    // Case 2
+    if let Some(idx) = b.iter().rposition(|state| *state == a_state) {
+        let base = b[idx];
+        single_devitation(base, &b[(idx + 1)..], pats);
+        return;
+    }
+
+    let mut b_set = BitSet::new_empty(a_state.1.as_usize().max(b_state.1.as_usize()) + 1);
+    b.iter().for_each(|(_, bb)| {
+        b_set.insert(*bb);
+    });
+
+    // Case 3
+    if let Some((a_idx, &base)) = a.iter().enumerate().rev().find(|(_, (_, bb))| b_set.contains(*bb))
+        && let Some(b_idx) = b.iter().rposition(|state| *state == base)
+    {
+        split_devitation(base, &a[(a_idx + 1)..], &b[(b_idx + 1)..], pats);
+        return;
     }
 }
