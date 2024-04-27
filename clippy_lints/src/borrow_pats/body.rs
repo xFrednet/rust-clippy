@@ -191,22 +191,12 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
                 match self.info.locals[&target.local].kind {
                     LocalKind::UserVar(_, _) => {
                         self.pats.insert(BodyPat::HasNamedBorrow);
-                        if is_mut {
-                            self.stats.named_borrow_count_mut += 1;
-                        } else {
-                            self.stats.named_borrow_count += 1;
-                        }
                     },
                     // Returns are also counted as anon borrows. The
                     // relations are checked later. Otherwise, it's hard to
                     // correctly handle `_2 = &_1; _0 = _1`
                     LocalKind::Return | LocalKind::AnonVar => {
                         self.pats.insert(BodyPat::HasAnonBorrow);
-                        if is_mut {
-                            self.stats.anon_borrow_count_mut += 1;
-                        } else {
-                            self.stats.anon_borrow_count += 1;
-                        }
                     },
                     LocalKind::Unused => unreachable!(),
                 }

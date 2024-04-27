@@ -22,6 +22,10 @@
 //!
 //! # Report
 //! - Mention Crater Blacklist: https://github.com/rust-lang/crater/blob/master/config.toml (170)
+//! - Write about fricking named borrows...
+//! - MIR can violate rust semantics:
+//!     - `(_1 = &(*_2))`
+//!     - Two Phased Borrows
 //!
 //! # Optional and good todos:
 //! - Investigate the `explicit_outlives_requirements` lint
@@ -97,6 +101,8 @@ pub struct BorrowPats {
     /// Indicates if the collected patterns should be printed for each pattern.
     print_pats: bool,
     print_call_relations: bool,
+    print_locals: bool,
+    print_stats: bool,
 }
 
 impl BorrowPats {
@@ -105,12 +111,16 @@ impl BorrowPats {
         let enabled = true;
         let print_pats = std::env::var("CLIPPY_PETS_PRINT").is_ok();
         let print_call_relations = std::env::var("CLIPPY_PETS_TEST_RELATIONS").is_ok();
+        let print_locals = std::env::var("CLIPPY_LOCALS_PRINT").is_ok();
+        let print_stats = std::env::var("CLIPPY_STATS_PRINT").is_ok();
 
         Self {
             msrv,
             enabled,
             print_pats,
             print_call_relations,
+            print_locals,
+            print_stats,
         }
     }
 
@@ -152,14 +162,20 @@ impl BorrowPats {
             let mut info = AnalysisInfo::new(cx, def_id);
 
             let (body_info, body_pats, body_stats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
+            info.stats.replace(body_stats);
 
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
-                println!("- Self relations: {:#?}", body_stats);
+                println!("- Self relations: {:#?}", info.stats.borrow());
                 println!("- Called function relations: {:#?}", info.terms);
                 println!("- Body: {} {:?}", body_info, body_pats);
                 println!();
                 return;
+            }
+
+            if self.print_locals {
+                println!("# Locals");
+                println!("{:#?}", info.locals);
             }
 
             for (local, local_info) in info.locals.iter().skip(1) {
@@ -183,6 +199,12 @@ impl BorrowPats {
                 // Return must be printed at the end, as it might be modified by
                 // the following analysis thingies
                 println!("- Body: {} {:?}", body_info, body_pats);
+            }
+            if self.print_stats {
+                println!("- Stats: {:#?}", info.stats.borrow());
+            }
+
+            if self.print_pats || self.print_stats {
                 println!();
             }
         }

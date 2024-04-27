@@ -12,12 +12,39 @@ pub struct StateInfo<'tcx> {
     /// MIR has this *beautiful* habit of moving stuff into anonymous
     /// locals first before using it further.
     pub anons: FxHashSet<Local>,
-    /// This set contains anonymous borrows, these are AFAIK always used
-    /// for temporary borrows.
+    /// This set contains borrows, these are often used for temporary
+    /// borrows
     ///
-    /// Note: If I can confirm that these borrows are always used for
+    /// **Note 1**: Named borrows can be created in two ways (Because of course
+    /// they can...)
+    /// ```
+    /// // From: `mut_named_ref_non_kill`
+    /// //    let mut x = 1;
+    /// //    let mut p: &u32 = &x;
+    /// _4 = &_1
+    /// _3 = &(*_4)
+    ///
+    /// // From: `call_extend_named`
+    /// //    let data = String::new();
+    /// //    let loan = &data;
+    /// _2 = &_3
+    /// ```
+    ///
+    /// **Note 2**: Correction there are three ways to created named borrows...
+    /// Not sure why but let's take `mut_named_ref_non_kill` as and example for `y`
+    ///
+    /// ```
+    /// // y     => _2
+    /// // named => _3
+    /// _8 = &_2
+    /// _7 = &(*_8)
+    /// _3 = move _7
+    /// ```
+    ///
+    /// **Note 3**: If I can confirm that these borrows are always used for
     /// temporary borrows, it might be possible to prevent tracking them
-    /// to safe some performance.
+    /// to safe some performance. (Confirmed, that they are not just
+    /// used for temp borrows :D)
     borrows: FxHashMap<Local, (Place<'tcx>, Mutability, BroKind)>,
     /// This tracks mut borrows, which might be used for two phased borrows.
     /// Based on the docs, it sounds like there can always only be one. Let's
@@ -117,6 +144,10 @@ impl<'tcx> StateInfo<'tcx> {
         }
 
         let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
+        if is_named {
+            pats.insert(OwnedPat::NamedLoan);
+        }
+
         let bro_kind = if let Some(bro_kind) = bro_kind {
             bro_kind
         } else if is_named {
@@ -137,23 +168,68 @@ impl<'tcx> StateInfo<'tcx> {
                 self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
             }
         } else {
-            todo!("Named Local: {borrow:#?} = {broker:#?}\n{self:#?}");
+            // Mut loans can also be used for two-phased-borrows, but only with themselfs.
+            // Taking the mut loan and the owned value failes.
+            //
+            // ```
+            // fn test(mut vec: Vec<usize>) {
+            //     let loan = &mut vec;
+            //     loan.push(vec.len());
+            // }
+            // ```
+            //
+            // The two-phased-borrow will be detected by the owned reference. So we can
+            // ignore it here :D
+            self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
+            // todo!("Named Local: {borrow:#?} = {broker:#?}\n{self:#?}");
         }
     }
 
-    pub fn has_anon_ref(&self, src: Local) -> bool {
-        self.borrows.contains_key(&src)
-    }
-
     /// This function informs the state, that a local loan was just copied.
-    pub fn add_ref_copy(&mut self, dst: Local, src: Local) {
-        if let Some(data) = self.borrows.get(&src).copied() {
-            self.borrows.insert(dst, data);
+    pub fn add_ref_copy(
+        &mut self,
+        dst: Place<'tcx>,
+        src: Place<'tcx>,
+        _copy_kind: Option<BorrowKind>,
+        info: &AnalysisInfo<'tcx>,
+        pats: &mut BTreeSet<OwnedPat>,
+    ) {
+        // This function has to share quite some magic with `add_borrow` but
+        // again is different enough that they can't be merged directly AFAIK
+
+        let Some((broker, muta, bro_kind)) = self.borrows.get(&src.local).copied() else {
+            return;
+        };
+
+        // It looks like loans preserve the mutability of th copy. This is perfectly
+        // inconsitent. Maybe the previous `&mut (*_2)` came from a different
+        // MIR version. At this point there is no value in even checking.
+        //
+        // Looking at `temp_borrow_mixed_2` it seems like the copy mutability depends
+        // on the use case. I'm not even disappointed anymore
+        let new_muta = muta;
+        match bro_kind {
+            BroKind::Dep | BroKind::Named => {
+                // FIXME: Maybe this doesn't even needs to be tracked?
+                self.borrows.insert(dst.local, (broker, new_muta, BroKind::Dep));
+            },
+            // Only anons should be able to add new information
+            BroKind::Anon => {
+                let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
+                if is_named {
+                    pats.insert(OwnedPat::NamedLoan);
+                };
+
+                let new_bro_kind = if is_named { BroKind::Named } else { BroKind::Anon };
+
+                // `copy_kind` can only be mutable if `src` is also mutable
+                self.borrows.insert(dst.local, (broker, new_muta, new_bro_kind));
+            },
         }
     }
 
     fn update_bros(&mut self, broker: Place<'tcx>, muta: Mutability, info: &AnalysisInfo<'tcx>) {
-        // TODO: Check if this function is even needed with the kill command.
+        // TODO: Check if this function is even needed with the kill command!!!!
 
         if broker.just_local() && matches!(muta, Mutability::Mut) {
             // If the entire thing is borrowed mut, every reference get's cleared
@@ -173,8 +249,6 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability, BroKind)> {
-        assert!(anon.just_local());
-
         if let Some((_loc, place)) = self.phase_borrow.iter().find(|(local, _place)| *local == anon.local) {
             // TwoPhaseBorrows are always mutable
             Some((*place, Mutability::Mut, BroKind::Anon))

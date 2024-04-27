@@ -1,4 +1,16 @@
-# "two_phase_borrow"
-- x              : (Mutable  , Owned    , Argument, NonCopy, Drop   ) {}
-- Return (-, -, -, -, -) {Const, Unit, AllConst}
+# "mut_named_ref_non_kill"
+- x              : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {NamedLoan}
+- y              : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {NamedLoan}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasAnonBorrow}
+- Stats: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+    anon_borrow_count: 2,
+    anon_borrow_count_mut: 0,
+    named_borrow_count: 0,
+    named_borrow_count_mut: 0,
+    two_phase_borrows: 0,
+}
 

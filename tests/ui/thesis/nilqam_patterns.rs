@@ -1,4 +1,5 @@
 //@rustc-env: CLIPPY_PETS_PRINT=1
+//@rustc-env: CLIPPY_STATS_PRINT=1
 //! Patterns suggested by Nico, lqd, and Amanda
 
 #![allow(dropping_references)]
@@ -40,13 +41,18 @@ mod overwrite_in_loop {
     }
 }
 
-// #[warn(clippy::borrow_pats)]
+/// Such loan kills should be detected by named references.
+/// AFAIK, they can only occur for named references. Tracking them from the
+/// owned value could result to incorrect counting, as a reference can have
+/// multiple brockers.
+#[warn(clippy::borrow_pats)]
 fn mut_named_ref_non_kill() {
     let mut x = 1;
     let mut y = 1;
     let mut p: &u32 = &x;
     // x is borrowed here
     drop(p);
+
     // variable p is dead here
     p = &y;
     // x is not borrowed here

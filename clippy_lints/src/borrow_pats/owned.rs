@@ -184,6 +184,8 @@ pub enum OwnedPat {
     /// For `Copy` types this is only tracked, if the values have the same name.
     /// as the value is otherwise still accessible.
     ModMutShadowUnmut,
+    /// A loan of this value was assigned to a named place
+    NamedLoan,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -346,44 +348,52 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
-            && self.states[bb].remove_anon(place)
         {
-            match self.info.locals[&target.local].kind {
-                LocalKind::Return => {
-                    self.pats.insert(OwnedPat::Returned);
-                },
-                LocalKind::UserVar(_, _) => {
-                    if self.info.locals[&target.local].kind.is_arg() {
-                        // Check if this assignment can escape the function
-                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
-                    }
-                    if place.is_part() {
-                        self.pats.insert(OwnedPat::MovedToVarPart);
-                    } else if place.just_local() {
-                        // TODO: Check for `let x = x`, where x was mut and x no longer is and assignment count = 0
-                        self.pats.insert(OwnedPat::MovedToVar);
-                    } else {
-                        todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}");
-                    }
-                },
-                LocalKind::AnonVar => {
-                    assert!(place.just_local());
-                    self.states[bb].anons.insert(target.local);
-                },
-                LocalKind::Unused => unreachable!(),
+            if self.states[bb].remove_anon(place) {
+                match self.info.locals[&target.local].kind {
+                    LocalKind::Return => {
+                        self.pats.insert(OwnedPat::Returned);
+                    },
+                    LocalKind::UserVar(_, _) => {
+                        if self.info.locals[&target.local].kind.is_arg() {
+                            // Check if this assignment can escape the function
+                            todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
+                        }
+                        if place.is_part() {
+                            self.pats.insert(OwnedPat::MovedToVarPart);
+                        } else if place.just_local() {
+                            // TODO: Check for `let x = x`, where x was mut and x no
+                            // longer is and assignment count = 0
+                            self.pats.insert(OwnedPat::MovedToVar);
+                        } else {
+                            todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}");
+                        }
+                    },
+                    LocalKind::AnonVar => {
+                        assert!(place.just_local());
+                        self.states[bb].anons.insert(target.local);
+                    },
+                    LocalKind::Unused => unreachable!(),
+                }
             }
+
+            self.states[bb].add_ref_copy(*target, *place, None, self.info, &mut self.pats)
         }
 
-        if let Rvalue::Ref(_reg, _kind, src) = &rval
-            && self.states[bb].has_anon_ref(src.local)
-        {
+        if let Rvalue::Ref(_reg, new_borrow_kind, src) = &rval {
             match src.projection.as_slice() {
+                // &(*_1) = Copy
                 [PlaceElem::Deref] => {
-                    // &(*_1) = Copy
+                    // This will surely fail at one point. It was correct while this was only
+                    // for anon vars. But let's fail for now, to handle it later.
                     assert!(target.just_local());
-                    self.states[bb].add_ref_copy(target.local, src.local)
+                    self.states[bb].add_ref_copy(*target, *src, Some(*new_borrow_kind), self.info, &mut self.pats)
                 },
-                _ => todo!("Handle ref of anon ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}"),
+                _ => {
+                    if self.states[bb].has_bro(src).is_some() {
+                        todo!("Handle ref to ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+                    }
+                },
             }
         }
     }

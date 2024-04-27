@@ -1,44 +1,8 @@
 # "call_extend_simple"
-=====
-Body for: DefId(0:4 ~ owned_loan_deps[a7d7]::call_extend_simple)
-bb0:
-    StorageLive(_1)
-    _1 = std::string::String::new() -> [return: bb1, unwind continue]
-
-bb1:
-    StorageLive(_2)
-    StorageLive(_3)
-    StorageLive(_4)
-    StorageLive(_5)
-    StorageLive(_6)
-    _6 = &_1
-    _5 = &(*_6)
-    _4 = extend_string(move _5) -> [return: bb2, unwind: bb5]
-
-bb2:
-    _3 = &(*_4)
-    StorageDead(_5)
-    _2 = std::string::String::is_empty(move _3) -> [return: bb3, unwind: bb5]
-
-bb3:
-    StorageDead(_3)
-    StorageDead(_6)
-    StorageDead(_4)
-    StorageDead(_2)
-    _0 = const ()
-    drop(_1) -> [return: bb4, unwind: bb6]
-
-bb4:
-    StorageDead(_1)
-    return
-
-bb5:
-    drop(_1) -> [return: bb6, unwind terminate(cleanup)]
-
-bb6:
-    resume
-
-=====
 - data           : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowExtended}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasAnonBorrow}
+
+# "call_extend_named"
+- data           : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {NamedLoan}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasNamedBorrow}
 
