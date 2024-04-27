@@ -140,12 +140,18 @@ impl<'tcx> StateInfo<'tcx> {
                 .any(|(_loc, phase_place)| info.places_conflict(*phase_place, broker))
         {
             pats.insert(OwnedPat::TwoPhasedBorrow);
-            info.stats.borrow_mut().two_phase_borrows += 1;
+            info.stats.borrow_mut().owned.two_phased_borrows += 1;
         }
-
+        
         let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
         if is_named {
-            pats.insert(OwnedPat::NamedLoan);
+            if matches!(kind, BorrowKind::Shared) {
+                info.stats.borrow_mut().owned.named_borrow_count += 1;
+                pats.insert(OwnedPat::NamedBorrow);
+            } else {
+                info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
+                pats.insert(OwnedPat::NamedBorrowMut);
+            }
         }
 
         let bro_kind = if let Some(bro_kind) = bro_kind {
@@ -217,8 +223,14 @@ impl<'tcx> StateInfo<'tcx> {
             BroKind::Anon => {
                 let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
                 if is_named {
-                    pats.insert(OwnedPat::NamedLoan);
-                };
+                    if matches!(new_muta, Mutability::Mut) {
+                        info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
+                        pats.insert(OwnedPat::NamedBorrowMut);
+                    } else {
+                        info.stats.borrow_mut().owned.named_borrow_count += 1;
+                        pats.insert(OwnedPat::NamedBorrow);
+                    }
+                }
 
                 let new_bro_kind = if is_named { BroKind::Named } else { BroKind::Anon };
 

@@ -1,4 +1,5 @@
 //@rustc-env: CLIPPY_PETS_PRINT=1
+//@rustc-env: CLIPPY_STATS_PRINT=1
 
 struct Animal {
     science_name: String,

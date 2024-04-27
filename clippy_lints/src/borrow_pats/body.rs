@@ -13,7 +13,7 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::{calc_fn_arg_relations, has_mut_ref, visit_body};
+use super::{calc_fn_arg_relations, has_mut_ref, visit_body, BodyStats};
 
 use clippy_utils::ty::for_each_region;
 

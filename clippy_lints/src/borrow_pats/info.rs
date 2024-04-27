@@ -13,7 +13,7 @@ use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
 
-use super::body::BodyStats;
+use super::BodyStats;
 use super::PlaceMagic;
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};

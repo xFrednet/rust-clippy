@@ -1,269 +1,341 @@
 # Relations for "no_rep"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "direct_dep"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_more"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_or"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_const"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_prim"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_1"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_2"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 2,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 2,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_arg"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_lifetimed_str"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner_and_lifetimed_str"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_other_lifetimed_str"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_self_lifetimed_str"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_1"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {},
@@ -279,16 +351,20 @@
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {},
@@ -296,16 +372,20 @@ Connection from _1 to _2 was not confirmed
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
 
 # Relations for "test_mut_args_3"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {
@@ -317,46 +397,58 @@ Connection from _1 to _2 was not confirmed
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_return_regions_static"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {NoArguments}
 
 # Relations for "test_return_regions_non_static"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {}
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_regions_non_static_or_default"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {},
@@ -364,16 +456,20 @@ Connection from _1 to _2 was not confirmed
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple_for_non_static"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 1,
     return_relations_found: 1,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {},
@@ -381,16 +477,20 @@ Connection from _1 to _2 was not confirmed
 - Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple"
-- Self relations: BodyStats {
+- Incompltete Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
-    anon_borrow_count: 0,
-    anon_borrow_count_mut: 0,
-    named_borrow_count: 0,
-    named_borrow_count_mut: 0,
-    two_phase_borrows: 0,
+    owned: OwnedStats {
+        temp_borrow_count: 0,
+        temp_borrow_mut_count: 0,
+        temp_borrow_extended_count: 0,
+        temp_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        two_phased_borrows: 0,
+    },
 }
 - Called function relations: {
     bb0: {},

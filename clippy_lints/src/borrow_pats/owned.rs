@@ -185,7 +185,8 @@ pub enum OwnedPat {
     /// as the value is otherwise still accessible.
     ModMutShadowUnmut,
     /// A loan of this value was assigned to a named place
-    NamedLoan,
+    NamedBorrow,
+    NamedBorrowMut,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -521,8 +522,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                                 immut_bros.push(place);
 
                                 if matches!(bro_kind, BroKind::Anon) {
+                                    let stats = &mut self.info.stats.borrow_mut().owned;
+                                    stats.temp_borrow_count += 1;
                                     self.pats.insert(OwnedPat::TempBorrow);
                                     if loan_extended {
+                                        stats.temp_borrow_extended_count += 1;
                                         self.pats.insert(OwnedPat::TempBorrowExtended);
                                     }
                                 }
@@ -530,8 +534,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             Mutability::Mut => {
                                 mut_bro_ctn += 1;
                                 if matches!(bro_kind, BroKind::Anon) {
+                                    let stats = &mut self.info.stats.borrow_mut().owned;
+                                    stats.temp_borrow_mut_count += 1;
                                     self.pats.insert(OwnedPat::TempBorrowMut);
                                     if loan_extended {
+                                        stats.temp_borrow_mut_extended_count += 1;
                                         self.pats.insert(OwnedPat::TempBorrowMutExtended);
                                     }
                                 }
