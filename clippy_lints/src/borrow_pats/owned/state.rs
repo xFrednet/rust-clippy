@@ -142,7 +142,7 @@ impl<'tcx> StateInfo<'tcx> {
             pats.insert(OwnedPat::TwoPhasedBorrow);
             info.stats.borrow_mut().owned.two_phased_borrows += 1;
         }
-        
+
         let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
         if is_named {
             if matches!(kind, BorrowKind::Shared) {

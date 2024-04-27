@@ -69,7 +69,7 @@
         ],
     },
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_1"
 - Incompltete Stats: BodyStats {
@@ -97,7 +97,7 @@
         ],
     },
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
@@ -119,7 +119,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_3"
 - Incompltete Stats: BodyStats {
@@ -144,5 +144,5 @@ Connection from _1 to _2 was not confirmed
         ],
     },
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 

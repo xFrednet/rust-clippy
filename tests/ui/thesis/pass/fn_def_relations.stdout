@@ -15,7 +15,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "direct_dep"
 - Incompltete Stats: BodyStats {
@@ -34,7 +34,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep"
 - Incompltete Stats: BodyStats {
@@ -53,7 +53,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_more"
 - Incompltete Stats: BodyStats {
@@ -72,7 +72,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_or"
 - Incompltete Stats: BodyStats {
@@ -91,7 +91,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_const"
 - Incompltete Stats: BodyStats {
@@ -110,7 +110,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_dep_prim"
 - Incompltete Stats: BodyStats {
@@ -129,7 +129,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_1"
 - Incompltete Stats: BodyStats {
@@ -148,7 +148,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives_middle_2"
 - Incompltete Stats: BodyStats {
@@ -167,7 +167,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "lifetime_outlives"
 - Incompltete Stats: BodyStats {
@@ -186,7 +186,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner"
 - Incompltete Stats: BodyStats {
@@ -205,7 +205,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner"
 - Incompltete Stats: BodyStats {
@@ -224,7 +224,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_arg"
 - Incompltete Stats: BodyStats {
@@ -243,7 +243,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_and_lifetimed_str"
 - Incompltete Stats: BodyStats {
@@ -262,7 +262,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "immutable_owner_and_lifetimed_str"
 - Incompltete Stats: BodyStats {
@@ -281,7 +281,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_other_lifetimed_str"
 - Incompltete Stats: BodyStats {
@@ -300,7 +300,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "mutable_owner_self_lifetimed_str"
 - Incompltete Stats: BodyStats {
@@ -319,7 +319,7 @@
     },
 }
 - Called function relations: {}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_1"
 - Incompltete Stats: BodyStats {
@@ -347,7 +347,7 @@
         ],
     },
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
@@ -369,7 +369,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_mut_args_3"
 - Incompltete Stats: BodyStats {
@@ -394,7 +394,7 @@ Connection from _1 to _2 was not confirmed
         ],
     },
 }
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_return_regions_static"
 - Incompltete Stats: BodyStats {
@@ -413,7 +413,7 @@ Connection from _1 to _2 was not confirmed
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {NoArguments}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {NoArguments}
 
 # Relations for "test_return_regions_non_static"
 - Incompltete Stats: BodyStats {
@@ -432,7 +432,7 @@ Connection from _1 to _2 was not confirmed
     },
 }
 - Called function relations: {}
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_regions_non_static_or_default"
 - Incompltete Stats: BodyStats {
@@ -453,7 +453,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple_for_non_static"
 - Incompltete Stats: BodyStats {
@@ -474,7 +474,7 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Incompltete Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
 
 # Relations for "test_return_static_tuple"
 - Incompltete Stats: BodyStats {
@@ -495,5 +495,5 @@ Connection from _1 to _2 was not confirmed
 - Called function relations: {
     bb0: {},
 }
-- Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {}
+- Incompltete Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {}
 

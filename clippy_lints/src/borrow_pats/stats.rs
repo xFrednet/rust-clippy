@@ -1,4 +1,3 @@
-
 /// Most of these statistics need to be filled by the individual analysis passed.
 /// Every value should document which pass might modify/fill it.
 ///
@@ -48,12 +47,12 @@ pub struct BodyStats {
 }
 
 /// Stats for owned variables
-/// 
+///
 /// All of these are collected by the `OwnedAnalysis`
 #[derive(Debug, Clone, Default)]
 pub struct OwnedStats {
     /// Temp borrows are used for function calls.
-    /// 
+    ///
     /// The MIR commonly looks like this:
     /// ```
     /// _3 = &_1
@@ -77,5 +76,5 @@ pub struct OwnedStats {
     /// Note:
     /// - This only counts the confirmed two phased borrows.
     /// - The borrows that produce the two phased borrow are also counted above.
-    pub two_phased_borrows: usize
+    pub two_phased_borrows: usize,
 }

@@ -73,14 +73,16 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
         def_id: LocalDefId,
         hir_sig: &rustc_hir::FnSig<'_>,
         context: BodyContext,
-    ) -> (BodyInfo, BTreeSet<BodyPat>, BodyStats) {
+    ) -> (BodyInfo, BTreeSet<BodyPat>) {
         let mut anly = Self::new(info, hir_sig.decl.inputs.len());
 
         visit_body(&mut anly, info);
         anly.check_fn_relations(def_id);
 
         let body_info = BodyInfo::from_sig(hir_sig, info, context);
-        (body_info, anly.pats, anly.stats)
+
+        info.stats.replace(anly.stats);
+        (body_info, anly.pats)
     }
 
     fn check_fn_relations(&mut self, def_id: LocalDefId) {
@@ -187,19 +189,6 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
 
                 // _1 = &_2 => simple loan
                 self.data_flow[target.local].push(MutInfo::Loan(src.local));
-
-                match self.info.locals[&target.local].kind {
-                    LocalKind::UserVar(_, _) => {
-                        self.pats.insert(BodyPat::HasNamedBorrow);
-                    },
-                    // Returns are also counted as anon borrows. The
-                    // relations are checked later. Otherwise, it's hard to
-                    // correctly handle `_2 = &_1; _0 = _1`
-                    LocalKind::Return | LocalKind::AnonVar => {
-                        self.pats.insert(BodyPat::HasAnonBorrow);
-                    },
-                    LocalKind::Unused => unreachable!(),
-                }
             },
             Rvalue::Cast(_, op, _) | Rvalue::Use(op) => {
                 let event = match &op {
@@ -268,5 +257,27 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
         for (target, sources) in rels {
             self.data_flow[*target].push(MutInfo::Dep(sources.clone()));
         }
+    }
+}
+
+pub(crate) fn update_pats_from_stats(pats: &mut BTreeSet<BodyPat>, info: &AnalysisInfo<'_>) {
+    let stats = info.stats.borrow();
+
+    if stats.owned.named_borrow_count > 0 {
+        pats.insert(BodyPat::HasNamedBorrow);
+    }
+    if stats.owned.named_borrow_mut_count > 0 {
+        pats.insert(BodyPat::HasNamedBorrowMut);
+    }
+
+    if stats.owned.temp_borrow_count > 0 {
+        pats.insert(BodyPat::HasTempBorrow);
+    }
+    if stats.owned.temp_borrow_mut_count > 0 {
+        pats.insert(BodyPat::HasTempBorrowMut);
+    }
+
+    if stats.owned.two_phased_borrows > 0 {
+        pats.insert(BodyPat::HasTwoPhaseBorrow);
     }
 }

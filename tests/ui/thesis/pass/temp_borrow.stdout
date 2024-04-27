@@ -1,6 +1,6 @@
 # "temp_borrow_arg_1"
 - owned          : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -19,7 +19,7 @@
 
 # "temp_borrow_mut_arg_1"
 - owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -38,7 +38,7 @@
 
 # "temp_borrow_mixed_arg_1"
 - owned          : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -57,7 +57,7 @@
 
 # "temp_borrow_local_1"
 - owned          : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -76,7 +76,7 @@
 
 # "temp_borrow_mut_local_1"
 - owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -95,7 +95,7 @@
 
 # "temp_borrow_mixed_local_1"
 - owned          : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -117,7 +117,7 @@
 - b              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
 - c              : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow}
 - d              : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasAnonBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
