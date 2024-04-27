@@ -5,9 +5,11 @@ use crate::borrow_pats::MyStateInfo;
 use super::super::prelude::*;
 use super::OwnedPat;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StateInfo<'tcx> {
-    pub state: State,
+    bb: BasicBlock,
+    // pub prev_state: (State, BasicBlock),
+    state: SmallVec<[(State, BasicBlock); 4]>,
     /// This is a set of values that *might* contain the owned value.
     /// MIR has this *beautiful* habit of moving stuff into anonymous
     /// locals first before using it further.
@@ -83,9 +85,17 @@ pub enum BroKind {
 }
 
 impl<'tcx> StateInfo<'tcx> {
+    pub fn state(&self) -> State {
+        self.state.last().unwrap().0
+    }
+
+    pub fn set_state(&mut self, state: State) {
+        self.state.push((state, self.bb));
+    }
+
     /// Retruns true if this state contains valid data, which can be dropped or moved.
     pub fn validity(&self) -> Validity {
-        match self.state {
+        match self.state() {
             State::None => unreachable!(),
             State::Filled => Validity::Valid,
             State::MaybeFilled => Validity::Maybe,
@@ -119,7 +129,7 @@ impl<'tcx> StateInfo<'tcx> {
         self.borrows.clear();
         self.phase_borrow.clear();
 
-        self.state = State::None;
+        self.state.push((State::None, self.bb));
     }
 
     pub fn add_borrow(
@@ -270,28 +280,41 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     pub fn add_assign(&mut self, _bb: BasicBlock) {
-        self.state = State::Filled;
+        self.state.push((State::Filled, self.bb));
     }
 }
 
 impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
+    fn new(bb: BasicBlock) -> Self {
+        Self {
+            bb,
+            state: Default::default(),
+            anons: Default::default(),
+            borrows: Default::default(),
+            phase_borrow: Default::default(),
+        }
+    }
+
     fn join(&mut self, state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, bb: BasicBlock) -> bool {
         let other = &state_owner.states[bb];
         let mut changed = false;
 
-        assert_ne!(other.state, State::None);
-        if self.state == State::None {
+        assert_ne!(other.state(), State::None);
+        if self.state.is_empty() {
             *self = other.clone();
             return true;
         }
 
-        let new_state = match (self.validity(), other.validity()) {
-            (Validity::Valid, Validity::Valid) => State::Filled,
-            (Validity::Not, Validity::Not) => State::Empty,
-            (_, _) => State::MaybeFilled,
-        };
-        changed |= self.state != new_state;
-        self.state = new_state;
+        if self.state.len() != other.state.len() || self.state.last() != other.state.last() {
+            // TODO: Proper merging here
+            let new_state = match (self.validity(), other.validity()) {
+                (Validity::Valid, Validity::Valid) => State::Filled,
+                (Validity::Not, Validity::Not) => State::Empty,
+                (_, _) => State::MaybeFilled,
+            };
+            changed = true;
+            self.state.push((new_state, self.bb));
+        }
 
         // FIXME: Here we can have collisions where two anons reference different places... oh no...
         let anons_previous_len = self.anons.len();

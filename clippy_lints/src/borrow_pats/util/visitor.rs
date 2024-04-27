@@ -1,5 +1,7 @@
 use super::super::prelude::*;
-pub trait MyStateInfo<V>: Eq + Clone + std::fmt::Debug + Default {
+pub trait MyStateInfo<V>: Eq + Clone + std::fmt::Debug {
+    fn new(bb: BasicBlock) -> Self;
+
     /// The return value indicates if the visitor has changed.
     fn join(&mut self, state_owner: &mut V, bb: BasicBlock) -> bool;
 }
@@ -19,7 +21,7 @@ pub fn visit_body_with_state<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &Analy
             vis.init_start_block_state();
         } else {
             let preds = &info.preds[&bb];
-            let mut state = V::State::default();
+            let mut state = V::State::new(bb);
             preds.iter().for_each(|bb| {
                 state.join(vis, bb);
             });

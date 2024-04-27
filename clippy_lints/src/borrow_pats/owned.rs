@@ -1,7 +1,7 @@
 #![warn(unused)]
 
 use super::prelude::*;
-use super::{visit_body_with_state, MyVisitor, VarInfo};
+use super::{visit_body_with_state, MyStateInfo, MyVisitor, VarInfo};
 
 mod state;
 use state::*;
@@ -34,8 +34,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         // Arguments are assigned outside and therefore have at least a use of 1
         let use_count = u32::from(local_kind.is_arg());
 
-        let mut states = IndexVec::new();
-        states.resize(info.body.basic_blocks.len(), StateInfo::default());
+        let bbs_ctn = info.body.basic_blocks.len();
+        let mut states = IndexVec::with_capacity(bbs_ctn);
+        for bb in 0..bbs_ctn {
+            states.push(StateInfo::new(BasicBlock::from_usize(bb)));
+        }
 
         Self {
             info,
@@ -188,6 +191,10 @@ pub enum OwnedPat {
     /// A loan of this value was assigned to a named place
     NamedBorrow,
     NamedBorrowMut,
+    #[expect(unused)]
+    ConditionalAssign,
+    #[expect(unused)]
+    ConditionalInit,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -195,9 +202,9 @@ impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
 
     fn init_start_block_state(&mut self) {
         if self.local_kind.is_arg() {
-            self.states[START_BLOCK].state = State::Filled;
+            self.states[START_BLOCK].set_state(State::Filled);
         } else {
-            self.states[START_BLOCK].state = State::Empty;
+            self.states[START_BLOCK].set_state(State::Empty);
         }
     }
 
@@ -258,7 +265,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         {
             let is_move = op.is_move();
             if is_move {
-                self.states[bb].state = State::Moved;
+                self.states[bb].set_state(State::Moved);
             }
 
             if target.local.as_u32() == 0 {
@@ -321,7 +328,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.just_local());
 
-        let is_override = match self.states[bb].state {
+        let is_override = match self.states[bb].state() {
             // No-op the most normal and simple state
             State::Empty => false,
 
@@ -345,7 +352,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
         // Regardless of the original state, we clear everything else
         self.states[bb].clear();
-        self.states[bb].state = State::Filled;
+        self.states[bb].set_state(State::Filled);
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -406,11 +413,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if place.local == self.local {
                     match self.states[bb].validity() {
                         Validity::Valid => {
-                            self.states[bb].state = State::Dropped;
+                            self.states[bb].set_state(State::Dropped);
                         },
                         Validity::Maybe => {
                             self.pats.insert(OwnedPat::DynamicDrop);
-                            self.states[bb].state = State::Dropped;
+                            self.states[bb].set_state(State::Dropped);
                         },
                         Validity::Not => {
                             // // It can happen that drop is called on a moved value like in this
@@ -445,7 +452,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
 
                 if dest.local == self.local {
-                    if self.states[bb].state == State::Empty {
+                    if self.states[bb].state() == State::Empty {
                         self.states[bb].add_assign(bb);
                     } else {
                         todo!();
