@@ -77,6 +77,7 @@ pub enum OwnedPat {
     /// The owned value might be returned
     ///
     /// The return pattern collection should also be informed of this. White box *tesing*
+    #[expect(unused, reason = "Either this needs to be detected consistency or not at all")]
     Returned,
     /// The value is only assigned once and never read afterwards.
     Unused,
@@ -261,7 +262,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
 
             if target.local.as_u32() == 0 {
-                self.pats.insert(OwnedPat::Returned);
+                // self.pats.insert(OwnedPat::Returned);
             } else if is_move {
                 match &self.info.locals[&target.local].kind {
                     LocalKind::AnonVar => {
@@ -353,7 +354,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             if self.states[bb].remove_anon(place) {
                 match self.info.locals[&target.local].kind {
                     LocalKind::Return => {
-                        self.pats.insert(OwnedPat::Returned);
+                        // self.pats.insert(OwnedPat::Returned);
                     },
                     LocalKind::UserVar(_, _) => {
                         if self.info.locals[&target.local].kind.is_arg() {
