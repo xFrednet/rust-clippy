@@ -191,8 +191,10 @@ pub enum OwnedPat {
     /// A loan of this value was assigned to a named place
     NamedBorrow,
     NamedBorrowMut,
-    ConditionalOverwride,
     ConditionalInit,
+    ConditionalOverwride,
+    ConditionalMove,
+    ConditionalDrop,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {

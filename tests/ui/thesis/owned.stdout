@@ -12,9 +12,6 @@
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
-- Merge:
-    - [(Filled, bb0), (Moved, bb3)]
-    - [(Filled, bb0), (Dropped, bb4)]
 - a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
@@ -23,177 +20,22 @@
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
-=====
-Body for: DefId(0:12 ~ owned[50f7]::pat_maybe_return_owned_arg_2)
-bb0:
-    _34 = const false
-    _35 = const false
-    _34 = const true
-    StorageLive(_2)
-    StorageLive(_3)
-    StorageLive(_4)
-    StorageLive(_5)
-    _5 = &_1
-    _4 = std::string::String::is_empty(move _5) -> [return: bb1, unwind: bb16]
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, TempBorrowExtended, ConditionalMove}
+- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {ConditionalInit}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
-bb1:
-    switchInt(move _4) -> [0: bb3, otherwise: bb2]
-
-bb2:
-    StorageDead(_5)
-    StorageLive(_7)
-    StorageLive(_8)
-    StorageLive(_9)
-    _9 = const "hey"
-    _8 = &(*_9)
-    _7 = <str as std::string::ToString>::to_string(move _8) -> [return: bb4, unwind: bb16]
-
-bb3:
-    StorageDead(_5)
-    StorageLive(_6)
-    _34 = const false
-    _6 = move _1
-    _35 = const true
-    _2 = move _6
-    StorageDead(_6)
-    _3 = const ()
-    goto -> bb10
-
-bb4:
-    StorageDead(_8)
-    _35 = const true
-    _2 = move _7
-    StorageDead(_7)
-    StorageDead(_9)
-    StorageLive(_10)
-    StorageLive(_11)
-    StorageLive(_12)
-    StorageLive(_13)
-    StorageLive(_14)
-    StorageLive(_15)
-    _33 = const _
-    _15 = &(*_33)
-    _14 = &(*_15)
-    _13 = move _14 as &[&str] (PointerCoercion(Unsize))
-    StorageDead(_14)
-    StorageLive(_17)
-    StorageLive(_18)
-    StorageLive(_19)
-    StorageLive(_20)
-    StorageLive(_21)
-    StorageLive(_22)
-    StorageLive(_23)
-    _23 = &_1
-    _22 = &(*_23)
-    _21 = core::fmt::rt::Argument::<'_>::new_debug::<std::string::String>(move _22) -> [return: bb5, unwind: bb16]
-
-bb5:
-    StorageDead(_22)
-    _20 = [move _21]
-    StorageDead(_21)
-    _19 = &_20
-    _18 = &(*_19)
-    _17 = move _18 as &[core::fmt::rt::Argument<'_>] (PointerCoercion(Unsize))
-    StorageDead(_18)
-    StorageLive(_24)
-    StorageLive(_25)
-    StorageLive(_26)
-    StorageLive(_27)
-    StorageLive(_28)
-    StorageLive(_29)
-    _29 = core::fmt::rt::Alignment::Unknown
-    StorageLive(_30)
-    _30 = core::fmt::rt::Count::Implied
-    StorageLive(_31)
-    _31 = core::fmt::rt::Count::Implied
-    _28 = core::fmt::rt::Placeholder::new(const 0_usize, const ' ', move _29, const 4_u32, move _30, move _31) -> [return: bb6, unwind: bb16]
-
-bb6:
-    StorageDead(_31)
-    StorageDead(_30)
-    StorageDead(_29)
-    _27 = [move _28]
-    StorageDead(_28)
-    _26 = &_27
-    _25 = &(*_26)
-    _24 = move _25 as &[core::fmt::rt::Placeholder] (PointerCoercion(Unsize))
-    StorageDead(_25)
-    StorageLive(_32)
-    _32 = core::fmt::rt::UnsafeArg::new() -> [return: bb7, unwind: bb16]
-
-bb7:
-    _12 = std::fmt::Arguments::<'_>::new_v1_formatted(move _13, move _17, move _24, move _32) -> [return: bb8, unwind: bb16]
-
-bb8:
-    StorageDead(_32)
-    StorageDead(_24)
-    StorageDead(_17)
-    StorageDead(_13)
-    _11 = std::io::_print(move _12) -> [return: bb9, unwind: bb16]
-
-bb9:
-    StorageDead(_12)
-    StorageDead(_27)
-    StorageDead(_26)
-    StorageDead(_23)
-    StorageDead(_20)
-    StorageDead(_19)
-    StorageDead(_15)
-    StorageDead(_11)
-    _10 = const ()
-    StorageDead(_10)
-    _3 = const ()
-    goto -> bb10
-
-bb10:
-    StorageDead(_4)
-    StorageDead(_3)
-    _35 = const false
-    _0 = move _2
-    _35 = const false
-    StorageDead(_2)
-    switchInt(_34) -> [0: bb11, otherwise: bb14]
-
-bb11:
-    return
-
-bb12:
-    drop(_1) -> [return: bb13, unwind terminate(cleanup)]
-
-bb13:
-    resume
-
-bb14:
-    drop(_1) -> [return: bb11, unwind: bb13]
-
-bb15:
-    drop(_2) -> [return: bb12, unwind terminate(cleanup)]
-
-bb16:
-    switchInt(_35) -> [0: bb12, otherwise: bb15]
-
-=====
-- Merge:
-    - [(Filled, bb0), (Moved, bb3)]
-    - [(Filled, bb0)]
-- Merge:
-    - [(Filled, bb0), (Moved, bb3), (MaybeFilled, bb10)]
-    - [(Filled, bb0), (Moved, bb3), (MaybeFilled, bb10), (Dropped, bb14)]
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, TempBorrowExtended}
-- Merge:
-    - [(Empty, bb0), (Filled, bb3)]
-    - [(Empty, bb0), (Filled, bb4)]
+# "pat_maybe_return_owned_arg_3"
+- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, ConditionalMove}
 - ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pub_dynamic_drop_1"
-- Merge:
-    - [(Filled, bb0), (Moved, bb1)]
-    - [(Filled, bb0)]
-- Merge:
-    - [(Filled, bb0), (Moved, bb1), (MaybeFilled, bb4), (Dropped, bb7)]
-    - [(Filled, bb0), (Moved, bb1), (MaybeFilled, bb4)]
-- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToFn, ManualDrop}
+- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToFn, ManualDrop, ConditionalMove}
+- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+
+# "conditional_overwrite"
+- animal         : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 

@@ -311,10 +311,10 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
         let self_state = self.state.last().copied().unwrap();
         let other_state = other.state.last().copied().unwrap();
         if self.state.len() != other.state.len() || self_state != other_state {
-            println!("- Merge:");
-            println!("    - {:?}", self.state);
-            println!("    - {:?}", other.state);
-            inspect_deviation(
+            // println!("- Merge:");
+            // println!("    - {:?}", self.state);
+            // println!("    - {:?}", other.state);
+            let other_events = inspect_deviation(
                 &self.state,
                 &other.state,
                 &mut state_owner.pats,
@@ -327,6 +327,16 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
                         if has_fill {
                             pats.insert(OwnedPat::ConditionalOverwride);
                         }
+
+                        let has_drop = deviation.iter().any(|(state, _)| matches!(state, State::Dropped));
+                        if has_drop {
+                            pats.insert(OwnedPat::ConditionalDrop);
+                        }
+
+                        let has_move = deviation.iter().any(|(state, _)| matches!(state, State::Moved));
+                        if has_move {
+                            pats.insert(OwnedPat::ConditionalMove);
+                        }
                     }
                 },
                 |(base, _), a, b, pats| {
@@ -338,12 +348,13 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
                         let a_fill = a.iter().any(|(state, _)| matches!(state, State::Filled));
                         let b_fill = b.iter().any(|(state, _)| matches!(state, State::Filled));
 
-                        if a_fill && b_fill {
+                        if a_fill || b_fill {
                             pats.insert(OwnedPat::ConditionalInit);
                         }
                     }
                 },
             );
+            self.state.extend(other_events.iter().copied());
 
             // TODO: Proper merging here
             let new_state = match (self.validity(), other.validity()) {
@@ -380,9 +391,11 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
 ///     \ |            | /           \   /     //
 ///       x            x               x       //
 /// ```
-fn inspect_deviation(
+/// This returns the deviation of the additional events from the b branch to be
+/// added to the a collection for the next iteration.
+fn inspect_deviation<'b>(
     a: &[(State, BasicBlock)],
-    b: &[(State, BasicBlock)],
+    b: &'b [(State, BasicBlock)],
     pats: &mut BTreeSet<OwnedPat>,
     mut single_devitation: impl FnMut((State, BasicBlock), &[(State, BasicBlock)], &mut BTreeSet<OwnedPat>),
     mut split_devitation: impl FnMut(
@@ -391,7 +404,7 @@ fn inspect_deviation(
         &[(State, BasicBlock)],
         &mut BTreeSet<OwnedPat>,
     ),
-) {
+) -> &'b [(State, BasicBlock)] {
     let a_state = a.last().copied().unwrap();
     let b_state = b.last().copied().unwrap();
 
@@ -399,14 +412,14 @@ fn inspect_deviation(
     if let Some(idx) = a.iter().rposition(|state| *state == b_state) {
         let base = a[idx];
         single_devitation(base, &a[(idx + 1)..], pats);
-        return;
+        return &[];
     }
 
     // Case 2
     if let Some(idx) = b.iter().rposition(|state| *state == a_state) {
         let base = b[idx];
         single_devitation(base, &b[(idx + 1)..], pats);
-        return;
+        return &b[(idx + 1)..];
     }
 
     let mut b_set = BitSet::new_empty(a_state.1.as_usize().max(b_state.1.as_usize()) + 1);
@@ -419,6 +432,8 @@ fn inspect_deviation(
         && let Some(b_idx) = b.iter().rposition(|state| *state == base)
     {
         split_devitation(base, &a[(a_idx + 1)..], &b[(b_idx + 1)..], pats);
-        return;
+        return &b[(b_idx + 1)..];
     }
+
+    unreachable!()
 }

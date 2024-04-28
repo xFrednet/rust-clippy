@@ -37,7 +37,7 @@ fn pat_maybe_return_owned_arg_1_test(a: u32) -> u32 {
     19
 }
 
-#[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 /// FIXME: The argument return is not yet detected both in `a`
 fn pat_maybe_return_owned_arg_2(a: String) -> String {
     let ret;
@@ -50,6 +50,7 @@ fn pat_maybe_return_owned_arg_2(a: String) -> String {
     ret
 }
 
+#[warn(clippy::borrow_pats)]
 fn pat_maybe_return_owned_arg_3(a: String) -> String {
     let ret = if !a.is_empty() { a } else { "hey".to_string() };
     ret
@@ -64,6 +65,15 @@ fn pub_dynamic_drop_1(animal: String, cond: bool) {
     if cond {
         // Move out of function
         std::mem::drop(animal);
+    }
+
+    magic()
+}
+
+#[warn(clippy::borrow_pats)]
+fn conditional_overwrite(mut animal: String, cond: bool) {
+    if cond {
+        animal = "Ducks".to_string();
     }
 
     magic()
