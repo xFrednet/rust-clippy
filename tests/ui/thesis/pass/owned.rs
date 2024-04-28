@@ -56,10 +56,6 @@ fn pat_maybe_return_owned_arg_3(a: String) -> String {
     ret
 }
 
-fn pat_copy_to_self(mut animal: Animal) {
-    animal.heads = animal.legs;
-}
-
 #[warn(clippy::borrow_pats)]
 fn pub_dynamic_drop_1(animal: String, cond: bool) {
     if cond {
