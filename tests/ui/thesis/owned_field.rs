@@ -42,14 +42,14 @@ fn assign_drop_field() {
     ex.owned_1 = String::new();
 }
 
-#[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn move_drop_field() {
     let ex = Example::default();
     // TODO: Chnage state to partially valid
     let _hey = ex.owned_1;
 }
 
-// #[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn copy_field() {
     let ex = Example::default();
     let _hey = ex.copy_1;

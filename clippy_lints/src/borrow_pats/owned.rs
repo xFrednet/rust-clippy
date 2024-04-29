@@ -19,8 +19,6 @@ pub struct OwnedAnalysis<'a, 'tcx> {
     local_info: &'a VarInfo,
     /// This should be a `BTreeSet` to have it ordered and consistent.
     pats: BTreeSet<OwnedPat>,
-    /// Counts how many times a value was used. This starts at 1 for arguments otherwise 0.
-    use_count: u32,
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
@@ -30,9 +28,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             unreachable!();
         };
         let name = local_kind.name().unwrap();
-
-        // Arguments are assigned outside and therefore have at least a use of 1
-        let use_count = u32::from(local_kind.is_arg());
 
         let bbs_ctn = info.body.basic_blocks.len();
         let mut states = IndexVec::with_capacity(bbs_ctn);
@@ -48,17 +43,12 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             local_kind,
             local_info,
             pats: Default::default(),
-            use_count,
         }
     }
 
     pub fn run(info: &'a AnalysisInfo<'tcx>, local: Local) -> BTreeSet<OwnedPat> {
         let mut anly = Self::new(info, local);
         visit_body_with_state(&mut anly, info);
-
-        if anly.use_count == 1 {
-            anly.pats.insert(OwnedPat::Unused);
-        }
 
         anly.pats
     }
@@ -83,6 +73,7 @@ pub enum OwnedPat {
     #[expect(unused, reason = "Either this needs to be detected consistency or not at all")]
     Returned,
     /// The value is only assigned once and never read afterwards.
+    #[expect(unused, reason = "This can't be reliably detected with MIR")]
     Unused,
     /// The value is dynamically dropped, meaning if it's still valid at a given location.
     /// See RFC: #320
@@ -265,13 +256,6 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         self.visit_terminator_for_args(term, loc.block);
         self.visit_terminator_for_anons(term, loc.block);
         self.super_terminator(term, loc);
-    }
-
-    fn visit_local(&mut self, local: Local, _context: mir::visit::PlaceContext, _loc: Location) {
-        // TODO: Check that this isn't called for StorageLife and StorageDead
-        if local == self.local {
-            self.use_count += 1;
-        }
     }
 }
 

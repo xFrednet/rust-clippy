@@ -17,34 +17,12 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "move_drop_field"
-=====
-Body for: DefId(0:7 ~ owned_field[df29]::move_drop_field)
-bb0:
-    StorageLive(_1)
-    _1 = <Example as std::default::Default>::default() -> [return: bb1, unwind continue]
-
-bb1:
-    StorageLive(_2)
-    _2 = move (_1.0: std::string::String)
-    _0 = const ()
-    drop(_2) -> [return: bb2, unwind: bb5]
-
-bb2:
-    StorageDead(_2)
-    drop((_1.1: std::string::String)) -> [return: bb4, unwind: bb3]
-
-bb3:
-    resume
-
-bb4:
-    StorageDead(_1)
-    return
-
-bb5:
-    drop((_1.1: std::string::String)) -> [return: bb3, unwind terminate(cleanup)]
-
-=====
 - ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMovedToVar}
 - _hey           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+
+# "copy_field"
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {CopiedToVar}
+- _hey           : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 

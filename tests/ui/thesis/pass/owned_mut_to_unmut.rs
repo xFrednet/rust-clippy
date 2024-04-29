@@ -52,7 +52,7 @@ fn mut_copy_to_immut_and_use_after() {
     let _ = snapshot + counter;
 }
 
-#[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn main() {
     let mut s = String::new();
     s += "Hey";

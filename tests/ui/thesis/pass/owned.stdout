@@ -1,10 +1,10 @@
 # "take_one"
-- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
+- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "take_two"
-- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
-- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
+- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {}
+- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "pat_return_owned_arg"
