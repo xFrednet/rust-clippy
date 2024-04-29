@@ -35,7 +35,7 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "conditional_overwrite"
-- animal         : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop}
+- animal         : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 

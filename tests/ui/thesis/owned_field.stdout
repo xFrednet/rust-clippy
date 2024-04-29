@@ -1,0 +1,10 @@
+# "replace_self"
+- drop           : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {Overwrite, DropForReplacement}
+- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {Overwrite}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+
+# "conditional_replace_self"
+- drop           : (Mutable  , Owned    , Local   , NonCopy, Drop   , UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
+- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop, Primitive) {Overwrite, ConditionalOverwride}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+

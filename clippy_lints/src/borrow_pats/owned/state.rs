@@ -85,6 +85,14 @@ pub enum BroKind {
 }
 
 impl<'tcx> StateInfo<'tcx> {
+    pub fn prev_state(&self) -> Option<State> {
+        if self.state.len() >= 2 {
+            Some(self.state[self.state.len() - 2].0)
+        } else {
+            None
+        }
+    }
+
     pub fn state(&self) -> State {
         self.state.last().unwrap().0
     }

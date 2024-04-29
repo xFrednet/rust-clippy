@@ -195,6 +195,16 @@ pub enum OwnedPat {
     ConditionalOverwride,
     ConditionalMove,
     ConditionalDrop,
+    /// This value is being dropped (by rustc) early to be replaced.
+    ///
+    /// ```
+    /// let data = String::new();
+    ///
+    /// // Rustc will first drop the old value of `data`
+    /// // This is a drop to replacement
+    /// data = String::from("Example");
+    /// ```
+    DropForReplacement,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -234,7 +244,11 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
         }
 
         if target.local == self.local {
-            self.visit_assign_to_self(target, rvalue, loc.block);
+            if target.is_part() {
+                self.visit_assign_to_self_part(target, rvalue, loc.block);
+            } else {
+                self.visit_assign_to_self(target, rvalue, loc.block);
+            }
         }
 
         self.visit_assign_for_self_in_args(target, rvalue, loc.block);
@@ -330,19 +344,26 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
         let is_override = match self.states[bb].state() {
             // No-op the most normal and simple state
-            State::Empty => false,
+            State::Moved | State::Empty => false,
 
-            // Filled should only ever be the case for !Drop types
-            State::Filled | State::MaybeFilled => {
-                // TODO: assert!(is_copy)
-                true
+            State::Dropped => {
+                // A manual drop has `Moved` as the previous state
+                if matches!(self.states[bb].prev_state(), Some(State::Filled | State::MaybeFilled)) {
+                    self.pats.insert(OwnedPat::DropForReplacement);
+                    true
+                } else {
+                    false
+                }
             },
 
-            State::Moved | State::Dropped => true,
+            // Filled should only ever be the case for !Drop types
+            State::Filled | State::MaybeFilled => true,
+
             State::None => unreachable!(),
         };
         if is_override {
             let pat = if self.info.find_loop(bb).is_some() {
+                // TODO: This should be detected on state join instead of here
                 OwnedPat::OverwriteInLoop
             } else {
                 OwnedPat::Overwrite
@@ -352,6 +373,9 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
         // Regardless of the original state, we clear everything else
         self.states[bb].clear(State::Filled);
+    }
+    fn visit_assign_to_self_part(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, _bb: BasicBlock) {
+        assert!(target.is_part());
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -408,8 +432,19 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
     fn visit_terminator_for_args(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            TerminatorKind::Drop { place, .. } => {
+            TerminatorKind::Drop { place, replace, .. } => {
                 if place.local == self.local {
+                    assert!(place.just_local());
+                    // Fun facts: I tried to use this to detect `DropForReplacement`
+                    // but who would have guessed. Of course it's not always set.
+                    assert!(
+                        !(*replace),
+                        "Is this even ever set? {bb:?} Validity {:?}",
+                        self.states[bb].validity()
+                    );
+                    // if *replace {
+                    //     self.pats.insert(OwnedPat::DropForReplacement);
+                    // }
                     match self.states[bb].validity() {
                         Validity::Valid => {
                             self.states[bb].clear(State::Dropped);
