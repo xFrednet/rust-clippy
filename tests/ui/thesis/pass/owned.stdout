@@ -1,41 +1,45 @@
 # "take_one"
-- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
+- _animal        : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "take_two"
-- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
-- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {Unused}
+- _animal_1      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
+- _animal_2      : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Unused}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "pat_return_owned_arg"
-- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop, UserDef  ) {}
+- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pat_maybe_return_owned_arg_1_test"
-- a              : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
+- a              : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, TempBorrowExtended, ConditionalMove}
-- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {ConditionalInit}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, TempBorrowExtended, ConditionalMove}
+- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pat_maybe_return_owned_arg_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, ConditionalMove}
-- ret            : (Immutable, Owned    , Local   , NonCopy, Drop   , UserDef  ) {ConditionalInit}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToVar, TempBorrow, ConditionalMove}
+- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pub_dynamic_drop_1"
-- animal         : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {DynamicDrop, MovedToFn, ManualDrop, ConditionalMove}
-- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
+- animal         : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToFn, ManualDrop, ConditionalMove}
+- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "conditional_overwrite"
-- animal         : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
-- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop, Primitive) {}
+- animal         : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
+- cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
+
+# "main"
+- dropper        : (Immutable, Owned    , Local   , NonCopy, SelfDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 

@@ -196,7 +196,7 @@ pub struct VarInfo {
     /// Indicates if the value is copy
     pub copy: bool,
     /// Indicates if this type needs to be dropped
-    pub drop: bool,
+    pub drop: DropKind,
     pub ty: SimpleTyKind,
 }
 
@@ -211,13 +211,20 @@ impl std::fmt::Display for VarInfo {
         let owned = if self.owned { "Owned" } else { "Reference" };
         let argument = if self.argument { "Argument" } else { "Local" };
         let copy = if self.copy { "Copy" } else { "NonCopy" };
-        let dropable = if self.drop { "Drop" } else { "NonDrop" };
+        let dropable = format!("{:?}", self.drop);
         let ty = format!("{:?}", self.ty);
         write!(
             f,
-            "{mutable:<9}, {owned:<9}, {argument:<8}, {copy:<7}, {dropable:<7}, {ty:<9}"
+            "{mutable:<9}, {owned:<9}, {argument:<8}, {copy:<7}, {dropable:<8}, {ty:<9}"
         )
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum DropKind {
+    NonDrop,
+    PartDrop,
+    SelfDrop,
 }
 
 #[derive(Debug, Copy, Clone)]

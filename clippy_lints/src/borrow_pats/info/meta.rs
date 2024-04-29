@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::borrow_pats::info::VarInfo;
-use crate::borrow_pats::{PlaceMagic, PrintPrevent, SimpleTyKind};
+use crate::borrow_pats::{DropKind, PlaceMagic, PrintPrevent, SimpleTyKind};
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
@@ -278,6 +278,13 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             let local = place.local;
             if let Some(local_info) = self.locals.get_mut(&local) {
                 let decl = &self.body.local_decls[local];
+                let drop = if !decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env) {
+                    DropKind::NonDrop
+                } else if decl.ty.has_significant_drop(self.tcx.0, self.cx.0.param_env) {
+                    DropKind::SelfDrop
+                } else {
+                    DropKind::PartDrop
+                };
                 let var_info = VarInfo {
                     argument: info.argument_index.is_some(),
                     mutable: decl.mutability.is_mut(),
@@ -286,7 +293,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                     // Turns out that both `has_significant_drop` and `has_drop`
                     // return false if only fields require drops. Strings are a
                     // good testing example for this.
-                    drop: decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env),
+                    drop,
                     ty: SimpleTyKind::from_ty(decl.ty),
                 };
 

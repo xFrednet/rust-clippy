@@ -30,21 +30,22 @@ fn conditional_replace_self() {
     }
 }
 
-// #[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn assign_copy_field() {
     let mut ex = Example::default();
     ex.copy_1 = 10;
 }
 
-// #[forbid(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn assign_drop_field() {
     let mut ex = Example::default();
     ex.owned_1 = String::new();
 }
 
-// #[forbid(clippy::borrow_pats)]
+#[forbid(clippy::borrow_pats)]
 fn move_drop_field() {
     let ex = Example::default();
+    // TODO: Chnage state to partially valid
     let _hey = ex.owned_1;
 }
 

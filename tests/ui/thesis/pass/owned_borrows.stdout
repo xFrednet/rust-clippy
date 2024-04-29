@@ -1,5 +1,5 @@
 # "temp_borrow_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow}
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -18,7 +18,7 @@
 }
 
 # "temp_borrow_2"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -37,7 +37,7 @@
 }
 
 # "temp_borrow_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, AliasedBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, AliasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -56,7 +56,7 @@
 }
 
 # "temp_borrow_mut_1"
-- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrowMut}
+- a              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -75,7 +75,7 @@
 }
 
 # "temp_borrow_mut_2"
-- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrowMut}
+- a              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -94,7 +94,7 @@
 }
 
 # "temp_borrow_mut_3"
-- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrowMut, MultipleMutBorrowsInArgs}
+- a              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrowMut, MultipleMutBorrowsInArgs}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -113,7 +113,7 @@
 }
 
 # "temp_borrow_mixed"
-- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut}
+- a              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -132,7 +132,7 @@
 }
 
 # "temp_borrow_mixed_2"
-- a              : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, MixedBorrowsInArgs}
+- a              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut, MixedBorrowsInArgs}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -151,7 +151,7 @@
 }
 
 # "two_phase_borrow_1"
-- vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- vec            : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut, HasTwoPhaseBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -170,8 +170,8 @@
 }
 
 # "two_phase_borrow_2"
-- num            : (Mutable  , Owned    , Argument, Copy   , NonDrop, Primitive) {Overwrite}
-- vec            : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- num            : (Mutable  , Owned    , Argument, Copy   , NonDrop , Primitive) {Overwrite}
+- vec            : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut, HasTwoPhaseBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -190,7 +190,7 @@
 }
 
 # "nested_two_phase_borrow"
-- vecs           : (Mutable  , Owned    , Argument, NonCopy, Drop   , UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
+- vecs           : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut, HasTwoPhaseBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,

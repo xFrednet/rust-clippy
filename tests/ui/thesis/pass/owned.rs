@@ -1,5 +1,13 @@
 //@rustc-env: CLIPPY_PETS_PRINT=1
 
+struct Dropper {
+    duck: u32
+}
+
+impl Drop for Dropper {
+    fn drop(&mut self) {  }
+}
+
 struct Animal {
     legs: u32,
     heads: u32,
@@ -71,10 +79,13 @@ fn conditional_overwrite(mut animal: String, cond: bool) {
     if cond {
         animal = "Ducks".to_string();
     }
-
+    
     magic()
 }
 
 fn magic() {}
 
-fn main() {}
+#[warn(clippy::borrow_pats)]
+fn main() {
+    let dropper = Dropper {duck : 17};
+}

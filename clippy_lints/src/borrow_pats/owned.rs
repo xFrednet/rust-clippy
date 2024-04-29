@@ -92,7 +92,7 @@ pub enum OwnedPat {
     /// This value was moved to a different local. `_other = _self`
     MovedToVar,
     /// This value was moved info a different local. `_other.field = _self`
-    MovedToVarPart,
+    PartMovedToVar,
     /// This value was moved to a different local. `_other = _self`
     CopiedToVar,
     /// This value was moved info a different local. `_other.field = _self`
@@ -126,7 +126,11 @@ pub enum OwnedPat {
     MixedBorrowsInArgs,
     /// The value has been overwritten
     Overwrite,
+    /// A part of the value is being overwritten
+    OverwritePart,
     /// The value will be overwritten in a loop
+    //
+    // FIXME: Move this pattern detection into state loop merging thingy
     OverwriteInLoop,
     /// This value is involved in a two phased borrow. Meaning that an argument is calculated
     /// using the value itself. Example:
@@ -291,14 +295,14 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         self.states[bb].anons.insert(target.local);
                     },
                     LocalKind::UserVar(_name, other_info) => {
-                        if self.local_info.mutable && !other_info.mutable {
+                        if self.local_info.mutable && !other_info.mutable && target.just_local() && place.just_local() {
                             self.pats.insert(OwnedPat::ModMutShadowUnmut);
                         }
 
-                        if target.just_local() {
+                        if place.just_local() {
                             self.pats.insert(OwnedPat::MovedToVar);
                         } else {
-                            self.pats.insert(OwnedPat::MovedToVarPart);
+                            self.pats.insert(OwnedPat::PartMovedToVar);
                         }
                     },
                     _ => {
@@ -311,7 +315,12 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         // This is nothing really interesting
                     },
                     LocalKind::UserVar(other_name, other_info) => {
-                        if self.local_info.mutable && !other_info.mutable && self.name == *other_name {
+                        if self.local_info.mutable
+                            && !other_info.mutable
+                            && self.name == *other_name
+                            && target.just_local()
+                            && place.just_local()
+                        {
                             self.pats.insert(OwnedPat::ModMutShadowUnmut);
                         }
 
@@ -374,8 +383,28 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         // Regardless of the original state, we clear everything else
         self.states[bb].clear(State::Filled);
     }
-    fn visit_assign_to_self_part(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, _bb: BasicBlock) {
+    fn visit_assign_to_self_part(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.is_part());
+
+        match rval {
+            Rvalue::Use(_op) => {
+                self.pats.insert(OwnedPat::OverwritePart);
+            },
+            Rvalue::Repeat(_, _)
+            | Rvalue::Ref(_, _, _)
+            | Rvalue::ThreadLocalRef(_)
+            | Rvalue::AddressOf(_, _)
+            | Rvalue::Len(_)
+            | Rvalue::Cast(_, _, _)
+            | Rvalue::BinaryOp(_, _)
+            | Rvalue::CheckedBinaryOp(_, _)
+            | Rvalue::NullaryOp(_, _)
+            | Rvalue::UnaryOp(_, _)
+            | Rvalue::Discriminant(_)
+            | Rvalue::Aggregate(_, _)
+            | Rvalue::ShallowInitBox(_, _)
+            | Rvalue::CopyForDeref(_) => eprintln!("TODO [{bb:?}] {target:?} = {rval:?}"),
+        }
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -392,10 +421,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
                         }
                         if place.is_part() {
-                            self.pats.insert(OwnedPat::MovedToVarPart);
+                            self.pats.insert(OwnedPat::PartMovedToVar);
                         } else if place.just_local() {
-                            // TODO: Check for `let x = x`, where x was mut and x no
-                            // longer is and assignment count = 0
                             self.pats.insert(OwnedPat::MovedToVar);
                         } else {
                             todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}");
@@ -432,35 +459,29 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
     fn visit_terminator_for_args(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
-            TerminatorKind::Drop { place, replace, .. } => {
+            // The `replace` flag of this place is super inconsistent. It lies don't trust it!!!
+            TerminatorKind::Drop { place, .. } => {
                 if place.local == self.local {
-                    assert!(place.just_local());
-                    // Fun facts: I tried to use this to detect `DropForReplacement`
-                    // but who would have guessed. Of course it's not always set.
-                    assert!(
-                        !(*replace),
-                        "Is this even ever set? {bb:?} Validity {:?}",
-                        self.states[bb].validity()
-                    );
-                    // if *replace {
-                    //     self.pats.insert(OwnedPat::DropForReplacement);
-                    // }
                     match self.states[bb].validity() {
                         Validity::Valid => {
-                            self.states[bb].clear(State::Dropped);
+                            if place.just_local() {
+                                self.states[bb].clear(State::Dropped);
+                            }
                         },
                         Validity::Maybe => {
-                            self.pats.insert(OwnedPat::DynamicDrop);
-                            self.states[bb].clear(State::Dropped);
+                            if place.just_local() {
+                                self.pats.insert(OwnedPat::DynamicDrop);
+                                self.states[bb].clear(State::Dropped);
+                            }
                         },
                         Validity::Not => {
-                            // // It can happen that drop is called on a moved value like in this
-                            // code: ```
+                            // It can happen that drop is called on a moved value:
+                            // ```
                             // if !a.is_empty() {
                             //     return a;
                             // }
                             // ```
-                            // // In that case we just ignore the action. (MIR WHY??????)
+                            // In that case we just ignore the action. (MIR WHY??????)
                         },
                     }
                 }
