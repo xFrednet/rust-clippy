@@ -1,5 +1,7 @@
 #![warn(unused)]
 
+use clippy_utils::ty::for_each_ref_region;
+
 use crate::borrow_pats::MyStateInfo;
 
 use super::super::prelude::*;
@@ -47,13 +49,41 @@ pub struct StateInfo<'tcx> {
     /// temporary borrows, it might be possible to prevent tracking them
     /// to safe some performance. (Confirmed, that they are not just
     /// used for temp borrows :D)
-    borrows: FxHashMap<Local, (Place<'tcx>, Mutability, BroKind)>,
+    borrows: FxHashMap<Local, BorrowInfo<'tcx>>,
     /// This tracks mut borrows, which might be used for two phased borrows.
     /// Based on the docs, it sounds like there can always only be one. Let's
     /// use an option and cry when it fails.
     ///
     /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
     phase_borrow: Vec<(Local, Place<'tcx>)>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct BorrowInfo<'tcx> {
+    /// The place that is being borrowed
+    pub broker: Place<'tcx>,
+    /// This is the mutability of the original borrow. If we have a double borrow, like this:
+    /// ```
+    /// let mut data = String::new();
+    ///
+    /// //                Loan 1
+    /// //                vvvvv
+    /// let double_ref = &&mut data;
+    /// //               ^
+    /// //               Loan 2 (Mutable, since loan 1 is mut)
+    /// ```
+    pub muta: Mutability,
+    pub kind: BroKind,
+}
+
+impl<'tcx> BorrowInfo<'tcx> {
+    pub fn new(broker: Place<'tcx>, muta: Mutability, kind: BroKind) -> Self {
+        Self { broker, muta, kind }
+    }
+
+    pub fn copy_with(&self, kind: BroKind) -> Self {
+        Self::new(self.broker, self.muta, kind)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -189,7 +219,8 @@ impl<'tcx> StateInfo<'tcx> {
             if kind.allows_two_phase_borrow() {
                 self.phase_borrow.push((borrow.local, broker));
             } else {
-                self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
+                self.borrows
+                    .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
             }
         } else {
             // Mut loans can also be used for two-phased-borrows, but only with themselfs.
@@ -204,7 +235,8 @@ impl<'tcx> StateInfo<'tcx> {
             //
             // The two-phased-borrow will be detected by the owned reference. So we can
             // ignore it here :D
-            self.borrows.insert(borrow.local, (broker, kind.mutability(), bro_kind));
+            self.borrows
+                .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
             // todo!("Named Local: {borrow:#?} = {broker:#?}\n{self:#?}");
         }
     }
@@ -214,14 +246,34 @@ impl<'tcx> StateInfo<'tcx> {
         &mut self,
         dst: Place<'tcx>,
         src: Place<'tcx>,
-        _copy_kind: Option<BorrowKind>,
+        info: &AnalysisInfo<'tcx>,
+        pats: &mut BTreeSet<OwnedPat>,
+    ) {
+        self.add_ref_dep(dst, src, true, info, pats)
+    }
+    /// This function informs the state that a ref to a ref was created
+    pub fn add_ref_ref(
+        &mut self,
+        dst: Place<'tcx>,
+        src: Place<'tcx>,
+        info: &AnalysisInfo<'tcx>,
+        pats: &mut BTreeSet<OwnedPat>,
+    ) {
+        self.add_ref_dep(dst, src, false, info, pats)
+    }
+    /// If `kind` is empty it indicates that the mutability of `src`` should be taken
+    fn add_ref_dep(
+        &mut self,
+        dst: Place<'tcx>,
+        src: Place<'tcx>,
+        is_copy: bool,
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
         // This function has to share quite some magic with `add_borrow` but
         // again is different enough that they can't be merged directly AFAIK
 
-        let Some((broker, muta, bro_kind)) = self.borrows.get(&src.local).copied() else {
+        let Some(bro_info) = self.borrows.get(&src.local).copied() else {
             return;
         };
 
@@ -231,17 +283,24 @@ impl<'tcx> StateInfo<'tcx> {
         //
         // Looking at `temp_borrow_mixed_2` it seems like the copy mutability depends
         // on the use case. I'm not even disappointed anymore
-        let new_muta = muta;
-        match bro_kind {
+        let prev_muta = bro_info.muta;
+        match bro_info.kind {
             BroKind::Dep | BroKind::Named => {
                 // FIXME: Maybe this doesn't even needs to be tracked?
-                self.borrows.insert(dst.local, (broker, new_muta, BroKind::Dep));
+                self.borrows.insert(dst.local, bro_info.copy_with(BroKind::Dep));
             },
             // Only anons should be able to add new information
             BroKind::Anon => {
                 let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
                 if is_named {
-                    if matches!(new_muta, Mutability::Mut) {
+                    // FIXME: THis is broken:
+                    let mut inner_mut = None;
+                    for_each_ref_region(info.body.local_decls[dst.local].ty, &mut |_reg, _ty, mutability| {
+                        inner_mut = Some(mutability);
+                    });
+                    let inner_mut = inner_mut.unwrap();
+
+                    if matches!(inner_mut, Mutability::Mut) {
                         info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
                         pats.insert(OwnedPat::NamedBorrowMut);
                     } else {
@@ -253,7 +312,9 @@ impl<'tcx> StateInfo<'tcx> {
                 let new_bro_kind = if is_named { BroKind::Named } else { BroKind::Anon };
 
                 // `copy_kind` can only be mutable if `src` is also mutable
-                self.borrows.insert(dst.local, (broker, new_muta, new_bro_kind));
+                let new_muta = if is_copy { prev_muta } else { Mutability::Not };
+                self.borrows
+                    .insert(dst.local, BorrowInfo::new(bro_info.broker, new_muta, new_bro_kind));
             },
         }
     }
@@ -268,20 +329,20 @@ impl<'tcx> StateInfo<'tcx> {
             // I switch on muta before the `retain`, to make the `retain`` specialized and therefore faster.
             match muta {
                 // Not mutable aka aliasable
-                Mutability::Not => self.borrows.retain(|_key, (broed_place, muta, _bro)| {
-                    !(matches!(muta, Mutability::Mut) && info.places_conflict(*broed_place, broker))
+                Mutability::Not => self.borrows.retain(|_key, bro_info| {
+                    !(matches!(bro_info.muta, Mutability::Mut) && info.places_conflict(bro_info.broker, broker))
                 }),
                 Mutability::Mut => self
                     .borrows
-                    .retain(|_key, (broed_place, _muta, _kind)| !info.places_conflict(*broed_place, broker)),
+                    .retain(|_key, bro_info| !info.places_conflict(bro_info.broker, broker)),
             }
         }
     }
 
-    pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<(Place<'tcx>, Mutability, BroKind)> {
+    pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<BorrowInfo<'tcx>> {
         if let Some((_loc, place)) = self.phase_borrow.iter().find(|(local, _place)| *local == anon.local) {
             // TwoPhaseBorrows are always mutable
-            Some((*place, Mutability::Mut, BroKind::Anon))
+            Some(BorrowInfo::new(*place, Mutability::Mut, BroKind::Anon))
         } else {
             self.borrows.get(&anon.local).copied()
         }

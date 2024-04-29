@@ -290,7 +290,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         }
                     },
                     _ => {
-                        todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+                        unreachable!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
                     },
                 }
             } else {
@@ -367,28 +367,9 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         // Regardless of the original state, we clear everything else
         self.states[bb].clear(State::Filled);
     }
-    fn visit_assign_to_self_part(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
-        assert!(target.is_part());
-
-        match rval {
-            Rvalue::Use(_op) => {
-                self.pats.insert(OwnedPat::OverwritePart);
-            },
-            Rvalue::Repeat(_, _)
-            | Rvalue::Ref(_, _, _)
-            | Rvalue::ThreadLocalRef(_)
-            | Rvalue::AddressOf(_, _)
-            | Rvalue::Len(_)
-            | Rvalue::Cast(_, _, _)
-            | Rvalue::BinaryOp(_, _)
-            | Rvalue::CheckedBinaryOp(_, _)
-            | Rvalue::NullaryOp(_, _)
-            | Rvalue::UnaryOp(_, _)
-            | Rvalue::Discriminant(_)
-            | Rvalue::Aggregate(_, _)
-            | Rvalue::ShallowInitBox(_, _)
-            | Rvalue::CopyForDeref(_) => eprintln!("TODO [{bb:?}] {target:?} = {rval:?}"),
-        }
+    fn visit_assign_to_self_part(&mut self, _target: &Place<'tcx>, _rval: &Rvalue<'tcx>, _bb: BasicBlock) {
+        // TODO: Collect loans from inputs
+        self.pats.insert(OwnedPat::OverwritePart);
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -400,16 +381,10 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         // self.pats.insert(OwnedPat::Returned);
                     },
                     LocalKind::UserVar(_, _) => {
-                        if self.info.locals[&target.local].kind.is_arg() {
-                            // Check if this assignment can escape the function
-                            todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}")
-                        }
                         if place.is_part() {
                             self.pats.insert(OwnedPat::PartMovedToVar);
-                        } else if place.just_local() {
-                            self.pats.insert(OwnedPat::MovedToVar);
                         } else {
-                            todo!("{target:#?}\n{rval:#?}\n{bb:#?}\n{self:#?}");
+                            self.pats.insert(OwnedPat::MovedToVar);
                         }
                     },
                     LocalKind::AnonVar => {
@@ -420,17 +395,20 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             }
 
-            self.states[bb].add_ref_copy(*target, *place, None, self.info, &mut self.pats)
+            self.states[bb].add_ref_copy(*target, *place, self.info, &mut self.pats)
         }
 
-        if let Rvalue::Ref(_reg, new_borrow_kind, src) = &rval {
+        if let Rvalue::Ref(_reg, _new_borrow_kind, src) = &rval {
             match src.projection.as_slice() {
                 // &(*_1) = Copy
                 [PlaceElem::Deref] => {
                     // This will surely fail at one point. It was correct while this was only
                     // for anon vars. But let's fail for now, to handle it later.
                     assert!(target.just_local());
-                    self.states[bb].add_ref_copy(*target, *src, Some(*new_borrow_kind), self.info, &mut self.pats)
+                    self.states[bb].add_ref_copy(*target, *src, self.info, &mut self.pats);
+                },
+                [] => {
+                    self.states[bb].add_ref_ref(*target, *src, self.info, &mut self.pats);
                 },
                 _ => {
                     if self.states[bb].has_bro(src).is_some() {
@@ -554,21 +532,30 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
-                    } else if let Some((place, muta, bro_kind)) = self.states[bb].has_bro(&arg) {
+                    } else if let Some(bro_info) = self.states[bb].has_bro(&arg) {
+                        // let mut inner_mut = None;
+                        // for_each_ref_region(info.body.local_decls[dst.local].ty, &mut |_reg, _ty, mutability| {
+                        //     inner_mut = Some(mutability);
+                        // });
+                        // let inner_mut = inner_mut.unwrap();
+                        // TODO
+                        let inner_mut = bro_info.muta;
+
                         // Regardless of bro, we're interested in extentions
                         let loan_extended = {
                             let dep_loans_len = dep_loans.len();
                             dep_loans.extend(self.info.terms[&bb].iter().filter_map(|(local, deps)| {
-                                deps.contains(&arg.local).then_some((*local, place, muta))
+                                deps.contains(&arg.local)
+                                    .then_some((*local, bro_info.broker, inner_mut))
                             }));
                             dep_loans_len != dep_loans.len()
                         };
 
-                        match muta {
+                        match inner_mut {
                             Mutability::Not => {
-                                immut_bros.push(place);
+                                immut_bros.push(bro_info.broker);
 
-                                if matches!(bro_kind, BroKind::Anon) {
+                                if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
                                     stats.temp_borrow_count += 1;
                                     self.pats.insert(OwnedPat::TempBorrow);
@@ -580,7 +567,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             },
                             Mutability::Mut => {
                                 mut_bro_ctn += 1;
-                                if matches!(bro_kind, BroKind::Anon) {
+                                if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
                                     stats.temp_borrow_mut_count += 1;
                                     self.pats.insert(OwnedPat::TempBorrowMut);
