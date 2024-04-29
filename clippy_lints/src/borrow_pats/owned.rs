@@ -533,25 +533,18 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
                     } else if let Some(bro_info) = self.states[bb].has_bro(&arg) {
-                        // let mut inner_mut = None;
-                        // for_each_ref_region(info.body.local_decls[dst.local].ty, &mut |_reg, _ty, mutability| {
-                        //     inner_mut = Some(mutability);
-                        // });
-                        // let inner_mut = inner_mut.unwrap();
-                        // TODO
-                        let inner_mut = bro_info.muta;
 
                         // Regardless of bro, we're interested in extentions
                         let loan_extended = {
                             let dep_loans_len = dep_loans.len();
                             dep_loans.extend(self.info.terms[&bb].iter().filter_map(|(local, deps)| {
                                 deps.contains(&arg.local)
-                                    .then_some((*local, bro_info.broker, inner_mut))
+                                    .then_some((*local, bro_info.broker, bro_info.muta))
                             }));
                             dep_loans_len != dep_loans.len()
                         };
 
-                        match inner_mut {
+                        match bro_info.muta {
                             Mutability::Not => {
                                 immut_bros.push(bro_info.broker);
 

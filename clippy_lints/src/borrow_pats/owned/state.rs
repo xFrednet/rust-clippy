@@ -1,7 +1,5 @@
 #![warn(unused)]
 
-use clippy_utils::ty::for_each_ref_region;
-
 use crate::borrow_pats::MyStateInfo;
 
 use super::super::prelude::*;
@@ -237,7 +235,6 @@ impl<'tcx> StateInfo<'tcx> {
             // ignore it here :D
             self.borrows
                 .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
-            // todo!("Named Local: {borrow:#?} = {broker:#?}\n{self:#?}");
         }
     }
 
@@ -249,7 +246,7 @@ impl<'tcx> StateInfo<'tcx> {
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
-        self.add_ref_dep(dst, src, true, info, pats)
+        self.add_ref_dep(dst, src, info, pats)
     }
     /// This function informs the state that a ref to a ref was created
     pub fn add_ref_ref(
@@ -259,14 +256,13 @@ impl<'tcx> StateInfo<'tcx> {
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
-        self.add_ref_dep(dst, src, false, info, pats)
+        self.add_ref_dep(dst, src, info, pats)
     }
     /// If `kind` is empty it indicates that the mutability of `src`` should be taken
     fn add_ref_dep(
         &mut self,
         dst: Place<'tcx>,
         src: Place<'tcx>,
-        is_copy: bool,
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
@@ -283,7 +279,6 @@ impl<'tcx> StateInfo<'tcx> {
         //
         // Looking at `temp_borrow_mixed_2` it seems like the copy mutability depends
         // on the use case. I'm not even disappointed anymore
-        let prev_muta = bro_info.muta;
         match bro_info.kind {
             BroKind::Dep | BroKind::Named => {
                 // FIXME: Maybe this doesn't even needs to be tracked?
@@ -294,13 +289,7 @@ impl<'tcx> StateInfo<'tcx> {
                 let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
                 if is_named {
                     // FIXME: THis is broken:
-                    let mut inner_mut = None;
-                    for_each_ref_region(info.body.local_decls[dst.local].ty, &mut |_reg, _ty, mutability| {
-                        inner_mut = Some(mutability);
-                    });
-                    let inner_mut = inner_mut.unwrap();
-
-                    if matches!(inner_mut, Mutability::Mut) {
+                    if matches!(bro_info.muta, Mutability::Mut) {
                         info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
                         pats.insert(OwnedPat::NamedBorrowMut);
                     } else {
@@ -311,10 +300,7 @@ impl<'tcx> StateInfo<'tcx> {
 
                 let new_bro_kind = if is_named { BroKind::Named } else { BroKind::Anon };
 
-                // `copy_kind` can only be mutable if `src` is also mutable
-                let new_muta = if is_copy { prev_muta } else { Mutability::Not };
-                self.borrows
-                    .insert(dst.local, BorrowInfo::new(bro_info.broker, new_muta, new_bro_kind));
+                self.borrows.insert(dst.local, bro_info.copy_with(new_bro_kind));
             },
         }
     }
