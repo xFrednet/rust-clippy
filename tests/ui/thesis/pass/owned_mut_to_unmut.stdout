@@ -1,11 +1,11 @@
 # "mut_move_to_immut"
-- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, ArgBorrowMut, ModMutShadowUnmut}
-- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow}
+- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, Borrow, ArgBorrowMut, ModMutShadowUnmut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
 
 # "init_with_mut_block"
-- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow}
-- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, ArgBorrowMut, ModMutShadowUnmut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
+- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, Borrow, ArgBorrowMut, ModMutShadowUnmut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
 
 # "mut_copy_to_immut_shadow"
@@ -24,6 +24,6 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "main"
-- s              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrowMut}
+- s              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrowMut}
 

@@ -84,6 +84,17 @@ impl<'tcx> BorrowInfo<'tcx> {
     pub fn copy_with(&self, kind: BroKind) -> Self {
         Self::new(self.broker, self.muta, kind)
     }
+
+    /// The first value indicates that this contains the whole palce,
+    /// the second one that this contains a part. These two are not
+    /// mutually exclusive
+    pub fn borrowed_props(&self) -> (bool, bool) {
+        if matches!(self.kind, BroKind::Dep) {
+            (false, false)
+        } else {
+            (self.broker.just_local(), self.broker.is_part())
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
@@ -178,6 +189,34 @@ impl<'tcx> StateInfo<'tcx> {
         self.state.push((new_state, self.bb));
     }
 
+    pub fn add_assign(&mut self, pats: &mut BTreeSet<OwnedPat>) {
+        let is_override = match self.state() {
+            // No-op the most normal and simple state
+            State::Moved | State::Empty => false,
+
+            State::Dropped => {
+                // A manual drop has `Moved` as the previous state
+                if matches!(self.prev_state(), Some(State::Filled | State::MaybeFilled)) {
+                    pats.insert(OwnedPat::DropForReplacement);
+                    true
+                } else {
+                    false
+                }
+            },
+
+            // Filled should only ever be the case for !Drop types
+            State::Filled | State::MaybeFilled => true,
+
+            State::None => unreachable!(),
+        };
+        if is_override {
+            pats.insert(OwnedPat::Overwrite);
+        }
+
+        // Regardless of the original state, we clear everything else
+        self.clear(State::Filled);
+    }
+
     pub fn add_borrow(
         &mut self,
         borrow: Place<'tcx>,
@@ -199,14 +238,28 @@ impl<'tcx> StateInfo<'tcx> {
             info.stats.borrow_mut().owned.two_phased_borrows += 1;
         }
 
+        let (is_all, is_part) = (broker.just_local(), broker.is_part());
+
         let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
         if is_named {
             if matches!(kind, BorrowKind::Shared) {
                 info.stats.borrow_mut().owned.named_borrow_count += 1;
-                pats.insert(OwnedPat::NamedBorrow);
+                if is_all {
+                    pats.insert(OwnedPat::NamedBorrow);
+                } else if is_part {
+                    pats.insert(OwnedPat::PartNamedBorrow);
+                } else {
+                    unreachable!();
+                }
             } else {
                 info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
-                pats.insert(OwnedPat::NamedBorrowMut);
+                if is_all {
+                    pats.insert(OwnedPat::NamedBorrowMut);
+                } else if is_part {
+                    pats.insert(OwnedPat::PartNamedBorrowMut);
+                } else {
+                    unreachable!();
+                }
             }
         }
 
@@ -296,15 +349,29 @@ impl<'tcx> StateInfo<'tcx> {
             },
             // Only anons should be able to add new information
             BroKind::Anon => {
+                let (is_all, is_part) = bro_info.borrowed_props();
                 let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
                 if is_named {
                     // FIXME: THis is broken:
                     if matches!(bro_info.muta, Mutability::Mut) {
                         info.stats.borrow_mut().owned.named_borrow_mut_count += 1;
-                        pats.insert(OwnedPat::NamedBorrowMut);
+                        if is_all {
+                            pats.insert(OwnedPat::NamedBorrow);
+                        } else if is_part {
+                            pats.insert(OwnedPat::PartNamedBorrow);
+                        } else {
+                            unreachable!();
+                        }
                     } else {
                         info.stats.borrow_mut().owned.named_borrow_count += 1;
-                        pats.insert(OwnedPat::NamedBorrow);
+
+                        if is_all {
+                            pats.insert(OwnedPat::NamedBorrowMut);
+                        } else if is_part {
+                            pats.insert(OwnedPat::PartNamedBorrowMut);
+                        } else {
+                            unreachable!();
+                        }
                     }
                 }
 
@@ -335,10 +402,6 @@ impl<'tcx> StateInfo<'tcx> {
         } else {
             self.borrows.get(&anon.local).copied()
         }
-    }
-
-    pub fn add_assign(&mut self, _bb: BasicBlock) {
-        self.state.push((State::Filled, self.bb));
     }
 }
 

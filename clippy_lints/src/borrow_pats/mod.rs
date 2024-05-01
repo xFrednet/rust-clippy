@@ -2,6 +2,7 @@
 //! # TODOs
 //! - [ ] Update meta analysis
 //!     - [ ] Handle loops by partially retraverse them
+//!         - Handle loop overwrites for !drop
 //! - [ ] Analysis for named references
 //! - [ ] Output and summary
 //!     - [ ] Collect and summarize all data per crate

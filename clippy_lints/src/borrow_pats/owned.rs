@@ -101,10 +101,18 @@ pub enum OwnedPat {
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
     ManualDropPart,
+    /// The entire local is being borrowed
+    Borrow,
     ArgBorrow,
     ArgBorrowExtended,
     ArgBorrowMut,
     ArgBorrowMutExtended,
+    /// A part of the local is being borrowed
+    PartBorrow,
+    PartArgBorrow,
+    PartArgBorrowExtended,
+    PartArgBorrowMut,
+    PartArgBorrowMutExtended,
     /// Two temp borrows might alias each other, for example like this:
     /// ```
     /// take_2(&self.field, &self.field);
@@ -133,6 +141,7 @@ pub enum OwnedPat {
     /// The value will be overwritten in a loop
     //
     // FIXME: Move this pattern detection into state loop merging thingy
+    #[expect(unused, reason = "TODO, handle loops properly")]
     OverwriteInLoop,
     /// This value is involved in a two phased borrow. Meaning that an argument is calculated
     /// using the value itself. Example:
@@ -197,6 +206,8 @@ pub enum OwnedPat {
     /// A loan of this value was assigned to a named place
     NamedBorrow,
     NamedBorrowMut,
+    PartNamedBorrow,
+    PartNamedBorrowMut,
     ConditionalInit,
     ConditionalOverwride,
     ConditionalMove,
@@ -352,6 +363,14 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         if let Rvalue::Ref(_region, kind, place) = &rval
             && place.local == self.local
         {
+            if place.just_local() {
+                self.pats.insert(OwnedPat::Borrow);
+            } else if place.is_part() {
+                self.pats.insert(OwnedPat::PartBorrow);
+            } else {
+                unreachable!();
+            }
+
             if target.just_local() {
                 self.add_borrow(bb, *target, *place, *kind, None)
             } else {
@@ -362,37 +381,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.just_local());
 
-        let is_override = match self.states[bb].state() {
-            // No-op the most normal and simple state
-            State::Moved | State::Empty => false,
-
-            State::Dropped => {
-                // A manual drop has `Moved` as the previous state
-                if matches!(self.states[bb].prev_state(), Some(State::Filled | State::MaybeFilled)) {
-                    self.pats.insert(OwnedPat::DropForReplacement);
-                    true
-                } else {
-                    false
-                }
-            },
-
-            // Filled should only ever be the case for !Drop types
-            State::Filled | State::MaybeFilled => true,
-
-            State::None => unreachable!(),
-        };
-        if is_override {
-            let pat = if self.info.find_loop(bb).is_some() {
-                // TODO: This should be detected on state join instead of here
-                OwnedPat::OverwriteInLoop
-            } else {
-                OwnedPat::Overwrite
-            };
-            self.pats.insert(pat);
-        }
-
-        // Regardless of the original state, we clear everything else
-        self.states[bb].clear(State::Filled);
+        self.states[bb].add_assign(&mut self.pats);
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -444,7 +433,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 },
                 _ => {
                     if self.states[bb].has_bro(src).is_some() {
-                        todo!(
+                        unreachable!(
                             "Handle {:?} for {target:#?} = {rval:#?} (at {bb:#?})",
                             src.projection.as_slice()
                         );
@@ -504,11 +493,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
 
                 if dest.local == self.local {
-                    if self.states[bb].state() == State::Empty {
-                        self.states[bb].add_assign(bb);
-                    } else {
-                        todo!();
-                    }
+                    self.states[bb].add_assign(&mut self.pats);
                 }
             },
 
@@ -518,7 +503,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if let Some(place) = op.place()
                     && place.local == self.local
                 {
-                    todo!();
+                    // I'm 70% sure this can't happen
+                    unreachable!("{term:?}");
                 }
             },
             // Controll flow or unstable features. Uninteresting for values
@@ -593,6 +579,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             dep_loans_len != dep_loans.len()
                         };
 
+                        let (is_all, is_part) = bro_info.borrowed_props();
                         match bro_info.muta {
                             Mutability::Not => {
                                 immut_bros.push(bro_info.broker);
@@ -600,10 +587,20 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                                 if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
                                     stats.arg_borrow_count += 1;
-                                    self.pats.insert(OwnedPat::ArgBorrow);
+                                    if is_all {
+                                        self.pats.insert(OwnedPat::ArgBorrow);
+                                    }
+                                    if is_part {
+                                        self.pats.insert(OwnedPat::PartArgBorrow);
+                                    }
                                     if loan_extended {
                                         stats.arg_borrow_extended_count += 1;
-                                        self.pats.insert(OwnedPat::ArgBorrowExtended);
+                                        if is_all {
+                                            self.pats.insert(OwnedPat::ArgBorrowExtended);
+                                        }
+                                        if is_part {
+                                            self.pats.insert(OwnedPat::PartArgBorrowExtended);
+                                        }
                                     }
                                 }
                             },
@@ -612,10 +609,20 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                                 if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
                                     stats.arg_borrow_mut_count += 1;
-                                    self.pats.insert(OwnedPat::ArgBorrowMut);
+                                    if is_all {
+                                        self.pats.insert(OwnedPat::ArgBorrowMut);
+                                    }
+                                    if is_part {
+                                        self.pats.insert(OwnedPat::PartArgBorrowMut);
+                                    }
                                     if loan_extended {
                                         stats.arg_borrow_mut_extended_count += 1;
-                                        self.pats.insert(OwnedPat::ArgBorrowMutExtended);
+                                        if is_all {
+                                            self.pats.insert(OwnedPat::ArgBorrowMutExtended);
+                                        }
+                                        if is_part {
+                                            self.pats.insert(OwnedPat::PartArgBorrowMutExtended);
+                                        }
                                     }
                                 }
                             },
@@ -660,7 +667,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 {
                     // FIXME: I believe this can never be true, since int is
                     // copy and therefore never tracked in anons
-                    todo!();
+                    unreachable!();
                 }
             },
             TerminatorKind::Drop { place, .. } => {

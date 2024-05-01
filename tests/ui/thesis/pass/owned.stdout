@@ -12,7 +12,7 @@
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, ArgBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, Borrow, ArgBorrow}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pat_maybe_return_owned_arg_1_test"
@@ -20,12 +20,12 @@
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, ArgBorrow, ArgBorrowExtended, ConditionalMove}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, Borrow, ArgBorrow, ArgBorrowExtended, ConditionalMove}
 - ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pat_maybe_return_owned_arg_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, ArgBorrow, ConditionalMove}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, Borrow, ArgBorrow, ConditionalMove}
 - ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 

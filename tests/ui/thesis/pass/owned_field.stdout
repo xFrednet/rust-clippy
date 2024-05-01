@@ -34,3 +34,11 @@
 - ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToReturn}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {NoArguments}
 
+# "borrow_field_as_arg"
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartBorrow, PartArgBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
+
+# "borrow_field_into_var"
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartBorrow, PartNamedBorrow}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasNamedBorrow}
+

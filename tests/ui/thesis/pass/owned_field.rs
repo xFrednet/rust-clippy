@@ -66,6 +66,19 @@ fn return_drop_field() -> String {
     ex.owned_1
 }
 
+#[warn(clippy::borrow_pats)]
+fn borrow_field_as_arg() {
+    let ex = Example::default();
+    take_string_ref(&ex.owned_1);
+}
+
+#[warn(clippy::borrow_pats)]
+fn borrow_field_into_var() {
+    let ex = Example::default();
+    let _hey = &ex.owned_1;
+}
+
 fn take_string(_: String) {}
+fn take_string_ref(_: &String) {}
 
 fn main() {}
