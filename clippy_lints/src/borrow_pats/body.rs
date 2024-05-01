@@ -270,10 +270,10 @@ pub(crate) fn update_pats_from_stats(pats: &mut BTreeSet<BodyPat>, info: &Analys
         pats.insert(BodyPat::HasNamedBorrowMut);
     }
 
-    if stats.owned.temp_borrow_count > 0 {
+    if stats.owned.arg_borrow_count > 0 {
         pats.insert(BodyPat::HasTempBorrow);
     }
-    if stats.owned.temp_borrow_mut_count > 0 {
+    if stats.owned.arg_borrow_mut_count > 0 {
         pats.insert(BodyPat::HasTempBorrowMut);
     }
 

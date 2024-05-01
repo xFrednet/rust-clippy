@@ -1,6 +1,7 @@
 //@rustc-env: CLIPPY_PETS_PRINT=1
 //@rustc-env: CLIPPY_STATS_PRINT=1
 
+#[derive(Default)]
 struct Animal {
     science_name: String,
     simple_name: String,
@@ -61,6 +62,11 @@ fn two_phase_borrow_2(mut num: usize, mut vec: Vec<usize>) {
     })
 }
 
+struct NestedVecs {
+    a: Vec<usize>,
+    b: Vec<usize>,
+}
+
 #[warn(clippy::borrow_pats)]
 fn nested_two_phase_borrow(mut vecs: NestedVecs) {
     vecs.a.push({
@@ -87,9 +93,10 @@ fn test_mut_double_loan() {
     take_mut_double_loan(&mut &data);
 }
 
-struct NestedVecs {
-    a: Vec<usize>,
-    b: Vec<usize>,
+#[forbid(clippy::borrow_pats)]
+fn loan_to_access_part() {
+    let data = Animal::default();
+    take_1_loan(&(&&data).simple_name);
 }
 
 fn take_1_loan(_: &String) {}

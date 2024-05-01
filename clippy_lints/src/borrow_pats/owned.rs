@@ -90,10 +90,10 @@ pub enum OwnedPat {
     CopiedToVarPart,
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
-    TempBorrow,
-    TempBorrowExtended,
-    TempBorrowMut,
-    TempBorrowMutExtended,
+    ArgBorrow,
+    ArgBorrowExtended,
+    ArgBorrowMut,
+    ArgBorrowMutExtended,
     /// Two temp borrows might alias each other, for example like this:
     /// ```
     /// take_2(&self.field, &self.field);
@@ -398,7 +398,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             self.states[bb].add_ref_copy(*target, *place, self.info, &mut self.pats)
         }
 
-        if let Rvalue::Ref(_reg, _new_borrow_kind, src) = &rval {
+        if let Rvalue::Ref(_, _, src) | Rvalue::CopyForDeref(src) = &rval {
             match src.projection.as_slice() {
                 // &(*_1) = Copy
                 [PlaceElem::Deref] => {
@@ -407,12 +407,15 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     assert!(target.just_local());
                     self.states[bb].add_ref_copy(*target, *src, self.info, &mut self.pats);
                 },
-                [] => {
+                [PlaceElem::Deref, ..] | [] => {
                     self.states[bb].add_ref_ref(*target, *src, self.info, &mut self.pats);
                 },
                 _ => {
                     if self.states[bb].has_bro(src).is_some() {
-                        todo!("Handle ref to ref {target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
+                        todo!(
+                            "Handle {:?} for {target:#?} = {rval:#?} (at {bb:#?})",
+                            src.projection.as_slice()
+                        );
                     }
                 },
             }
@@ -533,7 +536,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.pats.insert(OwnedPat::ManualDrop);
                         }
                     } else if let Some(bro_info) = self.states[bb].has_bro(&arg) {
-
                         // Regardless of bro, we're interested in extentions
                         let loan_extended = {
                             let dep_loans_len = dep_loans.len();
@@ -550,11 +552,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
                                 if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
-                                    stats.temp_borrow_count += 1;
-                                    self.pats.insert(OwnedPat::TempBorrow);
+                                    stats.arg_borrow_count += 1;
+                                    self.pats.insert(OwnedPat::ArgBorrow);
                                     if loan_extended {
-                                        stats.temp_borrow_extended_count += 1;
-                                        self.pats.insert(OwnedPat::TempBorrowExtended);
+                                        stats.arg_borrow_extended_count += 1;
+                                        self.pats.insert(OwnedPat::ArgBorrowExtended);
                                     }
                                 }
                             },
@@ -562,11 +564,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                                 mut_bro_ctn += 1;
                                 if matches!(bro_info.kind, BroKind::Anon) {
                                     let stats = &mut self.info.stats.borrow_mut().owned;
-                                    stats.temp_borrow_mut_count += 1;
-                                    self.pats.insert(OwnedPat::TempBorrowMut);
+                                    stats.arg_borrow_mut_count += 1;
+                                    self.pats.insert(OwnedPat::ArgBorrowMut);
                                     if loan_extended {
-                                        stats.temp_borrow_mut_extended_count += 1;
-                                        self.pats.insert(OwnedPat::TempBorrowMutExtended);
+                                        stats.arg_borrow_mut_extended_count += 1;
+                                        self.pats.insert(OwnedPat::ArgBorrowMutExtended);
                                     }
                                 }
                             },

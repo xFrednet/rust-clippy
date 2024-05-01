@@ -306,22 +306,15 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     fn update_bros(&mut self, broker: Place<'tcx>, muta: Mutability, info: &AnalysisInfo<'tcx>) {
-        // TODO: Check if this function is even needed with the kill command!!!!
-
-        if broker.just_local() && matches!(muta, Mutability::Mut) {
-            // If the entire thing is borrowed mut, every reference get's cleared
-            self.borrows.clear();
-        } else {
-            // I switch on muta before the `retain`, to make the `retain`` specialized and therefore faster.
-            match muta {
-                // Not mutable aka aliasable
-                Mutability::Not => self.borrows.retain(|_key, bro_info| {
-                    !(matches!(bro_info.muta, Mutability::Mut) && info.places_conflict(bro_info.broker, broker))
-                }),
-                Mutability::Mut => self
-                    .borrows
-                    .retain(|_key, bro_info| !info.places_conflict(bro_info.broker, broker)),
-            }
+        // I switch on muta before the `retain`, to make the `retain` specialized and therefore faster.
+        match muta {
+            // Not mutable aka aliasable
+            Mutability::Not => self.borrows.retain(|_key, bro_info| {
+                !(matches!(bro_info.muta, Mutability::Mut) && info.places_conflict(bro_info.broker, broker))
+            }),
+            Mutability::Mut => self
+                .borrows
+                .retain(|_key, bro_info| !info.places_conflict(bro_info.broker, broker)),
         }
     }
 

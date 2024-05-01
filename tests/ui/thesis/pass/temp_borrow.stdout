@@ -1,5 +1,5 @@
 # "temp_borrow_arg_1"
-- owned          : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow}
+- owned          : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {ArgBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -7,10 +7,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 2,
-        temp_borrow_mut_count: 0,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 2,
+        arg_borrow_mut_count: 0,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -18,7 +18,7 @@
 }
 
 # "temp_borrow_mut_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -26,10 +26,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 0,
-        temp_borrow_mut_count: 3,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 3,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -37,7 +37,7 @@
 }
 
 # "temp_borrow_mixed_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {ArgBorrow, ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -45,10 +45,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 2,
-        temp_borrow_mut_count: 1,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 2,
+        arg_borrow_mut_count: 1,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -56,7 +56,7 @@
 }
 
 # "temp_borrow_local_1"
-- owned          : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrow}
+- owned          : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -64,10 +64,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 2,
-        temp_borrow_mut_count: 0,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 2,
+        arg_borrow_mut_count: 0,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -75,7 +75,7 @@
 }
 
 # "temp_borrow_mut_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -83,10 +83,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 0,
-        temp_borrow_mut_count: 3,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 3,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -94,7 +94,7 @@
 }
 
 # "temp_borrow_mixed_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow, ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -102,10 +102,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 2,
-        temp_borrow_mut_count: 1,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 2,
+        arg_borrow_mut_count: 1,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -113,10 +113,10 @@
 }
 
 # "temp_borrow_mixed_mutltiple_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow}
-- b              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut}
-- c              : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrow}
-- d              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowMut}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {ArgBorrow}
+- b              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {ArgBorrow, ArgBorrowMut}
+- c              : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow}
+- d              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow, ArgBorrowMut}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -124,10 +124,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 8,
-        temp_borrow_mut_count: 2,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 8,
+        arg_borrow_mut_count: 2,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,
@@ -142,10 +142,10 @@
     arg_relations_signature: 0,
     arg_relations_found: 0,
     owned: OwnedStats {
-        temp_borrow_count: 0,
-        temp_borrow_mut_count: 0,
-        temp_borrow_extended_count: 0,
-        temp_borrow_mut_extended_count: 0,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
         two_phased_borrows: 0,

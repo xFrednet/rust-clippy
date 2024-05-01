@@ -1,5 +1,5 @@
 # "call_extend_simple"
-- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {TempBorrow, TempBorrowExtended}
+- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ArgBorrow, ArgBorrowExtended}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
 
 # "call_extend_named"

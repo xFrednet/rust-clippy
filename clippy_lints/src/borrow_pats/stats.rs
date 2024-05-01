@@ -59,13 +59,13 @@ pub struct OwnedStats {
     /// _4 = &(*_3)
     /// _2 = function(move _4)
     /// ```
-    pub temp_borrow_count: usize,
-    pub temp_borrow_mut_count: usize,
+    pub arg_borrow_count: usize,
+    pub arg_borrow_mut_count: usize,
     /// Temporary borrows might be extended if the returned value depends on the input.
     ///
     /// The temporary borrows are also added to the trackers above.
-    pub temp_borrow_extended_count: usize,
-    pub temp_borrow_mut_extended_count: usize,
+    pub arg_borrow_extended_count: usize,
+    pub arg_borrow_mut_extended_count: usize,
     /// A loan was created and stored to a named place.
     ///
     /// See comment of [`BodyStats`] for ways this might be expressed in MIR.
