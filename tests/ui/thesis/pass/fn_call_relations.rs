@@ -91,4 +91,28 @@ fn test_mut_args_3<'a>(owner: &'a mut Owner<'a>, value: &'a mut String) {
     mutable_owner_self_lifetimed_str(owner, value);
 }
 
+fn take_string(_s: String) {}
+fn take_string_ref(_s: &String) {}
+fn pass_t<T>(tee: T) -> T {
+    tee
+}
+
+#[warn(clippy::borrow_pats)]
+fn use_local_func() {
+    let func = take_string_ref;
+
+    func(&String::new());
+}
+
+#[warn(clippy::borrow_pats)]
+fn use_arg_func(func: fn(&String) -> &str) {
+    func(&String::new());
+}
+
+#[warn(clippy::borrow_pats)]
+fn borrow_as_generic(s: String) {
+    let _tee = pass_t(&s);
+    // let _len = tee.len();
+}
+
 fn main() {}

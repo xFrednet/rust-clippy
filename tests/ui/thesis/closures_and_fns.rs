@@ -1,5 +1,12 @@
-//@rustc-env: CLIPPY_PETS_TEST_RELATIONS=1
 //@rustc-env: CLIPPY_PETS_PRINT=1
+
+#[derive(Default)]
+struct Example {
+    owned_1: String,
+    owned_2: String,
+    copy_1: u32,
+    copy_2: u32,
+}
 
 #[warn(clippy::borrow_pats)]
 fn use_local_func() {
@@ -17,6 +24,30 @@ fn use_arg_func(func: fn(&String) -> &str) {
 fn borrow_as_generic(s: String) {
     let _tee = pass_t(&s);
     // let _len = tee.len();
+}
+
+#[warn(clippy::borrow_pats)]
+fn call_closure_with_arg(s: String)  {
+    let close = |s: &String| s.len();
+    close(&s);
+}
+
+#[warn(clippy::borrow_pats)]
+fn call_closure_borrow_env(s: String)  {
+    let close = || s.len();
+    close();
+}
+
+#[warn(clippy::borrow_pats)]
+fn call_closure_move_s(s: String)  {
+    let close = move || s.len();
+    close();
+}
+
+#[warn(clippy::borrow_pats)]
+fn call_closure_move_field(ex: Example)  {
+    let close = move || ex.owned_1.len();
+    close();
 }
 
 fn take_string(_s: String) {}

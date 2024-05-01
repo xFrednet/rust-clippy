@@ -339,6 +339,7 @@ impl<'tcx> DataInfo<'tcx> {
     }
 }
 
+/// This struct is an over simplification since places might have projections.
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum LocalOrConst {
     Local(mir::Local),
@@ -348,23 +349,10 @@ pub enum LocalOrConst {
 impl From<&mir::Operand<'_>> for LocalOrConst {
     fn from(value: &mir::Operand<'_>) -> Self {
         if let Some(place) = value.place() {
-            assert!(place.just_local());
+            // assert!(place.just_local());
             Self::Local(place.local)
         } else {
             Self::Const
         }
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum LocalConstness {
-    /// Is const
-    #[expect(unused)]
-    Const,
-    /// Maybe const
-    #[expect(unused)]
-    Maybe,
-    /// Def not const
-    #[expect(unused)]
-    Nope,
 }

@@ -78,6 +78,9 @@ pub enum OwnedPat {
     /// The value is dynamically dropped, meaning if it's still valid at a given location.
     /// See RFC: #320
     DynamicDrop,
+    /// Only a part of the struct is being dropped
+    #[expect(unused)]
+    PartDrop,
     /// The value was moved
     Moved,
     /// This value was moved into a different function. This also delegates the drop
@@ -86,6 +89,7 @@ pub enum OwnedPat {
     MovedToVar,
     /// This value was moved to `_0`
     MovedToReturn,
+    MovedToClosure,
     /// A part was moved.
     PartMoved,
     /// This value was moved info a different local. `_other.field = _self`
@@ -94,6 +98,7 @@ pub enum OwnedPat {
     PartMovedToFn,
     /// A part was mvoed to `_0`
     PartMovedToReturn,
+    PartMovedToClosure,
     /// This value was moved to a different local. `_other = _self`
     CopiedToVar,
     /// This value was moved info a different local. `_other.field = _self`
@@ -103,12 +108,20 @@ pub enum OwnedPat {
     ManualDropPart,
     /// The entire local is being borrowed
     Borrow,
+    #[expect(unused)]
+    ClosureBorrow,
+    #[expect(unused)]
+    ClosureBorrowMut,
     ArgBorrow,
     ArgBorrowExtended,
     ArgBorrowMut,
     ArgBorrowMutExtended,
     /// A part of the local is being borrowed
     PartBorrow,
+    #[expect(unused)]
+    PartClosureBorrow,
+    #[expect(unused)]
+    PartClosureBorrowMut,
     PartArgBorrow,
     PartArgBorrowExtended,
     PartArgBorrowMut,
@@ -222,6 +235,10 @@ pub enum OwnedPat {
     /// data = String::from("Example");
     /// ```
     DropForReplacement,
+    #[expect(unused)]
+    /// A pointer to this value was created. This is "mostly uninteresting" as
+    /// these can only be used in unsafe code.
+    AddressOf,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -378,6 +395,43 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
             }
         }
+
+        if let Rvalue::Aggregate(box agg_kind, fields) = rval {
+            for field in fields.iter() {
+                let Operand::Move(place) = field else {
+                    continue;
+                };
+                if place.local != self.local {
+                    continue;
+                }
+
+                if place.just_local() {
+                    self.pats.insert(OwnedPat::Moved);
+                    self.states[bb].clear(State::Moved);
+                } else if place.is_part() {
+                    self.pats.insert(OwnedPat::PartMoved);
+                } else {
+                    unreachable!("{target:#?} = {place:#?}");
+                }
+
+                match agg_kind {
+                    mir::AggregateKind::Array(_) => todo!(),
+                    mir::AggregateKind::Tuple => todo!(),
+                    mir::AggregateKind::Adt(_, _, _, _, _) => todo!(),
+                    mir::AggregateKind::Closure(_, _) => {
+                        if place.just_local() {
+                            self.pats.insert(OwnedPat::MovedToClosure);
+                        } else if place.is_part() {
+                            self.pats.insert(OwnedPat::PartMovedToClosure);
+                        } else {
+                            unreachable!("{target:#?} = {place:#?}");
+                        }
+                    },
+                    mir::AggregateKind::Coroutine(_, _) |
+                    mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
+                }
+            }
+        }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.just_local());
@@ -479,10 +533,11 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 destination: dest,
                 ..
             } => {
+                // Functions are copied and therefore out my this juristriction
                 if let Some(place) = func.place()
                     && place.local == self.local
                 {
-                    todo!();
+                    unreachable!();
                 }
 
                 for arg in args {
@@ -527,7 +582,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if let Some(place) = func.place()
                     && self.states[bb].remove_anon(&place).is_some()
                 {
-                    todo!();
+                    unreachable!();
                 }
 
                 let args = args.iter().filter_map(|arg| {
