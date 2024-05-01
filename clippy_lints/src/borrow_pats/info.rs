@@ -242,6 +242,8 @@ pub enum SimpleTyKind {
     /// Functions, function pointers, and closures
     Fn,
     TraitObj,
+    RawPtr,
+    Foreign,
     Reference,
     Never,
     Generic,
@@ -269,8 +271,8 @@ impl SimpleTyKind {
 
             rustc_middle::ty::TyKind::Ref(_, _, _) => SimpleTyKind::Reference,
 
-            rustc_middle::ty::TyKind::Foreign(_) => todo!(),
-            rustc_middle::ty::TyKind::RawPtr(_) => todo!(),
+            rustc_middle::ty::TyKind::Foreign(_) => SimpleTyKind::Foreign,
+            rustc_middle::ty::TyKind::RawPtr(_) => SimpleTyKind::RawPtr,
 
             rustc_middle::ty::TyKind::FnDef(_, _)
             | rustc_middle::ty::TyKind::FnPtr(_)

@@ -20,17 +20,17 @@
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToVar, ArgBorrow, ArgBorrowExtended, ConditionalMove}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, ArgBorrow, ArgBorrowExtended, ConditionalMove}
 - ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pat_maybe_return_owned_arg_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToVar, ArgBorrow, ConditionalMove}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, ArgBorrow, ConditionalMove}
 - ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {ConditionalInit}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "pub_dynamic_drop_1"
-- animal         : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, MovedToFn, ManualDrop, ConditionalMove}
+- animal         : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToFn, ManualDrop, ConditionalMove}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 

@@ -43,9 +43,8 @@ fn assign_drop_field() {
 }
 
 #[warn(clippy::borrow_pats)]
-fn move_drop_field() {
+fn move_drop_field_to_var() {
     let ex = Example::default();
-    // TODO: Chnage state to partially valid
     let _hey = ex.owned_1;
 }
 
@@ -54,5 +53,13 @@ fn copy_field() {
     let ex = Example::default();
     let _hey = ex.copy_1;
 }
+
+// #[warn(clippy::borrow_pats)]
+fn move_drop_field_as_arg() {
+    let ex = Example::default();
+    take_string(ex.owned_1);
+}
+
+fn take_string(_: String) {}
 
 fn main() {}

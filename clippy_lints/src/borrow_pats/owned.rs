@@ -78,12 +78,16 @@ pub enum OwnedPat {
     /// The value is dynamically dropped, meaning if it's still valid at a given location.
     /// See RFC: #320
     DynamicDrop,
+    /// The value was moved
+    Moved,
     /// This value was moved into a different function. This also delegates the drop
     MovedToFn,
     /// This value was moved to a different local. `_other = _self`
     MovedToVar,
     /// This value was moved info a different local. `_other.field = _self`
     PartMovedToVar,
+    /// This value was moved info a different local. `_other.field = _self`
+    PartMovedToFn,
     /// This value was moved to a different local. `_other = _self`
     CopiedToVar,
     /// This value was moved info a different local. `_other.field = _self`
@@ -240,7 +244,10 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
 
         if target.local == self.local {
             if target.is_part() {
-                self.visit_assign_to_self_part(target, rvalue, loc.block);
+                // It should be enough, to only track the pattern. Since the borrowck is already
+                // happy, we know that any borrows of this part are never used again. Removing them
+                // would just be extra work.
+                self.pats.insert(OwnedPat::OverwritePart);
             } else {
                 self.visit_assign_to_self(target, rvalue, loc.block);
             }
@@ -266,8 +273,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && place.local == self.local
         {
             let is_move = op.is_move();
-            if is_move {
-                self.states[bb].set_state(State::Moved);
+            if is_move && place.just_local() {
+                self.states[bb].clear(State::Moved);
             }
 
             if target.local.as_u32() == 0 {
@@ -275,7 +282,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             } else if is_move {
                 match &self.info.locals[&target.local].kind {
                     LocalKind::AnonVar => {
-                        assert!(target.just_local());
+                        assert!(target.just_local() && place.just_local());
                         self.states[bb].anons.insert(target.local);
                     },
                     LocalKind::UserVar(_name, other_info) => {
@@ -284,6 +291,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         }
 
                         if place.just_local() {
+                            self.pats.insert(OwnedPat::Moved);
                             self.pats.insert(OwnedPat::MovedToVar);
                         } else {
                             self.pats.insert(OwnedPat::PartMovedToVar);
@@ -367,10 +375,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         // Regardless of the original state, we clear everything else
         self.states[bb].clear(State::Filled);
     }
-    fn visit_assign_to_self_part(&mut self, _target: &Place<'tcx>, _rval: &Rvalue<'tcx>, _bb: BasicBlock) {
-        // TODO: Collect loans from inputs
-        self.pats.insert(OwnedPat::OverwritePart);
-    }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
@@ -384,6 +388,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         if place.is_part() {
                             self.pats.insert(OwnedPat::PartMovedToVar);
                         } else {
+                            self.pats.insert(OwnedPat::Moved);
                             self.pats.insert(OwnedPat::MovedToVar);
                         }
                     },
@@ -528,6 +533,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 let mut dep_loans: Vec<(Local, Place<'tcx>, Mutability)> = vec![];
                 for arg in args {
                     if self.states[bb].remove_anon(&arg) {
+                        self.pats.insert(OwnedPat::Moved);
                         self.pats.insert(OwnedPat::MovedToFn);
 
                         if let Some((did, _generic_args)) = func.const_fn_def()

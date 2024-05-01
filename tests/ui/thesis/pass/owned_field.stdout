@@ -16,7 +16,7 @@
 - ex             : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {OverwritePart}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
-# "move_drop_field"
+# "move_drop_field_to_var"
 - ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMovedToVar}
 - _hey           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
