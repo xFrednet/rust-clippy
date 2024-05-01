@@ -13,7 +13,7 @@ pub struct StateInfo<'tcx> {
     /// This is a set of values that *might* contain the owned value.
     /// MIR has this *beautiful* habit of moving stuff into anonymous
     /// locals first before using it further.
-    pub anons: FxHashSet<Local>,
+    pub anons: FxHashMap<Local, AnonStorage<'tcx>>,
     /// This set contains borrows, these are often used for temporary
     /// borrows
     ///
@@ -55,6 +55,8 @@ pub struct StateInfo<'tcx> {
     /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
     phase_borrow: Vec<(Local, Place<'tcx>)>,
 }
+
+type AnonStorage<'tcx> = SmallVec<[Place<'tcx>; 1]>;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BorrowInfo<'tcx> {
@@ -138,7 +140,6 @@ impl<'tcx> StateInfo<'tcx> {
             State::Empty | State::Moved | State::Dropped => Validity::Not,
         }
     }
-
     /// Notifies the state that a local has been killed
     pub fn kill_local(&mut self, local: Local) {
         self.anons.remove(&local);
@@ -146,16 +147,25 @@ impl<'tcx> StateInfo<'tcx> {
         self.phase_borrow.retain(|(phase_local, _place)| *phase_local != local);
     }
 
+    pub fn add_anon(&mut self, anon: Local, src: Place<'tcx>) {
+        self.anons.entry(anon).or_default().push(src);
+    }
+
+    pub fn add_anon_places(&mut self, anon: Local, places: AnonStorage<'tcx>) {
+        let old_places = self.anons.insert(anon, places);
+        assert!(old_places.is_none(), "Have fun debugging this one");
+    }
+
     /// This tries to remove the given place from the known anons that hold this value.
     /// It will retrun `true`, if the removal was successfull.
     /// Places with projections will be ignored.
-    pub fn remove_anon(&mut self, anon: &Place<'_>) -> bool {
+    pub fn remove_anon(&mut self, anon: &Place<'_>) -> Option<AnonStorage<'tcx>> {
         let found = self.remove_anon_place(anon);
-        assert!(!found || anon.just_local(), "{self:#?} - {anon:#?}");
+        assert!(found.is_none() || anon.just_local(), "{self:#?} - {anon:#?}");
         found
     }
 
-    pub fn remove_anon_place(&mut self, anon: &Place<'_>) -> bool {
+    pub fn remove_anon_place(&mut self, anon: &Place<'_>) -> Option<AnonStorage<'tcx>> {
         self.anons.remove(&anon.local)
     }
 
@@ -414,11 +424,20 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
             self.state.push((new_state, self.bb));
         }
 
-        // FIXME: Here we can have collisions where two anons reference different places... oh no...
-        let anons_prev_len = self.anons.len();
-        self.anons.extend(other.anons.iter());
-        changed |= self.anons.len() != anons_prev_len;
+        for (anon, other_places) in other.anons.iter() {
+            if let Some(self_places) = self.anons.get_mut(anon) {
+                if self_places != other_places {
+                    #[expect(unused)]
+                    changed = true;
+                    todo!();
+                }
+            } else {
+                self.anons.insert(*anon, other_places.clone());
+                changed = true;
+            }
+        }
 
+        // FIXME: Here we can have collisions where two anons reference different places... oh no...
         let borrows_prev_len = self.borrows.len();
         self.borrows.extend(other.borrows.iter());
         changed |= self.borrows.len() != borrows_prev_len;

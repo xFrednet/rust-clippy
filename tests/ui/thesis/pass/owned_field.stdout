@@ -17,7 +17,7 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "move_drop_field_to_var"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMovedToVar}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToVar}
 - _hey           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
@@ -25,4 +25,12 @@
 - ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {CopiedToVar}
 - _hey           : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+
+# "move_drop_field_as_arg"
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToFn}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+
+# "return_drop_field"
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToReturn}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {NoArguments}
 

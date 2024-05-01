@@ -84,16 +84,23 @@ pub enum OwnedPat {
     MovedToFn,
     /// This value was moved to a different local. `_other = _self`
     MovedToVar,
+    /// This value was moved to `_0`
+    MovedToReturn,
+    /// A part was moved.
+    PartMoved,
     /// This value was moved info a different local. `_other.field = _self`
     PartMovedToVar,
     /// This value was moved info a different local. `_other.field = _self`
     PartMovedToFn,
+    /// A part was mvoed to `_0`
+    PartMovedToReturn,
     /// This value was moved to a different local. `_other = _self`
     CopiedToVar,
     /// This value was moved info a different local. `_other.field = _self`
     CopiedToVarPart,
     /// This value was manually dropped by calling `std::mem::drop()`
     ManualDrop,
+    ManualDropPart,
     ArgBorrow,
     ArgBorrowExtended,
     ArgBorrowMut,
@@ -236,8 +243,6 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
     }
 
     fn visit_assign(&mut self, target: &Place<'tcx>, rvalue: &Rvalue<'tcx>, loc: Location) {
-        // TODO Ensure that moves always invalidate all borrows. IE. that the current
-        // borrow check is really CFG insensitive.
         if let Rvalue::Ref(_region, BorrowKind::Fake, _place) = &rvalue {
             return;
         }
@@ -273,17 +278,32 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && place.local == self.local
         {
             let is_move = op.is_move();
-            if is_move && place.just_local() {
-                self.states[bb].clear(State::Moved);
+            if is_move {
+                if place.just_local() {
+                    self.pats.insert(OwnedPat::Moved);
+                    self.states[bb].clear(State::Moved);
+                } else if place.is_part() {
+                    self.pats.insert(OwnedPat::PartMoved);
+                } else {
+                    unreachable!("{target:#?} = {place:#?}");
+                }
             }
 
             if target.local.as_u32() == 0 {
-                // self.pats.insert(OwnedPat::Returned);
+                if is_move {
+                    if place.just_local() {
+                        self.pats.insert(OwnedPat::MovedToReturn);
+                    } else if place.is_part() {
+                        self.pats.insert(OwnedPat::PartMovedToReturn);
+                    } else {
+                        unreachable!("{target:#?} = {place:#?}");
+                    }
+                }
             } else if is_move {
                 match &self.info.locals[&target.local].kind {
                     LocalKind::AnonVar => {
-                        assert!(target.just_local() && place.just_local());
-                        self.states[bb].anons.insert(target.local);
+                        assert!(target.just_local());
+                        self.states[bb].add_anon(target.local, place);
                     },
                     LocalKind::UserVar(_name, other_info) => {
                         if self.local_info.mutable && !other_info.mutable && target.just_local() && place.just_local() {
@@ -291,7 +311,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         }
 
                         if place.just_local() {
-                            self.pats.insert(OwnedPat::Moved);
                             self.pats.insert(OwnedPat::MovedToVar);
                         } else {
                             self.pats.insert(OwnedPat::PartMovedToVar);
@@ -379,22 +398,30 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
         {
-            if self.states[bb].remove_anon(place) {
+            if let Some(anon_places) = self.states[bb].remove_anon(place) {
                 match self.info.locals[&target.local].kind {
                     LocalKind::Return => {
-                        // self.pats.insert(OwnedPat::Returned);
+                        let (is_all, is_part) = anon_places.iter().fold((false, false), |(is_all, is_part), place| {
+                            (is_all || place.just_local(), is_part || place.is_part())
+                        });
+
+                        if is_all {
+                            self.pats.insert(OwnedPat::MovedToReturn);
+                        }
+                        if is_part {
+                            self.pats.insert(OwnedPat::PartMovedToReturn);
+                        }
                     },
                     LocalKind::UserVar(_, _) => {
                         if place.is_part() {
                             self.pats.insert(OwnedPat::PartMovedToVar);
                         } else {
-                            self.pats.insert(OwnedPat::Moved);
                             self.pats.insert(OwnedPat::MovedToVar);
                         }
                     },
                     LocalKind::AnonVar => {
                         assert!(place.just_local());
-                        self.states[bb].anons.insert(target.local);
+                        self.states[bb].add_anon_places(target.local, anon_places);
                     },
                     LocalKind::Unused => unreachable!(),
                 }
@@ -511,7 +538,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         match &term.kind {
             TerminatorKind::Call { func, args, .. } => {
                 if let Some(place) = func.place()
-                    && self.states[bb].remove_anon(&place)
+                    && self.states[bb].remove_anon(&place).is_some()
                 {
                     todo!();
                 }
@@ -532,14 +559,28 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 let mut mut_bro_ctn = 0;
                 let mut dep_loans: Vec<(Local, Place<'tcx>, Mutability)> = vec![];
                 for arg in args {
-                    if self.states[bb].remove_anon(&arg) {
-                        self.pats.insert(OwnedPat::Moved);
-                        self.pats.insert(OwnedPat::MovedToFn);
+                    if let Some(anon_places) = self.states[bb].remove_anon(&arg) {
+                        // These are not mutually exclusive. A rare cupple for sure, but now unseen
+                        let (is_all, is_part) = anon_places.iter().fold((false, false), |(is_all, is_part), place| {
+                            (is_all || place.just_local(), is_part || place.is_part())
+                        });
+
+                        if is_all {
+                            self.pats.insert(OwnedPat::MovedToFn);
+                        }
+                        if is_part {
+                            self.pats.insert(OwnedPat::PartMovedToFn);
+                        }
 
                         if let Some((did, _generic_args)) = func.const_fn_def()
                             && self.info.cx.tcx.is_diagnostic_item(sym::mem_drop, did)
                         {
-                            self.pats.insert(OwnedPat::ManualDrop);
+                            if is_all {
+                                self.pats.insert(OwnedPat::ManualDrop);
+                            }
+                            if is_part {
+                                self.pats.insert(OwnedPat::ManualDropPart);
+                            }
                         }
                     } else if let Some(bro_info) = self.states[bb].has_bro(&arg) {
                         // Regardless of bro, we're interested in extentions
@@ -615,14 +656,16 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             // They can still be important since these a reads which cancel mutable borrows and fields can be read
             TerminatorKind::SwitchInt { discr: op, .. } | TerminatorKind::Assert { cond: op, .. } => {
                 if let Some(place) = op.place()
-                    && self.states[bb].remove_anon_place(&place)
+                    && self.states[bb].remove_anon_place(&place).is_some()
                 {
+                    // FIXME: I believe this can never be true, since int is
+                    // copy and therefore never tracked in anons
                     todo!();
                 }
             },
             TerminatorKind::Drop { place, .. } => {
                 debug_assert!(
-                    !self.states[bb].remove_anon(place),
+                    self.states[bb].remove_anon(place).is_none(),
                     "AFAIK, the field is always dropped directly"
                 );
                 // I believe this is uninteresting

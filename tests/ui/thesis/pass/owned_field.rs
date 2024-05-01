@@ -54,10 +54,16 @@ fn copy_field() {
     let _hey = ex.copy_1;
 }
 
-// #[warn(clippy::borrow_pats)]
+#[warn(clippy::borrow_pats)]
 fn move_drop_field_as_arg() {
     let ex = Example::default();
     take_string(ex.owned_1);
+}
+
+#[warn(clippy::borrow_pats)]
+fn return_drop_field() -> String {
+    let ex = Example::default();
+    ex.owned_1
 }
 
 fn take_string(_: String) {}
