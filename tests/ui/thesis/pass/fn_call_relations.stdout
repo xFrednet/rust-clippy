@@ -4,6 +4,8 @@
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -77,6 +79,8 @@
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -106,6 +110,8 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 0,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -127,6 +133,8 @@ Connection from _1 to _2 was not confirmed
     return_relations_found: 0,
     arg_relations_signature: 1,
     arg_relations_found: 1,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,

@@ -374,6 +374,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             if target.just_local() {
                 self.add_borrow(bb, *target, *place, *kind, None)
             } else {
+                // Example _5.1 = &(_1.8)
                 todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
             }
         }

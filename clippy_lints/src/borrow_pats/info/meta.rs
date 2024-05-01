@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::borrow_pats::info::VarInfo;
-use crate::borrow_pats::{DropKind, PlaceMagic, PrintPrevent, SimpleTyKind};
+use crate::borrow_pats::{BodyStats, DropKind, PlaceMagic, PrintPrevent, SimpleTyKind};
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
@@ -35,6 +35,7 @@ pub struct MetaAnalysis<'a, 'tcx> {
     pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub visit_order: Vec<BasicBlock>,
+    pub stats: BodyStats,
 }
 
 impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
@@ -67,6 +68,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             preds,
             preds_unlooped: Default::default(),
             visit_order: Default::default(),
+            stats: Default::default(),
         };
 
         anly.collect_loops();
@@ -248,8 +250,10 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             } => {
                 assert!(destination.projection.is_empty());
                 let dest = destination.local;
-                self.terms
-                    .insert(bb, calc_call_local_relations(self.tcx.0, func, dest, args));
+                self.terms.insert(
+                    bb,
+                    calc_call_local_relations(self.tcx.0, self.body, func, dest, args, &mut self.stats),
+                );
             },
             _ => {},
         }

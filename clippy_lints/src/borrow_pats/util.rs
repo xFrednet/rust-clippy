@@ -1,13 +1,13 @@
 #![warn(unused)]
 use std::collections::{BTreeMap, BTreeSet};
 
-use clippy_utils::ty::{for_each_ref_region, for_each_region};
+use clippy_utils::ty::{for_each_param_ty, for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_index::bit_set::BitSet;
-use rustc_middle::mir::{BasicBlock, Local, Operand, Place};
-use rustc_middle::ty::{FnSig, GenericPredicates, Region, Ty, TyCtxt};
+use rustc_middle::mir::{BasicBlock, Body, Local, Operand, Place};
+use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt, TyKind};
 use rustc_span::source_map::Spanned;
 
 use crate::borrow_pats::{LocalMagic, PlaceMagic};
@@ -16,6 +16,7 @@ mod visitor;
 pub use visitor::*;
 
 use super::prelude::RETURN_LOCAL;
+use super::BodyStats;
 
 const RETURN_RELEATION_INDEX: usize = usize::MAX;
 
@@ -38,10 +39,13 @@ struct FuncReals<'tcx> {
     /// Mapping from `'short` (key) is outlives by `'long` (value)
     multiverse: BTreeMap<Region<'tcx>, BTreeSet<Region<'tcx>>>,
     sig: FnSig<'tcx>,
+    args: GenericArgsRef<'tcx>,
+    /// Indicates that a possibly returned value has generics with `'ReErased`
+    has_generic_probles: bool,
 }
 
 impl<'tcx> FuncReals<'tcx> {
-    fn from_fn_def(tcx: TyCtxt<'tcx>, def_id: DefId) -> Self {
+    fn from_fn_def(tcx: TyCtxt<'tcx>, def_id: DefId, args: GenericArgsRef<'tcx>) -> Self {
         // FIXME: The proper and long therm solution would be to use HIR
         // to find the call with generics that still have valid region markers.
         // However, for now I need to get this zombie in the air and not pefect
@@ -55,6 +59,8 @@ impl<'tcx> FuncReals<'tcx> {
         let mut reals = Self {
             multiverse: Default::default(),
             sig: fn_sig,
+            args,
+            has_generic_probles: false,
         };
 
         // FYI: Predicates don't include transitive bounds
@@ -99,7 +105,7 @@ impl<'tcx> FuncReals<'tcx> {
         }
     }
 
-    fn relations(&self, dest: Local, args: &[Spanned<Operand<'tcx>>]) -> FxHashMap<Local, Vec<Local>> {
+    fn relations(&mut self, dest: Local, args: &[Spanned<Operand<'tcx>>]) -> FxHashMap<Local, Vec<Local>> {
         let mut reals = FxHashMap::default();
         let ret_rels = self.return_relations();
         if !ret_rels.is_empty() {
@@ -152,11 +158,11 @@ impl<'tcx> FuncReals<'tcx> {
     /// ```
     /// This would return [1, 2], since the types in position 1 and 2 are related
     /// to the return type.
-    fn return_relations(&self) -> FxHashSet<usize> {
+    fn return_relations(&mut self) -> FxHashSet<usize> {
         self.find_relations(self.sig.output(), RETURN_RELEATION_INDEX)
     }
 
-    fn find_relations(&self, child_ty: Ty<'tcx>, child_index: usize) -> FxHashSet<usize> {
+    fn find_relations(&mut self, child_ty: Ty<'tcx>, child_index: usize) -> FxHashSet<usize> {
         let mut child_regions = FxHashSet::default();
         for_each_region(child_ty, |region| {
             if child_regions.insert(region) {
@@ -165,6 +171,17 @@ impl<'tcx> FuncReals<'tcx> {
                 }
             }
         });
+        if child_index == RETURN_RELEATION_INDEX {
+            for_each_param_ty(child_ty, &mut |param_ty| {
+                if let Some(arg) = self.args.get(param_ty.index as usize) {
+                    if let Some(arg_ty) = arg.as_type() {
+                        for_each_region(arg_ty, |_| {
+                            self.has_generic_probles = true;
+                        });
+                    }
+                };
+            })
+        }
 
         let mut parents = FxHashSet::default();
         if child_regions.is_empty() {
@@ -190,22 +207,38 @@ impl<'tcx> FuncReals<'tcx> {
 
 pub fn calc_call_local_relations<'tcx>(
     tcx: TyCtxt<'tcx>,
+    body: &Body<'tcx>,
     func: &Operand<'tcx>,
     dest: Local,
     args: &[Spanned<Operand<'tcx>>],
+    stats: &mut BodyStats,
 ) -> FxHashMap<Local, Vec<Local>> {
-    if let Some((def_id, _generic_args)) = func.const_fn_def() {
-        let builder = FuncReals::from_fn_def(tcx, def_id);
-        let relations = builder.relations(dest, args);
-        relations
+    let mut builder;
+    if let Some((def_id, generic_args)) = func.const_fn_def() {
+        builder = FuncReals::from_fn_def(tcx, def_id, generic_args);
+    } else if let Some(place) = func.place() {
+        let local_ty = body.local_decls[place.local].ty;
+        if let TyKind::FnDef(def_id, generic_args) = local_ty.kind() {
+            builder = FuncReals::from_fn_def(tcx, *def_id, generic_args);
+        } else {
+            stats.arg_relation_possibly_missed_due_to_late_bounds += 1;
+            return FxHashMap::default();
+        }
     } else {
-        todo!()
+        unreachable!()
     }
+    let relations = builder.relations(dest, args);
+
+    if builder.has_generic_probles {
+        stats.arg_relation_possibly_missed_due_generics += 1;
+    }
+
+    relations
 }
 
 pub fn calc_fn_arg_relations<'tcx>(tcx: TyCtxt<'tcx>, fn_id: LocalDefId) -> FxHashMap<Local, Vec<Local>> {
     // This function is amazingly hacky, but at this point I really don't care anymore
-    let builder = FuncReals::from_fn_def(tcx, fn_id.into());
+    let mut builder = FuncReals::from_fn_def(tcx, fn_id.into(), &rustc_middle::ty::List::empty());
     let arg_ctn = builder.sig.inputs().len();
     let fake_args: Vec<_> = (0..arg_ctn)
         .map(|idx| {

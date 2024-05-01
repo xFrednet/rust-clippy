@@ -75,9 +75,11 @@ impl<'tcx> AnalysisInfo<'tcx> {
             preds,
             preds_unlooped,
             visit_order,
+            stats,
             ..
         } = meta_analysis;
 
+        let stats = RefCell::new(stats);
         // Maybe check: borrowck::dataflow::calculate_borrows_out_of_scope_at_location
 
         Self {
@@ -93,7 +95,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
             preds,
             preds_unlooped,
             visit_order,
-            stats: Default::default(),
+            stats,
         }
     }
 

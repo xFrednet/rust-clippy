@@ -81,6 +81,10 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 
         let body_info = BodyInfo::from_sig(hir_sig, info, context);
 
+        anly.stats.arg_relation_possibly_missed_due_generics =
+            info.stats.borrow().arg_relation_possibly_missed_due_generics;
+        anly.stats.arg_relation_possibly_missed_due_to_late_bounds =
+            info.stats.borrow().arg_relation_possibly_missed_due_to_late_bounds;
         info.stats.replace(anly.stats);
         (body_info, anly.pats)
     }

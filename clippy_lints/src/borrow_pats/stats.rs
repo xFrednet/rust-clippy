@@ -41,6 +41,10 @@ pub struct BodyStats {
     ///
     /// Filled by `BodyAnalysis`
     pub arg_relations_found: usize,
+    /// This mainly happens, if the input has one generic and returns another generic.
+    /// If the same generic is returned.
+    pub arg_relation_possibly_missed_due_generics: usize,
+    pub arg_relation_possibly_missed_due_to_late_bounds: usize,
 
     /// Stats about named owned values
     pub owned: OwnedStats,
