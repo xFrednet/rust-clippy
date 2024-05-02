@@ -7,7 +7,7 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "call_closure_with_arg"
-- s              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow}
+- s              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, CtorBorrow}
 - close          : (Immutable, Owned    , Local   , Copy   , NonDrop , Closure  ) {Borrow, ArgBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 

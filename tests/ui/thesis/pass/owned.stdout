@@ -39,6 +39,15 @@
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
+# "test_ctors"
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- _slice         : (Immutable, Owned    , Local   , NonCopy, PartDrop, Tuple    ) {}
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- _array         : (Immutable, Owned    , Local   , NonCopy, PartDrop, Sequence ) {}
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- _thing         : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
+
 # "main"
 - dropper        : (Immutable, Owned    , Local   , NonCopy, SelfDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}

@@ -85,6 +85,29 @@ fn conditional_overwrite(mut animal: String, cond: bool) {
 
 fn magic() {}
 
+#[derive(Default)]
+struct Example {
+    owned_1: String,
+    owned_2: String,
+    copy_1: u32,
+    copy_2: u32,
+}
+
+#[warn(clippy::borrow_pats)]
+fn test_ctors() {
+    let s1 = String::new();
+    let _slice = (s1, 2);
+
+    let s1 = String::new();
+    let _array = [s1];
+
+    let s1 = String::new();
+    let _thing = Example {
+        owned_1: s1,
+        ..Example::default()
+    };
+}
+
 #[warn(clippy::borrow_pats)]
 fn main() {
     let dropper = Dropper { duck: 17 };

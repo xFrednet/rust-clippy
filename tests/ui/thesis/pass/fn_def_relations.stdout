@@ -13,6 +13,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -34,6 +36,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -55,6 +59,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -76,6 +82,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -97,6 +105,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -118,6 +128,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -139,6 +151,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -160,6 +174,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -181,6 +197,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -202,6 +220,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -223,6 +243,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -244,6 +266,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -265,6 +289,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -286,6 +312,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -307,6 +335,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -328,6 +358,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -349,6 +381,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -370,6 +404,8 @@
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -401,6 +437,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -424,6 +462,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -451,6 +491,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -472,6 +514,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -493,6 +537,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -516,6 +562,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }
@@ -539,6 +587,8 @@ Connection from _1 to _2 was not confirmed
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
         named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
         two_phased_borrows: 0,
     },
 }

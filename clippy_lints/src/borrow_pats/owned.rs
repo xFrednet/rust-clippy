@@ -90,6 +90,7 @@ pub enum OwnedPat {
     /// This value was moved to `_0`
     MovedToReturn,
     MovedToClosure,
+    MovedToCtor,
     /// A part was moved.
     PartMoved,
     /// This value was moved info a different local. `_other.field = _self`
@@ -99,6 +100,7 @@ pub enum OwnedPat {
     /// A part was mvoed to `_0`
     PartMovedToReturn,
     PartMovedToClosure,
+    PartMovedToCtor,
     /// This value was moved to a different local. `_other = _self`
     CopiedToVar,
     /// This value was moved info a different local. `_other.field = _self`
@@ -110,9 +112,7 @@ pub enum OwnedPat {
     Borrow,
     ClosureBorrow,
     ClosureBorrowMut,
-    #[expect(unused)]
     CtorBorrow,
-    #[expect(unused)]
     CtorBorrowMut,
     ArgBorrow,
     ArgBorrowExtended,
@@ -122,9 +122,7 @@ pub enum OwnedPat {
     PartBorrow,
     PartClosureBorrow,
     PartClosureBorrowMut,
-    #[expect(unused)]
     PartCtorBorrow,
-    #[expect(unused)]
     PartCtorBorrowMut,
     PartArgBorrow,
     PartArgBorrowExtended,
@@ -193,18 +191,6 @@ pub enum OwnedPat {
     /// This pattern is only added, if the two phased borrows was actually used, so if the
     /// code wouldn't work without it.
     TwoPhasedBorrow,
-    /// This value was constructed in a body, used and then deconstructed at the end, to take
-    /// some data and return it.
-    ///
-    /// ```ignore
-    /// fn collect_something() -> Patterns {
-    ///     let mut cx = Context::new();
-    ///     cx.scan(cyz);
-    ///     cx.patterns
-    /// }
-    /// ```
-    #[expect(unused)]
-    ConstructedForCalc,
     /// A value is first mutably initilized and then moved into an unmut value.
     ///
     /// ```
@@ -419,9 +405,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
 
                 match agg_kind {
-                    mir::AggregateKind::Array(_) => todo!(),
-                    mir::AggregateKind::Tuple => todo!(),
-                    mir::AggregateKind::Adt(_, _, _, _, _) => todo!(),
+                    mir::AggregateKind::Array(_)
+                    | mir::AggregateKind::Tuple
+                    | mir::AggregateKind::Adt(_, _, _, _, _) => {
+                        if place.just_local() {
+                            self.pats.insert(OwnedPat::MovedToCtor);
+                        } else if place.is_part() {
+                            self.pats.insert(OwnedPat::PartMovedToCtor);
+                        } else {
+                            unreachable!("{target:#?} = {place:#?}");
+                        }
+                    },
                     mir::AggregateKind::Closure(_, _) => {
                         if place.just_local() {
                             self.pats.insert(OwnedPat::MovedToClosure);
@@ -525,7 +519,28 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     mir::AggregateKind::Array(_)
                     | mir::AggregateKind::Tuple
                     | mir::AggregateKind::Adt(_, _, _, _, _) => {
+                        if parts.contains(&ContainerContent::Loan) {
+                            self.pats.insert(OwnedPat::CtorBorrow);
+                        } else if parts.contains(&ContainerContent::LoanMut) {
+                            self.pats.insert(OwnedPat::CtorBorrowMut);
+                        }
 
+                        if parts.contains(&ContainerContent::PartLoan) {
+                            self.pats.insert(OwnedPat::PartCtorBorrow);
+                        } else if parts.contains(&ContainerContent::PartLoanMut) {
+                            self.pats.insert(OwnedPat::PartCtorBorrowMut);
+                        }
+
+                        if parts.contains(&ContainerContent::Owned) {
+                            self.pats.insert(OwnedPat::MovedToCtor);
+                        } else if parts.contains(&ContainerContent::Part) {
+                            self.pats.insert(OwnedPat::PartMovedToCtor);
+                        }
+
+                        // let target_info = &self.info.locals[&target.local];
+                        // if matches!(target_info.kind, LocalKind::AnonVar) {
+
+                        // }
                     },
                     mir::AggregateKind::Closure(_, _) => {
                         if parts
@@ -550,6 +565,12 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.pats.insert(OwnedPat::PartClosureBorrow);
                         } else if parts.contains(&ContainerContent::PartLoanMut) {
                             self.pats.insert(OwnedPat::PartClosureBorrowMut);
+                        }
+
+                        if parts.contains(&ContainerContent::Owned) {
+                            self.pats.insert(OwnedPat::MovedToClosure);
+                        } else if parts.contains(&ContainerContent::Part) {
+                            self.pats.insert(OwnedPat::PartMovedToClosure);
                         }
                     },
                     mir::AggregateKind::Coroutine(_, _) | mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
