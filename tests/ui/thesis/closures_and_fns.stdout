@@ -12,7 +12,7 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 
 # "call_closure_borrow_env"
-- s              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow}
+- s              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ClosureBorrow}
 - close          : (Immutable, Owned    , Local   , Copy   , NonDrop , Closure  ) {Borrow, ArgBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
 

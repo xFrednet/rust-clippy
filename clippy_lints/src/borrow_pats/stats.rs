@@ -75,6 +75,9 @@ pub struct OwnedStats {
     /// See comment of [`BodyStats`] for ways this might be expressed in MIR.
     pub named_borrow_count: usize,
     pub named_borrow_mut_count: usize,
+    /// A loan was created for a closure
+    pub borrowed_for_closure_count: usize,
+    pub borrowed_mut_for_closure_count: usize,
     /// These are collected by the `OwnedAnalysis`
     ///
     /// Note:

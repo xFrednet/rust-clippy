@@ -2,11 +2,12 @@
 //! # TODOs
 //! - [ ] Update meta analysis
 //!     - [ ] Handle loops by partially retraverse them
-//!         - Handle loop overwrites for !drop
+//!         - [ ] Handle loop overwrites for !drop
 //! - [ ] Analysis for named references
 //! - [ ] Output and summary
 //!     - [ ] Collect and summarize all data per crate
 //!     - [ ] The output states need to be sorted... OH NO
+//! - [ ] Anonymous stuff should be more unified and not broken into borrows etc like it is now.
 //!
 //! # Done
 //! - [x] Determine value reachability (This might only be needed for returns)

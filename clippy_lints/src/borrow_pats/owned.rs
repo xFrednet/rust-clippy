@@ -108,20 +108,24 @@ pub enum OwnedPat {
     ManualDropPart,
     /// The entire local is being borrowed
     Borrow,
-    #[expect(unused)]
     ClosureBorrow,
-    #[expect(unused)]
     ClosureBorrowMut,
+    #[expect(unused)]
+    CtorBorrow,
+    #[expect(unused)]
+    CtorBorrowMut,
     ArgBorrow,
     ArgBorrowExtended,
     ArgBorrowMut,
     ArgBorrowMutExtended,
     /// A part of the local is being borrowed
     PartBorrow,
-    #[expect(unused)]
     PartClosureBorrow,
-    #[expect(unused)]
     PartClosureBorrowMut,
+    #[expect(unused)]
+    PartCtorBorrow,
+    #[expect(unused)]
+    PartCtorBorrowMut,
     PartArgBorrow,
     PartArgBorrowExtended,
     PartArgBorrowMut,
@@ -427,8 +431,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             unreachable!("{target:#?} = {place:#?}");
                         }
                     },
-                    mir::AggregateKind::Coroutine(_, _) |
-                    mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
+                    mir::AggregateKind::Coroutine(_, _) | mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
                 }
             }
         }
@@ -436,7 +439,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
         assert!(target.just_local());
 
-        self.states[bb].add_assign(&mut self.pats);
+        self.states[bb].add_assign(*target, &mut self.pats);
     }
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
@@ -445,9 +448,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             if let Some(anon_places) = self.states[bb].remove_anon(place) {
                 match self.info.locals[&target.local].kind {
                     LocalKind::Return => {
-                        let (is_all, is_part) = anon_places.iter().fold((false, false), |(is_all, is_part), place| {
-                            (is_all || place.just_local(), is_part || place.is_part())
-                        });
+                        let (is_all, is_part) = anon_places.place_props();
 
                         if is_all {
                             self.pats.insert(OwnedPat::MovedToReturn);
@@ -494,6 +495,65 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         );
                     }
                 },
+            }
+        }
+
+        if let Rvalue::Aggregate(box agg_kind, fields) = rval {
+            for field in fields.iter() {
+                let state = &mut self.states[bb];
+                let Operand::Move(place) = field else {
+                    continue;
+                };
+                let mut parts: SmallVec<[ContainerContent; 1]> = SmallVec::new();
+                if let Some(bro_info) = state.has_bro(place) {
+                    parts.extend(bro_info.as_content());
+                }
+                if let Some(anon) = state.remove_anon(place) {
+                    let (is_all, is_part) = anon.place_props();
+                    if is_all {
+                        parts.push(ContainerContent::Owned);
+                    }
+                    if is_part {
+                        parts.push(ContainerContent::Part);
+                    }
+                }
+                if parts.is_empty() {
+                    continue;
+                };
+
+                match agg_kind {
+                    mir::AggregateKind::Array(_)
+                    | mir::AggregateKind::Tuple
+                    | mir::AggregateKind::Adt(_, _, _, _, _) => {
+
+                    },
+                    mir::AggregateKind::Closure(_, _) => {
+                        if parts
+                            .iter()
+                            .any(|part| matches!(part, ContainerContent::Loan | ContainerContent::PartLoan))
+                        {
+                            self.info.stats.borrow_mut().owned.borrowed_for_closure_count += 1;
+                        } else if parts
+                            .iter()
+                            .any(|part| matches!(part, ContainerContent::LoanMut | ContainerContent::PartLoanMut))
+                        {
+                            self.info.stats.borrow_mut().owned.borrowed_mut_for_closure_count += 1;
+                        }
+
+                        if parts.contains(&ContainerContent::Loan) {
+                            self.pats.insert(OwnedPat::ClosureBorrow);
+                        } else if parts.contains(&ContainerContent::LoanMut) {
+                            self.pats.insert(OwnedPat::ClosureBorrowMut);
+                        }
+
+                        if parts.contains(&ContainerContent::PartLoan) {
+                            self.pats.insert(OwnedPat::PartClosureBorrow);
+                        } else if parts.contains(&ContainerContent::PartLoanMut) {
+                            self.pats.insert(OwnedPat::PartClosureBorrowMut);
+                        }
+                    },
+                    mir::AggregateKind::Coroutine(_, _) | mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
+                }
             }
         }
     }
@@ -549,7 +609,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
 
                 if dest.local == self.local {
-                    self.states[bb].add_assign(&mut self.pats);
+                    self.states[bb].add_assign(*dest, &mut self.pats);
                 }
             },
 
@@ -603,9 +663,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 for arg in args {
                     if let Some(anon_places) = self.states[bb].remove_anon(&arg) {
                         // These are not mutually exclusive. A rare cupple for sure, but now unseen
-                        let (is_all, is_part) = anon_places.iter().fold((false, false), |(is_all, is_part), place| {
-                            (is_all || place.just_local(), is_part || place.is_part())
-                        });
+                        let (is_all, is_part) = anon_places.place_props();
 
                         if is_all {
                             self.pats.insert(OwnedPat::MovedToFn);

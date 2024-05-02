@@ -21,25 +21,25 @@ fn use_arg_func(func: fn(&String) -> &str) {
 }
 
 #[warn(clippy::borrow_pats)]
-fn call_closure_with_arg(s: String)  {
+fn call_closure_with_arg(s: String) {
     let close = |s: &String| s.len();
     close(&s);
 }
 
 #[warn(clippy::borrow_pats)]
-fn call_closure_borrow_env(s: String)  {
+fn call_closure_borrow_env(s: String) {
     let close = || s.len();
     close();
 }
 
 #[warn(clippy::borrow_pats)]
-fn call_closure_move_s(s: String)  {
+fn call_closure_move_s(s: String) {
     let close = move || s.len();
     close();
 }
 
 #[warn(clippy::borrow_pats)]
-fn call_closure_move_field(ex: Example)  {
+fn call_closure_move_field(ex: Example) {
     let close = move || ex.owned_1.len();
     close();
 }

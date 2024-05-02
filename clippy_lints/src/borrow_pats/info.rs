@@ -278,8 +278,7 @@ impl SimpleTyKind {
             rustc_middle::ty::TyKind::Foreign(_) => SimpleTyKind::Foreign,
             rustc_middle::ty::TyKind::RawPtr(_) => SimpleTyKind::RawPtr,
 
-            rustc_middle::ty::TyKind::FnDef(_, _)
-            | rustc_middle::ty::TyKind::FnPtr(_) => SimpleTyKind::Fn,
+            rustc_middle::ty::TyKind::FnDef(_, _) | rustc_middle::ty::TyKind::FnPtr(_) => SimpleTyKind::Fn,
             rustc_middle::ty::TyKind::Closure(_, _) => SimpleTyKind::Closure,
 
             rustc_middle::ty::TyKind::Alias(rustc_middle::ty::AliasKind::Opaque, _)

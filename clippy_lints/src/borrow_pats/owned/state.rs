@@ -13,7 +13,8 @@ pub struct StateInfo<'tcx> {
     /// This is a set of values that *might* contain the owned value.
     /// MIR has this *beautiful* habit of moving stuff into anonymous
     /// locals first before using it further.
-    pub anons: FxHashMap<Local, AnonStorage<'tcx>>,
+    anons: FxHashMap<Local, AnonStorage<'tcx>>,
+    containers: FxHashMap<Local, ContainerInfo>,
     /// This set contains borrows, these are often used for temporary
     /// borrows
     ///
@@ -56,7 +57,36 @@ pub struct StateInfo<'tcx> {
     phase_borrow: Vec<(Local, Place<'tcx>)>,
 }
 
-type AnonStorage<'tcx> = SmallVec<[Place<'tcx>; 1]>;
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
+pub struct AnonStorage<'tcx> {
+    places: SmallVec<[Place<'tcx>; 1]>,
+}
+
+impl<'tcx> AnonStorage<'tcx> {
+    /// The first value indicates that this contains the whole palce,
+    /// the second one that this contains a part. These two are not
+    /// mutually exclusive
+    pub fn place_props(&self) -> (bool, bool) {
+        self.places.iter().fold((false, false), |(is_all, is_part), place| {
+            (is_all || place.just_local(), is_part || place.is_part())
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ContainerInfo {
+    content: FxHashSet<ContainerContent>,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ContainerContent {
+    Loan,
+    LoanMut,
+    PartLoan,
+    PartLoanMut,
+    Owned,
+    Part,
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BorrowInfo<'tcx> {
@@ -94,6 +124,28 @@ impl<'tcx> BorrowInfo<'tcx> {
         } else {
             (self.broker.just_local(), self.broker.is_part())
         }
+    }
+
+    pub fn as_content(&self) -> SmallVec<[ContainerContent; 1]> {
+        let (is_all, is_part) = self.borrowed_props();
+        let mut vec = SmallVec::new();
+        if is_all {
+            if matches!(self.muta, Mutability::Not) {
+                vec.push(ContainerContent::Loan);
+            }
+            if matches!(self.muta, Mutability::Mut) {
+                vec.push(ContainerContent::LoanMut);
+            }
+        }
+        if is_part {
+            if matches!(self.muta, Mutability::Not) {
+                vec.push(ContainerContent::PartLoan);
+            }
+            if matches!(self.muta, Mutability::Mut) {
+                vec.push(ContainerContent::PartLoanMut);
+            }
+        }
+        vec
     }
 }
 
@@ -156,15 +208,24 @@ impl<'tcx> StateInfo<'tcx> {
         self.anons.remove(&local);
         self.borrows.remove(&local);
         self.phase_borrow.retain(|(phase_local, _place)| *phase_local != local);
+        self.containers.remove(&local);
     }
 
     pub fn add_anon(&mut self, anon: Local, src: Place<'tcx>) {
-        self.anons.entry(anon).or_default().push(src);
+        self.anons.entry(anon).or_default().places.push(src);
     }
 
     pub fn add_anon_places(&mut self, anon: Local, places: AnonStorage<'tcx>) {
         let old_places = self.anons.insert(anon, places);
         assert!(old_places.is_none(), "Have fun debugging this one");
+    }
+
+    #[expect(unused)]
+    pub fn add_container(&mut self, anon: Local, info: ContainerInfo) {
+        self.containers
+            .entry(anon)
+            .and_modify(|other| other.content.extend(info.content.iter()))
+            .or_insert(info);
     }
 
     /// This tries to remove the given place from the known anons that hold this value.
@@ -189,7 +250,7 @@ impl<'tcx> StateInfo<'tcx> {
         self.state.push((new_state, self.bb));
     }
 
-    pub fn add_assign(&mut self, pats: &mut BTreeSet<OwnedPat>) {
+    pub fn add_assign(&mut self, place: Place<'tcx>, pats: &mut BTreeSet<OwnedPat>) {
         let is_override = match self.state() {
             // No-op the most normal and simple state
             State::Moved | State::Empty => false,
@@ -209,12 +270,19 @@ impl<'tcx> StateInfo<'tcx> {
 
             State::None => unreachable!(),
         };
-        if is_override {
-            pats.insert(OwnedPat::Overwrite);
+        if place.just_local() {
+            if is_override {
+                pats.insert(OwnedPat::Overwrite);
+            }
+            // Regardless of the original state, we clear everything else
+            self.clear(State::Filled);
+        } else if place.is_part() {
+            if is_override {
+                pats.insert(OwnedPat::OverwritePart);
+            }
+        } else {
+            unreachable!();
         }
-
-        // Regardless of the original state, we clear everything else
-        self.clear(State::Filled);
     }
 
     pub fn add_borrow(
@@ -395,7 +463,7 @@ impl<'tcx> StateInfo<'tcx> {
         }
     }
 
-    pub fn has_bro(&mut self, anon: &Place<'_>) -> Option<BorrowInfo<'tcx>> {
+    pub fn has_bro(&self, anon: &Place<'_>) -> Option<BorrowInfo<'tcx>> {
         if let Some((_loc, place)) = self.phase_borrow.iter().find(|(local, _place)| *local == anon.local) {
             // TwoPhaseBorrows are always mutable
             Some(BorrowInfo::new(*place, Mutability::Mut, BroKind::Anon))
@@ -413,6 +481,7 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
             anons: Default::default(),
             borrows: Default::default(),
             phase_borrow: Default::default(),
+            containers: Default::default(),
         }
     }
 
