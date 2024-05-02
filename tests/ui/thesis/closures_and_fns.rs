@@ -21,12 +21,6 @@ fn use_arg_func(func: fn(&String) -> &str) {
 }
 
 #[warn(clippy::borrow_pats)]
-fn borrow_as_generic(s: String) {
-    let _tee = pass_t(&s);
-    // let _len = tee.len();
-}
-
-#[warn(clippy::borrow_pats)]
 fn call_closure_with_arg(s: String)  {
     let close = |s: &String| s.len();
     close(&s);
