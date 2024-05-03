@@ -1,4 +1,5 @@
 //@rustc-env: CLIPPY_PETS_TEST_RELATIONS=1
+//@rustc-env: CLIPPY_PRINT_MIR=1
 
 #[warn(clippy::borrow_pats)]
 fn no_rep(_: u32, _: String) -> u16 {

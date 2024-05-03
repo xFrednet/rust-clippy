@@ -1,3 +1,5 @@
+//@rustc-env: CLIPPY_PRINT_MIR=1
+
 struct A {
     field: String,
 }

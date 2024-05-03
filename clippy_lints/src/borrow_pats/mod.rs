@@ -110,6 +110,7 @@ pub struct BorrowPats {
     print_call_relations: bool,
     print_locals: bool,
     print_stats: bool,
+    print_mir: bool,
 }
 
 impl BorrowPats {
@@ -120,6 +121,7 @@ impl BorrowPats {
         let print_call_relations = std::env::var("CLIPPY_PETS_TEST_RELATIONS").is_ok();
         let print_locals = std::env::var("CLIPPY_LOCALS_PRINT").is_ok();
         let print_stats = std::env::var("CLIPPY_STATS_PRINT").is_ok();
+        let print_mir = std::env::var("CLIPPY_PRINT_MIR").is_ok();
 
         Self {
             msrv,
@@ -128,6 +130,7 @@ impl BorrowPats {
             print_call_relations,
             print_locals,
             print_stats,
+            print_mir,
         }
     }
 
@@ -161,15 +164,15 @@ impl BorrowPats {
             println!("# {body_name:?}");
         }
 
-        if lint_level == Level::Forbid {
+        if self.print_mir && lint_level == Level::Forbid {
             print_debug_info(cx, body, def_id);
         }
 
+        let mut info = AnalysisInfo::new(cx, def_id);
+
+        let (body_info, mut body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
+
         if lint_level != Level::Allow {
-            let mut info = AnalysisInfo::new(cx, def_id);
-
-            let (body_info, mut body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
-
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
                 println!("- Incompltete Stats: {:#?}", info.stats.borrow());
@@ -183,26 +186,28 @@ impl BorrowPats {
                 println!("# Locals");
                 println!("{:#?}", info.locals);
             }
+        }
 
-            for (local, local_info) in info.locals.iter().skip(1) {
-                match &local_info.kind {
-                    LocalKind::Return => unreachable!("Skipped before"),
-                    LocalKind::UserVar(name, var_info) => {
-                        if var_info.owned {
-                            let pats = owned::OwnedAnalysis::run(&info, *local);
-                            if self.print_pats {
-                                println!("- {:<15}: ({var_info}) {pats:?}", name.as_str());
-                            }
-                        } else {
-                            eprintln!("TODO: implement analysis for named refs");
+        for (local, local_info) in info.locals.iter().skip(1) {
+            match &local_info.kind {
+                LocalKind::Return => unreachable!("Skipped before"),
+                LocalKind::UserVar(name, var_info) => {
+                    if var_info.owned {
+                        let pats = owned::OwnedAnalysis::run(&info, *local);
+                        if self.print_pats && lint_level != Level::Allow {
+                            println!("- {:<15}: ({var_info}) {pats:?}", name.as_str());
                         }
-                    },
-                    LocalKind::AnonVar | LocalKind::Unused => continue,
-                }
+                    } else {
+                        // eprintln!("TODO: implement analysis for named refs");
+                    }
+                },
+                LocalKind::AnonVar | LocalKind::Unused => continue,
             }
+        }
 
-            body::update_pats_from_stats(&mut body_pats, &info);
+        body::update_pats_from_stats(&mut body_pats, &info);
 
+        if lint_level != Level::Allow {
             if self.print_pats {
                 // Return must be printed at the end, as it might be modified by
                 // the following analysis thingies

@@ -75,6 +75,7 @@
 }
 - Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
+Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_1"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 0,

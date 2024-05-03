@@ -1,4 +1,5 @@
 //@rustc-env: CLIPPY_PETS_PRINT=1
+//@rustc-env: CLIPPY_PRINT_MIR=1
 
 fn extend_string(data: &String) -> &String {
     data

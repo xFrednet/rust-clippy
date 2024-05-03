@@ -1,4 +1,5 @@
 //@rustc-env: CLIPPY_PETS_TEST_RELATIONS=1
+//@rustc-env: CLIPPY_PRINT_MIR=1
 
 //! A file to test dependencies between function parameters
 #![allow(unused)]

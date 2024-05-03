@@ -1,3 +1,5 @@
+//@rustc-env: CLIPPY_PRINT_MIR=1
+
 #![allow(unused)]
 
 fn magic_1<T>(b: &T) {}
