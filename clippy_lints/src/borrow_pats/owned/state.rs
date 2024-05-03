@@ -1,5 +1,7 @@
 #![warn(unused)]
 
+use rustc_index::bit_set::GrowableBitSet;
+
 use crate::borrow_pats::MyStateInfo;
 
 use super::super::prelude::*;
@@ -205,7 +207,7 @@ impl<'tcx> StateInfo<'tcx> {
     }
     /// Notifies the state that a local has been killed
     pub fn kill_local(&mut self, local: Local) {
-        self.anons.remove(&local);
+        // self.anons.remove(&local);
         self.borrows.remove(&local);
         self.phase_borrow.retain(|(phase_local, _place)| *phase_local != local);
         self.containers.remove(&local);
@@ -621,7 +623,7 @@ fn inspect_deviation<'b>(
         return &b[(idx + 1)..];
     }
 
-    let mut b_set = BitSet::new_empty(a_state.1.as_usize().max(b_state.1.as_usize()) + 1);
+    let mut b_set = GrowableBitSet::with_capacity(a_state.1.as_usize().max(b_state.1.as_usize()) + 1);
     b.iter().for_each(|(_, bb)| {
         b_set.insert(*bb);
     });

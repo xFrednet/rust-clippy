@@ -6,7 +6,7 @@ use crate::borrow_pats::{BodyStats, DropKind, PlaceMagic, PrintPrevent, SimpleTy
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
 
-use clippy_utils::ty::is_copy;
+use clippy_utils::ty::{has_drop, is_copy};
 use mid::mir::visit::Visitor;
 use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
 use mid::ty::TyCtxt;
@@ -284,7 +284,8 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
                 let decl = &self.body.local_decls[local];
                 let drop = if !decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env) {
                     DropKind::NonDrop
-                } else if decl.ty.has_significant_drop(self.tcx.0, self.cx.0.param_env) {
+                // } else if decl.ty.has_significant_drop(self.tcx.0, self.cx.0.param_env) {
+                } else if has_drop(self.cx.0, decl.ty) {
                     DropKind::SelfDrop
                 } else {
                     DropKind::PartDrop

@@ -51,6 +51,8 @@ impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
             .field("locals", &self.locals)
             .field("preds", &self.preds)
             .field("preds_unlooped", &self.preds_unlooped)
+            .field("visit_order", &self.visit_order)
+            .field("stats", &self.stats)
             .finish()
     }
 }
@@ -155,6 +157,9 @@ impl<'tcx> LocalInfo<'tcx> {
         } else if place.just_local() {
             self.assign_count += 1;
             self.data.mix(assign);
+        } else if place.is_indirect() {
+            // FIXME: Assignment to owner, not tracked for my thesis since we
+            // only follow anon borrows
         } else {
             todo!("Handle weird assign {place:#?}\n{self:#?}");
         }

@@ -20,7 +20,7 @@ pub fn visit_body_with_state<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &Analy
         if bb == START_BLOCK {
             vis.init_start_block_state();
         } else {
-            let preds = &info.preds[&bb];
+            let preds = &info.preds_unlooped[&bb];
             let mut state = V::State::new(bb);
             preds.iter().for_each(|bb| {
                 state.join(vis, bb);

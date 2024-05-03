@@ -215,6 +215,10 @@ pub enum OwnedPat {
     ConditionalOverwride,
     ConditionalMove,
     ConditionalDrop,
+    /// It turns out, that the `?` operator potentually adds named values which are
+    /// then moved into anons and dropped right after
+    OwningAnonDrop,
+    PartOwningAnonDrop,
     /// This value is being dropped (by rustc) early to be replaced.
     ///
     /// ```
@@ -225,10 +229,16 @@ pub enum OwnedPat {
     /// data = String::from("Example");
     /// ```
     DropForReplacement,
-    #[expect(unused)]
     /// A pointer to this value was created. This is "mostly uninteresting" as
     /// these can only be used in unsafe code.
     AddressOf,
+    AddressOfMut,
+    AddressOfPart,
+    AddressOfMutPart,
+    /// The value is being used for a switch. This probably doesn't say too much
+    /// since only ints can be used directly. 
+    Switch,
+    SwitchPart,
 }
 
 impl<'a, 'tcx> MyVisitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
@@ -427,6 +437,24 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     },
                     mir::AggregateKind::Coroutine(_, _) | mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
                 }
+            }
+        }
+        
+        if let Rvalue::AddressOf(muta, place) = rval && place.local == self.local {
+            if place.just_local() {
+                if matches!(muta, Mutability::Not){
+                    self.pats.insert(OwnedPat::AddressOf);
+                } else {
+                    self.pats.insert(OwnedPat::AddressOfMut);
+                }
+            } else if place.is_part() {
+                if matches!(muta, Mutability::Not){
+                    self.pats.insert(OwnedPat::AddressOfPart);
+                } else {
+                    self.pats.insert(OwnedPat::AddressOfMutPart);
+                }
+            } else {
+                unreachable!("{self:#?} + {rval:#?}");
             }
         }
     }
@@ -640,8 +668,14 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if let Some(place) = op.place()
                     && place.local == self.local
                 {
-                    // I'm 70% sure this can't happen
-                    unreachable!("{term:?}");
+                    // I'm 70% sure this can't happen: Any yet it has
+                    if place.just_local() {
+                        self.pats.insert(OwnedPat::Switch);
+                    } else if place.is_part() {
+                        self.pats.insert(OwnedPat::SwitchPart);
+                    } else {
+                        unreachable!("{self:#?} + {term:#?}");
+                    }
                 }
             },
             // Controll flow or unstable features. Uninteresting for values
@@ -806,11 +840,17 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             },
             TerminatorKind::Drop { place, .. } => {
-                debug_assert!(
-                    self.states[bb].remove_anon(place).is_none(),
-                    "AFAIK, the field is always dropped directly"
-                );
-                // I believe this is uninteresting
+                if let Some(anon) = self.states[bb].remove_anon(place) {
+                    let (is_all, is_part) = anon.place_props();
+                    if is_all {
+                        self.pats.insert(OwnedPat::OwningAnonDrop);
+                    }
+                    if is_part {
+                        self.pats.insert(OwnedPat::PartOwningAnonDrop);
+                    }
+                }
+
+                // I believe this is uninteresting: Your believe was wrong!
             },
             // Controll flow or unstable features. Uninteresting for values
             TerminatorKind::Goto { .. }

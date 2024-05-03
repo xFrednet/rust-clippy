@@ -183,7 +183,7 @@
 }
 
 # "two_phase_borrow_1"
-- vec            : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut, TwoPhasedBorrow}
+- vec            : (Mutable  , Owned    , Argument, NonCopy, SelfDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut, HasTwoPhaseBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,
@@ -207,7 +207,7 @@
 
 # "two_phase_borrow_2"
 - num            : (Mutable  , Owned    , Argument, Copy   , NonDrop , Primitive) {Overwrite}
-- vec            : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut, TwoPhasedBorrow}
+- vec            : (Mutable  , Owned    , Argument, NonCopy, SelfDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut, TwoPhasedBorrow}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut, HasTwoPhaseBorrow}
 - Stats: BodyStats {
     return_relations_signature: 0,

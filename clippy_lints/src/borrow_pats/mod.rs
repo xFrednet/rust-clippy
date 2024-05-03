@@ -111,6 +111,7 @@ pub struct BorrowPats {
     print_locals: bool,
     print_stats: bool,
     print_mir: bool,
+    print_fns: bool,
 }
 
 impl BorrowPats {
@@ -122,6 +123,7 @@ impl BorrowPats {
         let print_locals = std::env::var("CLIPPY_LOCALS_PRINT").is_ok();
         let print_stats = std::env::var("CLIPPY_STATS_PRINT").is_ok();
         let print_mir = std::env::var("CLIPPY_PRINT_MIR").is_ok();
+        let print_fns = std::env::var("CLIPPY_PRINT_FNS").is_ok();
 
         Self {
             msrv,
@@ -131,6 +133,7 @@ impl BorrowPats {
             print_locals,
             print_stats,
             print_mir,
+            print_fns,
         }
     }
 
@@ -160,6 +163,9 @@ impl BorrowPats {
             .0;
         let body = cx.tcx.hir().body(body_id);
 
+        if self.print_fns {
+            println!("# {body_name:?}");
+        }
         if lint_level != Level::Allow && self.print_pats {
             println!("# {body_name:?}");
         }
