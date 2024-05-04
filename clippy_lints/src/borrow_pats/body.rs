@@ -174,6 +174,8 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
                 return;
             },
             Rvalue::Ref(_reg, kind, src) => {
+                self.stats.ref_stmt_ctn += 1;
+
                 let is_mut = matches!(kind, BorrowKind::Mut { .. });
                 if is_mut {
                     self.data_flow[src.local].push(MutInfo::MutRef(target.local));
@@ -260,21 +262,32 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
 pub(crate) fn update_pats_from_stats(pats: &mut BTreeSet<BodyPat>, info: &AnalysisInfo<'_>) {
     let stats = info.stats.borrow();
 
+    if stats.ref_stmt_ctn > 0 {
+        pats.insert(BodyPat::Borrow);
+    }
+
     if stats.owned.named_borrow_count > 0 {
-        pats.insert(BodyPat::HasNamedBorrow);
+        pats.insert(BodyPat::OwnedNamedBorrow);
     }
     if stats.owned.named_borrow_mut_count > 0 {
-        pats.insert(BodyPat::HasNamedBorrowMut);
+        pats.insert(BodyPat::OwnedNamedBorrowMut);
     }
 
     if stats.owned.arg_borrow_count > 0 {
-        pats.insert(BodyPat::HasTempBorrow);
+        pats.insert(BodyPat::OwnedArgBorrow);
     }
     if stats.owned.arg_borrow_mut_count > 0 {
-        pats.insert(BodyPat::HasTempBorrowMut);
+        pats.insert(BodyPat::OwnedArgBorrowMut);
     }
 
     if stats.owned.two_phased_borrows > 0 {
-        pats.insert(BodyPat::HasTwoPhaseBorrow);
+        pats.insert(BodyPat::OwnedTwoPhaseBorrow);
+    }
+
+    if stats.owned.borrowed_for_closure_count > 0 {
+        pats.insert(BodyPat::OwnedClosureBorrow);
+    }
+    if stats.owned.borrowed_mut_for_closure_count > 0 {
+        pats.insert(BodyPat::OwnedClosureBorrowMut);
     }
 }

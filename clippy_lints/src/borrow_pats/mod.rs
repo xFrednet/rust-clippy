@@ -79,6 +79,8 @@ pub use util::*;
 
 const RETURN: Local = Local::from_u32(0);
 
+const OUTPUT_MARKER: &'static str = "[THESIS-ANALYSIS-OUTPUT]";
+
 declare_clippy_lint! {
     /// ### What it does
     ///
@@ -250,9 +252,13 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
         }
     }
 
-    fn check_crate_post(&mut self,_: &LateContext<'tcx>,) {
+    fn check_crate_post(&mut self, _: &LateContext<'tcx>) {
         if self.enabled {
-            dbg!(&self.stats);
+            let stats = std::mem::take(&mut self.stats);
+            let serde = stats.to_serde();
+            println!("{} {}", OUTPUT_MARKER, serde_json::to_string(&serde).unwrap());
+        } else {
+            println!(r#"{} {{"Disabled due to feature usage"}} "#, OUTPUT_MARKER);
         }
     }
 

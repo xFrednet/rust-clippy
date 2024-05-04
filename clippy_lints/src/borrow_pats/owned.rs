@@ -65,7 +65,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub enum OwnedPat {
     /// The owned value might be returned
     ///
@@ -79,7 +79,6 @@ pub enum OwnedPat {
     /// See RFC: #320
     DynamicDrop,
     /// Only a part of the struct is being dropped
-    #[expect(unused)]
     PartDrop,
     /// The value was moved
     Moved,
@@ -236,7 +235,7 @@ pub enum OwnedPat {
     AddressOfPart,
     AddressOfMutPart,
     /// The value is being used for a switch. This probably doesn't say too much
-    /// since only ints can be used directly. 
+    /// since only ints can be used directly.
     Switch,
     SwitchPart,
 }
@@ -439,16 +438,18 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             }
         }
-        
-        if let Rvalue::AddressOf(muta, place) = rval && place.local == self.local {
+
+        if let Rvalue::AddressOf(muta, place) = rval
+            && place.local == self.local
+        {
             if place.just_local() {
-                if matches!(muta, Mutability::Not){
+                if matches!(muta, Mutability::Not) {
                     self.pats.insert(OwnedPat::AddressOf);
                 } else {
                     self.pats.insert(OwnedPat::AddressOfMut);
                 }
             } else if place.is_part() {
-                if matches!(muta, Mutability::Not){
+                if matches!(muta, Mutability::Not) {
                     self.pats.insert(OwnedPat::AddressOfPart);
                 } else {
                     self.pats.insert(OwnedPat::AddressOfMutPart);
@@ -513,7 +514,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     if self.states[bb].has_bro(src).is_some() {
                         // FIXME: Is this correct?
                         self.states[bb].add_ref_ref(*target, *src, self.info, &mut self.pats);
-                        
+
                         // unreachable!(
                         //     "Handle {:#?} for {target:#?} = {rval:#?} (at {bb:#?})",
                         //     src.projection.as_slice()
@@ -619,6 +620,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         Validity::Valid => {
                             if place.just_local() {
                                 self.states[bb].clear(State::Dropped);
+                            } else if place.is_part() {
+                                self.pats.insert(OwnedPat::PartDrop);
                             }
                         },
                         Validity::Maybe => {

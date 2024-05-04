@@ -185,7 +185,7 @@ impl LocalKind {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub struct VarInfo {
     pub argument: bool,
     /// Indicates if this is mutable
@@ -219,14 +219,14 @@ impl std::fmt::Display for VarInfo {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub enum DropKind {
     NonDrop,
     PartDrop,
     SelfDrop,
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub enum SimpleTyKind {
     /// The pretty unit type
     Unit,

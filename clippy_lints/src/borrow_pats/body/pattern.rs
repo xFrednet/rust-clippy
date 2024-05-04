@@ -4,26 +4,29 @@ use crate::borrow_pats::SimpleTyKind;
 
 use super::{AnalysisInfo, RETURN_LOCAL};
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub enum BodyPat {
+    Borrow,
     /// This function doesn't take any arguments
     NoArguments,
     /// Indicates that a body contained an anonymous loan. These are usually
     /// only used for temp borrows.
-    HasTempBorrow,
-    HasTempBorrowMut,
+    OwnedArgBorrow,
+    OwnedArgBorrowMut,
+    OwnedClosureBorrow,
+    OwnedClosureBorrowMut,
     /// Indicates that a body contained a named loan. So cases like
     /// `_2 = &_1`, where `_2` is a named variable.
-    HasNamedBorrow,
-    HasNamedBorrowMut,
+    OwnedNamedBorrow,
+    OwnedNamedBorrowMut,
     /// This function uses a two phased borrow. This is different from rustc's
     /// value tracked in `BorrowKind` as this this pattern is only added if a two
     /// phase borrow actually happened (i.e. the code would be rejected without)
-    HasTwoPhaseBorrow,
+    OwnedTwoPhaseBorrow,
     ReturnedStaticLoanForNonStatic,
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub struct BodyInfo {
     pub(super) return_ty: SimpleTyKind,
     pub(super) is_const: bool,
@@ -64,7 +67,7 @@ impl std::fmt::Display for BodyInfo {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
 pub enum BodyContext {
     /// The function is simple and free.
     Free,
