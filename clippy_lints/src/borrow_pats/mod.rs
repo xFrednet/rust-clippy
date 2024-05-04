@@ -112,6 +112,8 @@ pub struct BorrowPats {
     print_stats: bool,
     print_mir: bool,
     print_fns: bool,
+    debug_func_name: Symbol,
+    stats: CrateStats,
 }
 
 impl BorrowPats {
@@ -134,6 +136,8 @@ impl BorrowPats {
             print_stats,
             print_mir,
             print_fns,
+            debug_func_name: Symbol::intern("extract_repetition"),
+            stats: Default::default(),
         }
     }
 
@@ -170,12 +174,15 @@ impl BorrowPats {
             println!("# {body_name:?}");
         }
 
-        if self.print_mir && lint_level == Level::Forbid {
+        if self.print_mir && lint_level == Level::Forbid || body_name == self.debug_func_name {
             print_debug_info(cx, body, def_id);
         }
 
         let mut info = AnalysisInfo::new(cx, def_id);
 
+        if body_name == self.debug_func_name {
+            dbg!(&info);
+        }
         let (body_info, mut body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
 
         if lint_level != Level::Allow {
@@ -203,6 +210,8 @@ impl BorrowPats {
                         if self.print_pats && lint_level != Level::Allow {
                             println!("- {:<15}: ({var_info}) {pats:?}", name.as_str());
                         }
+
+                        self.stats.add_pat(*var_info, pats);
                     } else {
                         // eprintln!("TODO: implement analysis for named refs");
                     }
@@ -227,6 +236,8 @@ impl BorrowPats {
                 println!();
             }
         }
+
+        self.stats.add_body(info.body, info.stats.take(), body_info, body_pats);
     }
 }
 
@@ -236,6 +247,12 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
         if !self.enabled && self.print_pats {
             println!("Disabled due to feature use");
+        }
+    }
+
+    fn check_crate_post(&mut self,_: &LateContext<'tcx>,) {
+        if self.enabled {
+            dbg!(&self.stats);
         }
     }
 

@@ -28,7 +28,6 @@ pub struct AnalysisInfo<'tcx> {
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
     pub cfg: BTreeMap<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
-    pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
     pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     /// The final block that contains the return.
     pub return_block: BasicBlock,
@@ -46,7 +45,6 @@ impl<'tcx> std::fmt::Debug for AnalysisInfo<'tcx> {
             .field("body", &self.body)
             .field("def_id", &self.def_id)
             .field("cfg", &self.cfg)
-            .field("loops", &self.loops)
             .field("terms", &self.terms)
             .field("locals", &self.locals)
             .field("preds", &self.preds)
@@ -70,7 +68,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
         // This needs deconstruction to kill the loan of self
         let MetaAnalysis {
             cfg,
-            loops,
             terms,
             return_block,
             locals,
@@ -90,7 +87,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
             body,
             def_id,
             cfg,
-            loops,
             terms,
             return_block,
             locals,
@@ -109,11 +105,6 @@ impl<'tcx> AnalysisInfo<'tcx> {
             b,
             borrowck::consumers::PlaceConflictBias::NoOverlap,
         )
-    }
-
-    #[expect(unused)]
-    pub fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
-        super::find_loop(&self.loops, bb)
     }
 }
 
@@ -194,7 +185,7 @@ impl LocalKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct VarInfo {
     pub argument: bool,
     /// Indicates if this is mutable
@@ -228,14 +219,14 @@ impl std::fmt::Display for VarInfo {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum DropKind {
     NonDrop,
     PartDrop,
     SelfDrop,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SimpleTyKind {
     /// The pretty unit type
     Unit,

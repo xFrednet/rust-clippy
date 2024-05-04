@@ -164,13 +164,6 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 
         self.stats.arg_relations_signature += maybe_parents.len();
         self.stats.arg_relations_found += checker.connection_count();
-
-        // Debugging
-        for maybe in maybe_parents {
-            if !checker.found_connection(*maybe) {
-                println!("Connection from {child:?} to {maybe:?} was not confirmed");
-            }
-        }
     }
 }
 

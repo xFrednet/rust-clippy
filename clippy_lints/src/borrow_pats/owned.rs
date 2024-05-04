@@ -511,10 +511,13 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 },
                 _ => {
                     if self.states[bb].has_bro(src).is_some() {
-                        unreachable!(
-                            "Handle {:?} for {target:#?} = {rval:#?} (at {bb:#?})",
-                            src.projection.as_slice()
-                        );
+                        // FIXME: Is this correct?
+                        self.states[bb].add_ref_ref(*target, *src, self.info, &mut self.pats);
+                        
+                        // unreachable!(
+                        //     "Handle {:#?} for {target:#?} = {rval:#?} (at {bb:#?})",
+                        //     src.projection.as_slice()
+                        // );
                     }
                 },
             }

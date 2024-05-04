@@ -23,7 +23,7 @@ pub enum BodyPat {
     ReturnedStaticLoanForNonStatic,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BodyInfo {
     pub(super) return_ty: SimpleTyKind,
     pub(super) is_const: bool,

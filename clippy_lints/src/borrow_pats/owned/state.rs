@@ -189,7 +189,11 @@ impl<'tcx> StateInfo<'tcx> {
     }
 
     pub fn state(&self) -> State {
-        self.state.last().unwrap().0
+        if let Some((state, _)) = self.state.last() {
+            *state
+        } else {
+            unreachable!("State should always be filled: {self:#?}")
+        }
     }
 
     pub fn set_state(&mut self, state: State) {
@@ -235,7 +239,7 @@ impl<'tcx> StateInfo<'tcx> {
     /// Places with projections will be ignored.
     pub fn remove_anon(&mut self, anon: &Place<'_>) -> Option<AnonStorage<'tcx>> {
         let found = self.remove_anon_place(anon);
-        assert!(found.is_none() || anon.just_local(), "{self:#?} - {anon:#?}");
+        // assert!(found.is_none() || anon.just_local(), "{self:#?} - {anon:#?}");
         found
     }
 

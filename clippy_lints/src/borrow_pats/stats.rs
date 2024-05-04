@@ -1,3 +1,55 @@
+use std::collections::BTreeSet;
+
+use rustc_data_structures::fx::FxHashMap;
+use rustc_middle::mir;
+
+use super::{body::{BodyInfo, BodyPat}, owned::OwnedPat, VarInfo};
+
+
+#[derive(Debug, Default)]
+pub struct CrateStats {
+    aggregated_body_stats: BodyStats,
+    body_ctn: usize,
+    total_bb_ctn: usize,
+    total_local_ctn: usize,
+    max_bb_ctn: usize,
+    max_local_ctn: usize,
+    owned_pats: FxHashMap<(VarInfo, BTreeSet<OwnedPat>), usize>,
+    body_pats: FxHashMap<(BodyInfo, BTreeSet<BodyPat>), usize>,
+    total_wrap: bool,
+}
+
+impl CrateStats {
+    pub fn add_pat(&mut self, var: VarInfo, pats: BTreeSet<OwnedPat>) {
+        let pat_ctn = self.owned_pats.entry((var, pats)).or_default();
+        *pat_ctn += 1;
+    }
+    
+    pub fn add_body(&mut self, body: &mir::Body<'_>, stats: BodyStats, info: BodyInfo, pats: BTreeSet<BodyPat>) {
+        // BBs
+        {
+            let bb_ctn = body.basic_blocks.len();
+            self.max_bb_ctn = self.max_bb_ctn.max(bb_ctn);
+            let (new_total, wrapped) =  self.total_bb_ctn.overflowing_add(bb_ctn);
+            self.total_bb_ctn = new_total;
+            self.total_wrap |= wrapped;
+        }
+        // Locals
+        {
+            let local_ctn = body.local_decls.len();
+            self.max_local_ctn = self.max_local_ctn.max(local_ctn);
+            let (new_total, wrapped) =  self.max_local_ctn.overflowing_add(local_ctn);
+            self.max_local_ctn = new_total;
+            self.total_wrap |= wrapped;
+        }
+
+        self.aggregated_body_stats += stats;
+
+        let pat_ctn = self.body_pats.entry((info, pats)).or_default();
+        *pat_ctn += 1;
+    }
+}
+
 /// Most of these statistics need to be filled by the individual analysis passed.
 /// Every value should document which pass might modify/fill it.
 ///
@@ -50,6 +102,18 @@ pub struct BodyStats {
     pub owned: OwnedStats,
 }
 
+impl std::ops::AddAssign for BodyStats {
+    fn add_assign(&mut self, rhs: Self) {
+        self.return_relations_signature += rhs.return_relations_signature;
+        self.return_relations_found += rhs.return_relations_found;
+        self.arg_relations_signature += rhs.arg_relations_signature;
+        self.arg_relations_found += rhs.arg_relations_found;
+        self.arg_relation_possibly_missed_due_generics += rhs.arg_relation_possibly_missed_due_generics;
+        self.arg_relation_possibly_missed_due_to_late_bounds += rhs.arg_relation_possibly_missed_due_to_late_bounds;
+        self.owned += rhs.owned;
+    }
+}
+
 /// Stats for owned variables
 ///
 /// All of these are collected by the `OwnedAnalysis`
@@ -84,4 +148,18 @@ pub struct OwnedStats {
     /// - This only counts the confirmed two phased borrows.
     /// - The borrows that produce the two phased borrow are also counted above.
     pub two_phased_borrows: usize,
+}
+
+impl std::ops::AddAssign for OwnedStats {
+    fn add_assign(&mut self, rhs: Self) {
+        self.arg_borrow_count += rhs.arg_borrow_count;
+        self.arg_borrow_mut_count += rhs.arg_borrow_mut_count;
+        self.arg_borrow_extended_count += rhs.arg_borrow_extended_count;
+        self.arg_borrow_mut_extended_count += rhs.arg_borrow_mut_extended_count;
+        self.named_borrow_count += rhs.named_borrow_count;
+        self.named_borrow_mut_count += rhs.named_borrow_mut_count;
+        self.borrowed_for_closure_count += rhs.borrowed_for_closure_count;
+        self.borrowed_mut_for_closure_count += rhs.borrowed_mut_for_closure_count;
+        self.two_phased_borrows += rhs.two_phased_borrows;
+    }
 }
