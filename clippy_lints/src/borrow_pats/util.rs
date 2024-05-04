@@ -5,8 +5,7 @@ use clippy_utils::ty::{for_each_param_ty, for_each_ref_region, for_each_region};
 use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_index::bit_set::BitSet;
-use rustc_middle::mir::{BasicBlock, Body, Local, Operand, Place};
+use rustc_middle::mir::{Body, Local, Operand, Place};
 use rustc_middle::ty::{FnSig, GenericArgsRef, GenericPredicates, Region, Ty, TyCtxt, TyKind};
 use rustc_span::source_map::Spanned;
 
@@ -254,16 +253,6 @@ pub fn calc_fn_arg_relations<'tcx>(tcx: TyCtxt<'tcx>, fn_id: LocalDefId) -> FxHa
 
     let relations = builder.relations(RETURN_LOCAL, &fake_args[..]);
     relations
-}
-
-pub fn find_loop(
-    loops: &Vec<(BitSet<BasicBlock>, BasicBlock)>,
-    bb: BasicBlock,
-) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
-    loops
-        .iter()
-        .filter(|(set, _)| set.contains(bb))
-        .min_by(|(a, _), (b, _)| a.count().cmp(&b.count()))
 }
 
 pub fn has_mut_ref<'tcx>(ty: Ty<'tcx>) -> bool {

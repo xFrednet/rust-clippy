@@ -381,10 +381,15 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         {
             if place.just_local() {
                 self.pats.insert(OwnedPat::Borrow);
+            } else if place.is_indirect() {
+                return;
             } else if place.is_part() {
                 self.pats.insert(OwnedPat::PartBorrow);
             } else {
-                unreachable!();
+                unreachable!(
+                    "{target:#?} = {rval:#?} (at {bb:#?}) [{:#?}]\n{self:#?}",
+                    place.projection
+                );
             }
 
             if target.just_local() {

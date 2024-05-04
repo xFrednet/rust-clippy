@@ -138,7 +138,7 @@ impl BorrowPats {
             print_stats,
             print_mir,
             print_fns,
-            debug_func_name: Symbol::intern("extract_repetition"),
+            debug_func_name: Symbol::intern("super-weird"),
             stats: Default::default(),
         }
     }

@@ -493,8 +493,10 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
 
     fn join(&mut self, state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, bb: BasicBlock) -> bool {
         let other = &state_owner.states[bb];
+        if other.state.is_empty() {
+            return false;
+        }
         assert_ne!(other.state(), State::None);
-        let mut changed = false;
 
         // Base case where `self` is uninit
         if self.state.is_empty() {
@@ -558,33 +560,29 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
                 (Validity::Not, Validity::Not) => State::Empty,
                 (_, _) => State::MaybeFilled,
             };
-            changed = true;
             self.state.push((new_state, self.bb));
         }
 
         for (anon, other_places) in other.anons.iter() {
             if let Some(self_places) = self.anons.get_mut(anon) {
                 if self_places != other_places {
-                    #[expect(unused)]
-                    changed = true;
                     todo!();
                 }
             } else {
                 self.anons.insert(*anon, other_places.clone());
-                changed = true;
             }
         }
 
         // FIXME: Here we can have collisions where two anons reference different places... oh no...
-        let borrows_prev_len = self.borrows.len();
         self.borrows.extend(other.borrows.iter());
-        changed |= self.borrows.len() != borrows_prev_len;
 
-        let phase_borrow_len = self.phase_borrow.len();
         self.phase_borrow.extend(other.phase_borrow.iter());
-        changed |= self.phase_borrow.len() != phase_borrow_len;
 
-        changed
+        true
+    }
+
+    fn check_continue_diff_for_pats(&self, _state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, _con_block: BasicBlock) {
+        // TODO: Check continues
     }
 }
 

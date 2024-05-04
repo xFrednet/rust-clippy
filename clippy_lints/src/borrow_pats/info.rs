@@ -12,8 +12,9 @@ use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::Symbol;
+use smallvec::SmallVec;
 
-use super::{BodyStats, PlaceMagic};
+use super::{BodyStats, PlaceMagic, VisitKind};
 
 use {rustc_borrowck as borrowck, rustc_hir as hir};
 
@@ -35,7 +36,7 @@ pub struct AnalysisInfo<'tcx> {
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
     pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
-    pub visit_order: Vec<BasicBlock>,
+    pub visit_order: Vec<VisitKind>,
     pub stats: RefCell<BodyStats>,
 }
 
@@ -115,11 +116,7 @@ pub enum CfgInfo {
     Linear(BasicBlock),
     /// The control flow can diverge after this block and will join
     /// together at `join`
-    Condition { branches: Vec<BasicBlock> },
-    /// This basic block breaks loop. It could also be the first condition.
-    /// This includes the loop conditions at the start. However, it doesn't
-    /// have to be the first block of the loop.
-    Break { next: BasicBlock, brea: BasicBlock },
+    Condition { branches: SmallVec<[BasicBlock; 2]> },
     /// This branch doesn't have any successors
     None,
     /// Let's see if we can detect this

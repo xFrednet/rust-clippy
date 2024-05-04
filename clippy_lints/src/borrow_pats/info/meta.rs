@@ -1,14 +1,16 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 use crate::borrow_pats::info::VarInfo;
-use crate::borrow_pats::{BodyStats, DropKind, PlaceMagic, PrintPrevent, SimpleTyKind};
+use crate::borrow_pats::{
+    construct_visit_order, unloop_preds, BodyStats, DropKind, PlaceMagic, PrintPrevent, SimpleTyKind, VisitKind,
+};
 
 use super::super::{calc_call_local_relations, CfgInfo, DataInfo, LocalInfo, LocalOrConst};
 use super::LocalKind;
 
 use clippy_utils::ty::{has_drop, is_copy};
 use mid::mir::visit::Visitor;
-use mid::mir::{Body, Terminator, TerminatorKind, START_BLOCK};
+use mid::mir::{Body, Terminator, TerminatorKind};
 use mid::ty::TyCtxt;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_index::bit_set::BitSet;
@@ -16,6 +18,7 @@ use rustc_lint::LateContext;
 use rustc_middle as mid;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place, Rvalue};
+use smallvec::SmallVec;
 
 /// This analysis is special as it is always the first one to run. It collects
 /// information about the control flow etc, which will be used by future analysis.
@@ -34,7 +37,7 @@ pub struct MetaAnalysis<'a, 'tcx> {
     pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
     pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
     pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
-    pub visit_order: Vec<BasicBlock>,
+    pub visit_order: Vec<VisitKind>,
     pub stats: BodyStats,
 }
 
@@ -44,7 +47,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         anly.visit_body(body);
         anly.mark_unused_locals();
         anly.unloop_preds();
-        anly.build_trav();
+        anly.visit_order = construct_visit_order(body, &anly.cfg, &anly.preds_unlooped);
 
         anly
     }
@@ -112,10 +115,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         }
     }
 
-    fn find_loop(&self, bb: BasicBlock) -> Option<&(BitSet<BasicBlock>, BasicBlock)> {
-        super::super::find_loop(&self.loops, bb)
-    }
-
     fn mark_unused_locals(&mut self) {
         self.locals
             .iter_mut()
@@ -126,65 +125,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     }
 
     fn unloop_preds(&mut self) {
-        let mut unlooped = self.preds.clone();
-
-        if !self.body.basic_blocks.is_cfg_cyclic() {
-            self.preds_unlooped = unlooped;
-            return;
-        }
-
-        for (bb, preds) in &mut unlooped {
-            if let Some((loop_set, end_bb)) = self.find_loop(*bb) {
-                if preds.contains(*end_bb) {
-                    preds.subtract(loop_set);
-                }
-            }
-        }
-        self.preds_unlooped = unlooped;
-    }
-
-    fn build_trav(&mut self) {
-        let bb_len = self.body.basic_blocks.len();
-        let mut visited: BitSet<BasicBlock> = BitSet::new_empty(bb_len);
-        let mut order: Vec<BasicBlock> = Vec::with_capacity(bb_len);
-
-        let mut buffer_queue = VecDeque::new();
-        let mut queue = VecDeque::new();
-        queue.push_back(START_BLOCK);
-        loop {
-            while let Some(bb) = queue.pop_front() {
-                if visited.contains(bb) {
-                    continue;
-                }
-
-                let preds = &self.preds_unlooped[&bb];
-                if preds.clone().intersect(&visited) {
-                    // Not all prerequisites are fulfilled. This bb will be added again by the other branch
-                    continue;
-                }
-
-                match &self.cfg[&bb] {
-                    CfgInfo::Linear(next) => queue.push_back(*next),
-                    CfgInfo::Condition { branches } => queue.extend(branches.iter()),
-                    CfgInfo::Break { next, brea } => {
-                        queue.push_back(*next);
-                        buffer_queue.push_back(*brea);
-                    },
-                    CfgInfo::None | CfgInfo::Return => {},
-                }
-
-                order.push(bb);
-                visited.insert(bb);
-            }
-
-            if buffer_queue.is_empty() {
-                break;
-            }
-
-            std::mem::swap(&mut buffer_queue, &mut queue);
-        }
-
-        self.visit_order = order;
+        self.preds_unlooped = unloop_preds(&self.cfg, &self.preds);
     }
 
     fn visit_terminator_for_cfg(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
@@ -201,25 +142,14 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
-                if let Some((loop_set, _loop_bb)) = self.find_loop(bb)
-                    && let Some((next, brea)) = match targets.all_targets() {
-                        [a, b] | [b, a] if !loop_set.contains(*b) => Some((*a, *b)),
-                        _ => None,
-                    }
-                {
-                    self.preds.get_mut(&next).map(|x| x.insert(bb));
-                    self.preds.get_mut(&brea).map(|x| x.insert(bb));
-                    CfgInfo::Break { next, brea }
-                } else {
-                    let mut branches = Vec::new();
-                    branches.extend_from_slice(targets.all_targets());
+                let mut branches = SmallVec::new();
+                branches.extend_from_slice(targets.all_targets());
 
-                    for target in &branches {
-                        self.preds.get_mut(target).map(|x| x.insert(bb));
-                    }
-
-                    CfgInfo::Condition { branches }
+                for target in &branches {
+                    self.preds.get_mut(target).map(|x| x.insert(bb));
                 }
+
+                CfgInfo::Condition { branches }
             },
             #[rustfmt::skip]
             mir::TerminatorKind::UnwindResume
