@@ -3,10 +3,6 @@
 //! - [ ] Update meta analysis
 //!     - [ ] Handle loops by partially retraverse them
 //!         - [ ] Handle loop overwrites for !drop
-//! - [ ] Analysis for named references
-//! - [ ] Output and summary
-//!     - [ ] Collect and summarize all data per crate
-//!     - [ ] The output states need to be sorted... OH NO
 //! - [ ] Anonymous stuff should be more unified and not broken into borrows etc like it is now.
 //!
 //! # Done
@@ -17,6 +13,9 @@
 //! - [-] Update Return analysis (Removed)
 //!     - [-] Add Computed to Return
 //!     - [-] Check if the relations implied by the function signature aline with usage
+//! - [x] Output and summary
+//!     - [x] Collect and summarize all data per crate
+//!     - [x] The output states need to be sorted... OH NO
 //!
 //! # Insights:
 //! - Loans are basically just special dependent typed
@@ -33,6 +32,7 @@
 //! - `impl Drop` types behave differently, as fields need to be valid until the `drop()`
 //!
 //! # Optional and good todos:
+//! - [ ] Analysis for named references
 //! - Investigate the `explicit_outlives_requirements` lint
 
 use std::borrow::Borrow;
