@@ -1008,7 +1008,7 @@ pub fn for_each_ref_region<'tcx>(ty: Ty<'tcx>, f: &mut impl FnMut(Region<'tcx>, 
 
 /// This function calls the given function `f` for every region on a reference.
 /// For example `&'a Type<'b>` would call the function once for `'a`.
-pub fn for_each_param_ty<'tcx>(ty: Ty<'tcx>, f: &mut impl FnMut(ParamTy)) {
+pub fn for_each_param_ty(ty: Ty<'_>, f: &mut impl FnMut(ParamTy)) {
     match ty.kind() {
         mid::ty::TyKind::Tuple(next_tys) => next_tys.iter().for_each(|next_ty| for_each_param_ty(next_ty, f)),
         mid::ty::TyKind::Slice(next_ty) | mid::ty::TyKind::Array(next_ty, _) => for_each_param_ty(*next_ty, f),
@@ -1020,7 +1020,7 @@ pub fn for_each_param_ty<'tcx>(ty: Ty<'tcx>, f: &mut impl FnMut(ParamTy)) {
         mid::ty::TyKind::Adt(_, generics) => {
             generics
                 .iter()
-                .filter_map(|gen| gen.as_type())
+                .filter_map(rustc_middle::ty::GenericArg::as_type)
                 .for_each(|gen_ty| for_each_param_ty(gen_ty, f));
         },
 

@@ -299,6 +299,7 @@ impl<'a, 'tcx> Visitor<'tcx> for OwnedAnalysis<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
+    #[expect(clippy::too_many_lines)]
     fn visit_assign_for_self_in_args(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Some(place) = op.place()
@@ -343,15 +344,12 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.pats.insert(OwnedPat::PartMovedToVar);
                         }
                     },
-                    _ => {
+                    LocalKind::Return => {
                         unreachable!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
                     },
                 }
             } else {
                 match &self.info.locals[target.local].kind {
-                    LocalKind::AnonVar => {
-                        // This is nothing really interesting
-                    },
                     LocalKind::UserVar(other_name, other_info) => {
                         if self.local_info.mutable
                             && !other_info.mutable
@@ -368,8 +366,8 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             self.pats.insert(OwnedPat::CopiedToVarPart);
                         }
                     },
-                    _ => {
-                        // This is nothing really interesting
+                    LocalKind::AnonVar | LocalKind::Return => {
+                        // This is probably really interesting
                     },
                 }
                 // Copies are uninteresting to me
@@ -393,7 +391,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             }
 
             if target.just_local() {
-                self.add_borrow(bb, *target, *place, *kind, None)
+                self.add_borrow(bb, *target, *place, *kind, None);
             } else {
                 // Example _5.1 = &(_1.8)
                 todo!("{target:#?} = {rval:#?} (at {bb:#?})\n{self:#?}");
@@ -401,7 +399,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
 
         if let Rvalue::Aggregate(box agg_kind, fields) = rval {
-            for field in fields.iter() {
+            for field in fields {
                 let Operand::Move(place) = field else {
                     continue;
                 };
@@ -469,6 +467,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
 
         self.states[bb].add_assign(*target, &mut self.pats);
     }
+    #[expect(clippy::too_many_lines)]
     fn visit_assign_for_anon(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, bb: BasicBlock) {
         if let Rvalue::Use(op) = &rval
             && let Operand::Move(place) = op
@@ -499,7 +498,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 }
             }
 
-            self.states[bb].add_ref_copy(*target, *place, self.info, &mut self.pats)
+            self.states[bb].add_ref_copy(*target, *place, self.info, &mut self.pats);
         }
 
         if let Rvalue::Ref(_, _, src) | Rvalue::CopyForDeref(src) = &rval {
@@ -529,7 +528,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
 
         if let Rvalue::Aggregate(box agg_kind, fields) = rval {
-            for field in fields.iter() {
+            for field in fields {
                 let state = &mut self.states[bb];
                 let Operand::Move(place) = field else {
                     continue;
@@ -701,6 +700,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             | TerminatorKind::InlineAsm { .. } => {},
         }
     }
+    #[expect(clippy::too_many_lines)]
     fn visit_terminator_for_anons(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
         match &term.kind {
             TerminatorKind::Call { func, args, .. } => {

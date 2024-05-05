@@ -100,7 +100,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
     pub fn places_conflict(&self, a: Place<'tcx>, b: Place<'tcx>) -> bool {
         borrowck::consumers::places_conflict(
             self.tcx,
-            &self.body,
+            self.body,
             a,
             b,
             borrowck::consumers::PlaceConflictBias::NoOverlap,
@@ -180,6 +180,7 @@ impl LocalKind {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, serde::Serialize)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct VarInfo {
     pub argument: bool,
     /// Indicates if this is mutable
@@ -245,7 +246,7 @@ pub enum SimpleTyKind {
 }
 
 impl SimpleTyKind {
-    pub fn from_ty<'tcx>(ty: rustc_middle::ty::Ty<'tcx>) -> Self {
+    pub fn from_ty(ty: rustc_middle::ty::Ty<'_>) -> Self {
         match ty.kind() {
             rustc_middle::ty::TyKind::Tuple(tys) if tys.is_empty() => SimpleTyKind::Unit,
             rustc_middle::ty::TyKind::Tuple(_) => SimpleTyKind::Tuple,

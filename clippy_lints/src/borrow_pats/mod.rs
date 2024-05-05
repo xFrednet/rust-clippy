@@ -1,4 +1,5 @@
 #![expect(unused)]
+#![allow(clippy::module_name_repetitions, clippy::default_trait_access, clippy::wildcard_imports ,clippy::enum_variant_names)]
 //! # TODOs
 //! - [ ] Update meta analysis
 //!     - [ ] Handle loops by partially retraverse them
@@ -22,7 +23,7 @@
 //! - Binary Assign Ops on primitive types result in overwrites instead of `&mut` borrows
 //!
 //! # Report
-//! - Mention Crater Blacklist: https://github.com/rust-lang/crater/blob/master/config.toml (170)
+//! - Mention Crater Blacklist: <https://github.com/rust-lang/crater/blob/master/config.toml> (170)
 //! - Write about fricking named borrows...
 //! - MIR can violate rust semantics:
 //!     - `(_1 = &(*_2))`
@@ -79,7 +80,7 @@ pub use util::*;
 
 const RETURN: Local = Local::from_u32(0);
 
-const OUTPUT_MARKER: &'static str = "[THESIS-ANALYSIS-OUTPUT]";
+const OUTPUT_MARKER: &str = "[THESIS-ANALYSIS-OUTPUT]";
 
 declare_clippy_lint! {
     /// ### What it does
@@ -97,11 +98,12 @@ declare_clippy_lint! {
     #[clippy::version = "1.78.0"]
     pub BORROW_PATS,
     nursery,
-    "default lint description"
+    "non-default lint description"
 }
 
 impl_lint_pass!(BorrowPats => [BORROW_PATS]);
 
+#[expect(clippy::struct_excessive_bools)]
 pub struct BorrowPats {
     msrv: Msrv,
     /// Indicates if this analysis is enabled. It may be disabled in the following cases:
@@ -192,7 +194,7 @@ impl BorrowPats {
                 println!("# Relations for {body_name:?}");
                 println!("- Incompltete Stats: {:#?}", info.stats.borrow());
                 println!("- Called function relations: {:#?}", info.terms);
-                println!("- Incompltete Body: {} {:?}", body_info, body_pats);
+                println!("- Incompltete Body: {body_info} {body_pats:?}");
                 println!();
                 return;
             }
@@ -228,7 +230,7 @@ impl BorrowPats {
             if self.print_pats {
                 // Return must be printed at the end, as it might be modified by
                 // the following analysis thingies
-                println!("- Body: {} {:?}", body_info, body_pats);
+                println!("- Body: {body_info} {body_pats:?}");
             }
             if self.print_stats {
                 println!("- Stats: {:#?}", info.stats.borrow());
@@ -243,6 +245,7 @@ impl BorrowPats {
     }
 }
 
+#[expect(clippy::missing_msrv_attr_impl)]
 impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         self.enabled = cx.tcx.features().all_features().iter().all(|x| *x == 0);
@@ -255,10 +258,10 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     fn check_crate_post(&mut self, _: &LateContext<'tcx>) {
         if self.enabled {
             let stats = std::mem::take(&mut self.stats);
-            let serde = stats.to_serde();
-            println!("{} {}", OUTPUT_MARKER, serde_json::to_string(&serde).unwrap());
+            let serde = stats.into_serde();
+            println!("{OUTPUT_MARKER} {}", serde_json::to_string(&serde).unwrap());
         } else {
-            println!(r#"{} {{"Disabled due to feature usage"}} "#, OUTPUT_MARKER);
+            println!(r#"{OUTPUT_MARKER} {{"Disabled due to feature usage"}} "#);
         }
     }
 
@@ -277,7 +280,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
                     if matches!(sub_item_ref.kind, hir::AssocItemKind::Fn { .. }) {
                         let sub_item = cx.tcx.hir().impl_item(sub_item_ref.id);
                         let (sig, body_id) = sub_item.expect_fn();
-                        self.check_fn_body(cx, sub_item.owner_id.def_id, body_id, sig, context)
+                        self.check_fn_body(cx, sub_item.owner_id.def_id, body_id, sig, context);
                     }
                 }
             },
@@ -287,7 +290,7 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
 
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::TraitItem<'tcx>) {
         if let hir::TraitItemKind::Fn(sig, hir::TraitFn::Provided(body_id)) = &item.kind {
-            self.check_fn_body(cx, item.owner_id.def_id, *body_id, sig, BodyContext::TraitDef)
+            self.check_fn_body(cx, item.owner_id.def_id, *body_id, sig, BodyContext::TraitDef);
         }
     }
 }

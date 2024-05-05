@@ -20,7 +20,7 @@ use clippy_utils::ty::for_each_region;
 mod pattern;
 pub use pattern::*;
 mod flow;
-use flow::*;
+use flow::DfWalker;
 use rustc_middle::ty::Region;
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ enum MutInfo {
 impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
     fn new(info: &'a AnalysisInfo<'tcx>, arg_ctn: usize) -> Self {
         let mut data_flow: IndexVec<Local, SmallVec<[MutInfo; 2]>> = IndexVec::default();
-        data_flow.resize(info.locals.len(), Default::default());
+        data_flow.resize(info.locals.len(), SmallVec::default());
 
         (0..arg_ctn).for_each(|idx| data_flow[Local::from_usize(idx + 1)].push(MutInfo::Arg));
 
@@ -95,7 +95,7 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
 
         // Argument relations
         for (child, maybe_parents) in &rels {
-            self.check_arg_relation(child, maybe_parents)
+            self.check_arg_relation(*child, maybe_parents);
         }
 
         self.check_return_relations(&return_rels, def_id);
@@ -158,8 +158,8 @@ impl<'a, 'tcx> BodyAnalysis<'a, 'tcx> {
         }
     }
 
-    fn check_arg_relation(&mut self, child: &Local, maybe_parents: &[Local]) {
-        let mut checker = DfWalker::new(self.info, &self.data_flow, *child, maybe_parents);
+    fn check_arg_relation(&mut self, child: Local, maybe_parents: &[Local]) {
+        let mut checker = DfWalker::new(self.info, &self.data_flow, child, maybe_parents);
         checker.walk();
 
         self.stats.arg_relations_signature += maybe_parents.len();
@@ -171,6 +171,7 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
     fn visit_assign(&mut self, target: &Place<'tcx>, rval: &Rvalue<'tcx>, _loc: mir::Location) {
         match rval {
             Rvalue::Ref(_reg, BorrowKind::Fake, _src) => {
+                #[allow(clippy::needless_return)]
                 return;
             },
             Rvalue::Ref(_reg, kind, src) => {
@@ -210,10 +211,10 @@ impl<'a, 'tcx> Visitor<'tcx> for BodyAnalysis<'a, 'tcx> {
             Rvalue::Aggregate(_, fields) => {
                 let args = fields
                     .iter()
-                    .filter_map(|op| op.place())
+                    .filter_map(rustc_middle::mir::Operand::place)
                     .map(|place| place.local)
                     .collect();
-                self.data_flow[target.local].push(MutInfo::Ctor(args))
+                self.data_flow[target.local].push(MutInfo::Ctor(args));
             },
             // Casts should depend on the input data
             Rvalue::ThreadLocalRef(_)

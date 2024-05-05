@@ -118,10 +118,10 @@ pub fn unloop_preds<'a>(
 }
 
 #[expect(unused)]
-pub fn construct_visit_order<'a, 'b, 'tcx>(
-    body: &'a Body<'tcx>,
-    cfg: &'b IndexVec<BasicBlock, CfgInfo>,
-    preds: &'b IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
+pub fn construct_visit_order(
+    body: &Body<'_>,
+    cfg: &IndexVec<BasicBlock, CfgInfo>,
+    preds: &IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
 ) -> Vec<VisitKind> {
     let bb_len = cfg.len();
     let mut visited: BitSet<BasicBlock> = BitSet::new_empty(bb_len);

@@ -96,7 +96,7 @@ impl<'tcx> FuncReals<'tcx> {
             }
             shorti_verse.extend(longi_verse);
 
-            for (_, universe) in &mut self.multiverse {
+            for universe in self.multiverse.values_mut() {
                 if universe.contains(&short) {
                     universe.insert(long);
                 }
@@ -179,7 +179,7 @@ impl<'tcx> FuncReals<'tcx> {
                         });
                     }
                 };
-            })
+            });
         }
 
         let mut parents = FxHashSet::default();
@@ -235,9 +235,10 @@ pub fn calc_call_local_relations<'tcx>(
     relations
 }
 
+#[expect(clippy::needless_lifetimes)]
 pub fn calc_fn_arg_relations<'tcx>(tcx: TyCtxt<'tcx>, fn_id: LocalDefId) -> FxHashMap<Local, Vec<Local>> {
     // This function is amazingly hacky, but at this point I really don't care anymore
-    let mut builder = FuncReals::from_fn_def(tcx, fn_id.into(), &rustc_middle::ty::List::empty());
+    let mut builder = FuncReals::from_fn_def(tcx, fn_id.into(), rustc_middle::ty::List::empty());
     let arg_ctn = builder.sig.inputs().len();
     let fake_args: Vec<_> = (0..arg_ctn)
         .map(|idx| {
@@ -251,11 +252,10 @@ pub fn calc_fn_arg_relations<'tcx>(tcx: TyCtxt<'tcx>, fn_id: LocalDefId) -> FxHa
         })
         .collect();
 
-    let relations = builder.relations(RETURN_LOCAL, &fake_args[..]);
-    relations
+    builder.relations(RETURN_LOCAL, &fake_args[..])
 }
 
-pub fn has_mut_ref<'tcx>(ty: Ty<'tcx>) -> bool {
+pub fn has_mut_ref(ty: Ty<'_>) -> bool {
     let mut has_mut = false;
     for_each_ref_region(ty, &mut |_reg, _ref_ty, mutability| {
         // `&X` is not really interesting here

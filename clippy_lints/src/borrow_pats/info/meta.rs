@@ -129,27 +129,24 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     }
 
     fn visit_terminator_for_terms(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
-        match &term.kind {
+        if let 
             mir::TerminatorKind::Call {
                 func,
                 args,
                 destination,
                 ..
-            } => {
+            } = &term.kind {
                 assert!(destination.projection.is_empty());
                 let dest = destination.local;
                 self.terms.insert(
                     bb,
                     calc_call_local_relations(self.tcx.0, self.body, func, dest, args, &mut self.stats),
                 );
-            },
-            _ => {},
-        }
+            }
     }
 
     fn visit_terminator_for_locals(&mut self, term: &Terminator<'tcx>, _bb: BasicBlock) {
-        match &term.kind {
-            mir::TerminatorKind::Call { destination, .. } => {
+        if let mir::TerminatorKind::Call { destination, .. } = &term.kind {
                 // TODO: Should mut arguments be handled?
                 assert!(destination.projection.is_empty());
                 let local = destination.local;
@@ -157,8 +154,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                     .get_mut(local)
                     .unwrap()
                     .add_assign(*destination, DataInfo::Computed);
-            },
-            _ => {},
         }
     }
 }

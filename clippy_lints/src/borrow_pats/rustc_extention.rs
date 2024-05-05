@@ -12,6 +12,7 @@ pub trait BodyMagic {
 
 impl<'tcx> BodyMagic for mir::Body<'tcx> {
     fn are_bbs_exclusive(&self, a: mir::BasicBlock, b: mir::BasicBlock) -> bool {
+        #[expect(clippy::comparison_chain)]
         if a == b {
             return false;
         } else if a > b {

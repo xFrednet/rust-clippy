@@ -55,7 +55,7 @@ pub struct StateInfo<'tcx> {
     /// Based on the docs, it sounds like there can always only be one. Let's
     /// use an option and cry when it fails.
     ///
-    /// See: https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html
+    /// See: <https://rustc-dev-guide.rust-lang.org/borrow_check/two_phase_borrows.html>
     phase_borrow: Vec<(Local, Place<'tcx>)>,
 }
 
@@ -349,15 +349,7 @@ impl<'tcx> StateInfo<'tcx> {
         // allowed to violate rust borrow semantics...
         //
         // Simple example: `x.push(x.len())`
-        if !is_named {
-            assert!(borrow.just_local());
-            if kind.allows_two_phase_borrow() {
-                self.phase_borrow.push((borrow.local, broker));
-            } else {
-                self.borrows
-                    .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
-            }
-        } else {
+        if is_named {
             // Mut loans can also be used for two-phased-borrows, but only with themselfs.
             // Taking the mut loan and the owned value failes.
             //
@@ -372,6 +364,14 @@ impl<'tcx> StateInfo<'tcx> {
             // ignore it here :D
             self.borrows
                 .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
+        } else {
+            assert!(borrow.just_local());
+            if kind.allows_two_phase_borrow() {
+                self.phase_borrow.push((borrow.local, broker));
+            } else {
+                self.borrows
+                    .insert(borrow.local, BorrowInfo::new(broker, kind.mutability(), bro_kind));
+            }
         }
     }
 
@@ -383,7 +383,7 @@ impl<'tcx> StateInfo<'tcx> {
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
-        self.add_ref_dep(dst, src, info, pats)
+        self.add_ref_dep(dst, src, info, pats);
     }
     /// This function informs the state that a ref to a ref was created
     pub fn add_ref_ref(
@@ -393,9 +393,9 @@ impl<'tcx> StateInfo<'tcx> {
         info: &AnalysisInfo<'tcx>,
         pats: &mut BTreeSet<OwnedPat>,
     ) {
-        self.add_ref_dep(dst, src, info, pats)
+        self.add_ref_dep(dst, src, info, pats);
     }
-    /// If `kind` is empty it indicates that the mutability of `src`` should be taken
+    /// If `kind` is empty it indicates that the mutability of `src` should be taken
     fn add_ref_dep(
         &mut self,
         dst: Place<'tcx>,
@@ -563,7 +563,7 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
             self.state.push((new_state, self.bb));
         }
 
-        for (anon, other_places) in other.anons.iter() {
+        for (anon, other_places) in &other.anons {
             if let Some(self_places) = self.anons.get_mut(anon) {
                 if self_places != other_places {
                     todo!();
@@ -626,9 +626,9 @@ fn inspect_deviation<'b>(
     }
 
     let mut b_set = GrowableBitSet::with_capacity(a_state.1.as_usize().max(b_state.1.as_usize()) + 1);
-    b.iter().for_each(|(_, bb)| {
+    for (_, bb) in b {
         b_set.insert(*bb);
-    });
+    }
 
     // Case 3
     if let Some((a_idx, &base)) = a.iter().enumerate().rev().find(|(_, (_, bb))| b_set.contains(*bb))

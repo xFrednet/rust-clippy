@@ -67,7 +67,7 @@ impl CrateStats {
         self.body_ctn += 1;
     }
 
-    pub fn to_serde(self) -> CrateStatsSerde {
+    pub fn into_serde(self) -> CrateStatsSerde {
         let Self {
             aggregated_body_stats,
             body_ctn,
