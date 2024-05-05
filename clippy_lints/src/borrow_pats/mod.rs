@@ -203,12 +203,12 @@ impl BorrowPats {
             }
         }
 
-        for (local, local_info) in info.locals.iter().skip(1) {
+        for (local, local_info) in info.locals.iter_enumerated().skip(1) {
             match &local_info.kind {
                 LocalKind::Return => unreachable!("Skipped before"),
                 LocalKind::UserVar(name, var_info) => {
                     if var_info.owned {
-                        let pats = owned::OwnedAnalysis::run(&info, *local);
+                        let pats = owned::OwnedAnalysis::run(&info, local);
                         if self.print_pats && lint_level != Level::Allow {
                             println!("- {:<15}: ({var_info}) {pats:?}", name.as_str());
                         }
@@ -218,7 +218,7 @@ impl BorrowPats {
                         // eprintln!("TODO: implement analysis for named refs");
                     }
                 },
-                LocalKind::AnonVar | LocalKind::Unused => continue,
+                LocalKind::AnonVar => continue,
             }
         }
 

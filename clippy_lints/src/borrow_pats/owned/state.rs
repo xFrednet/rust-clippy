@@ -314,7 +314,7 @@ impl<'tcx> StateInfo<'tcx> {
 
         let (is_all, is_part) = (broker.just_local(), broker.is_part());
 
-        let is_named = matches!(info.locals[&borrow.local].kind, LocalKind::UserVar(..));
+        let is_named = matches!(info.locals[borrow.local].kind, LocalKind::UserVar(..));
         if is_named {
             if matches!(kind, BorrowKind::Shared) {
                 info.stats.borrow_mut().owned.named_borrow_count += 1;
@@ -424,7 +424,7 @@ impl<'tcx> StateInfo<'tcx> {
             // Only anons should be able to add new information
             BroKind::Anon => {
                 let (is_all, is_part) = bro_info.borrowed_props();
-                let is_named = matches!(info.locals[&dst.local].kind, LocalKind::UserVar(..));
+                let is_named = matches!(info.locals[dst.local].kind, LocalKind::UserVar(..));
                 if is_named {
                     // FIXME: THis is broken:
                     if matches!(bro_info.muta, Mutability::Mut) {
@@ -582,7 +582,7 @@ impl<'a, 'tcx> MyStateInfo<super::OwnedAnalysis<'a, 'tcx>> for StateInfo<'tcx> {
     }
 
     fn check_continue_diff_for_pats(&self, _state_owner: &mut super::OwnedAnalysis<'a, 'tcx>, _con_block: BasicBlock) {
-        // TODO: Check continues
+        todo!();
     }
 }
 

@@ -33,11 +33,11 @@ pub fn visit_body_with_state<'tcx, V: MyVisitor<'tcx>>(vis: &mut V, info: &Analy
                 if bb == START_BLOCK {
                     vis.init_start_block_state();
                 } else {
-                    let preds = &info.preds[&bb];
+                    let preds = &info.preds[bb];
                     let mut state = V::State::new(bb);
                     let mut stage_stalled = false;
                     preds.iter().for_each(|bb| {
-                        stage_stalled |= !state.join(vis, bb);
+                        stage_stalled |= !state.join(vis, *bb);
                     });
                     if stage_stalled {
                         stalled_joins.insert(bb, state.clone());
@@ -66,17 +66,20 @@ pub fn visit_body<'tcx, V: Visitor<'tcx>>(vis: &mut V, info: &AnalysisInfo<'tcx>
 }
 
 pub fn unloop_preds<'a>(
-    cfg: &'a BTreeMap<BasicBlock, CfgInfo>,
-    preds: &'a BTreeMap<BasicBlock, BitSet<BasicBlock>>,
-) -> BTreeMap<BasicBlock, BitSet<BasicBlock>> {
+    cfg: &'a IndexVec<BasicBlock, CfgInfo>,
+    preds: &'a IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
+) -> IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>> {
     struct Builder<'a> {
-        cfg: &'a BTreeMap<BasicBlock, CfgInfo>,
+        cfg: &'a IndexVec<BasicBlock, CfgInfo>,
         states: IndexVec<BasicBlock, VisitState>,
-        unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+        unlooped: IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
     }
 
     impl<'a> Builder<'a> {
-        fn new(cfg: &'a BTreeMap<BasicBlock, CfgInfo>, preds: &'a BTreeMap<BasicBlock, BitSet<BasicBlock>>) -> Self {
+        fn new(
+            cfg: &'a IndexVec<BasicBlock, CfgInfo>,
+            preds: &'a IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
+        ) -> Self {
             let len = cfg.len();
             Self {
                 cfg,
@@ -89,7 +92,7 @@ pub fn unloop_preds<'a>(
             match self.states[bb] {
                 VisitState::Future => {
                     self.states[bb] = VisitState::Current;
-                    match &self.cfg[&bb] {
+                    match &self.cfg[bb] {
                         CfgInfo::Linear(next) => self.visit(bb, *next),
                         CfgInfo::Condition { branches } => {
                             for next in branches {
@@ -102,12 +105,13 @@ pub fn unloop_preds<'a>(
                     self.states[bb] = VisitState::Past;
                 },
                 VisitState::Current => {
-                    self.unlooped.get_mut(&bb).unwrap().remove(from);
+                    self.unlooped[bb].retain(|x| *x != from);
                 },
                 VisitState::Past => {},
             }
         }
-    }
+    } // TODO: Check continues
+
     let mut builder = Builder::new(cfg, preds);
     builder.visit(START_BLOCK, START_BLOCK);
     builder.unlooped
@@ -116,8 +120,8 @@ pub fn unloop_preds<'a>(
 #[expect(unused)]
 pub fn construct_visit_order<'a, 'b, 'tcx>(
     body: &'a Body<'tcx>,
-    cfg: &'b BTreeMap<BasicBlock, CfgInfo>,
-    preds: &'b BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    cfg: &'b IndexVec<BasicBlock, CfgInfo>,
+    preds: &'b IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
 ) -> Vec<VisitKind> {
     let bb_len = cfg.len();
     let mut visited: BitSet<BasicBlock> = BitSet::new_empty(bb_len);
@@ -130,13 +134,13 @@ pub fn construct_visit_order<'a, 'b, 'tcx>(
             continue;
         }
 
-        let preds = &preds[&bb];
-        if preds.clone().intersect(&visited) {
+        let preds = &preds[bb];
+        if preds.iter().all(|x| visited.contains(*x)) {
             // Not all prerequisites are fulfilled. This bb will be added again by the other branch
             continue;
         }
 
-        match &cfg[&bb] {
+        match &cfg[bb] {
             CfgInfo::Linear(next) => queue.push_back(*next),
             CfgInfo::Condition { branches } => queue.extend(branches.iter()),
             CfgInfo::None | CfgInfo::Return => {},

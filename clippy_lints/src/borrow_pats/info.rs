@@ -1,12 +1,11 @@
 #![warn(unused)]
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 use hir::def_id::LocalDefId;
 use meta::MetaAnalysis;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_index::bit_set::BitSet;
+use rustc_index::IndexVec;
 use rustc_lint::LateContext;
 use rustc_middle::mir;
 use rustc_middle::mir::{BasicBlock, Local, Place};
@@ -27,15 +26,15 @@ pub struct AnalysisInfo<'tcx> {
     pub def_id: LocalDefId,
     // borrow_set: Rc<borrowck::BorrowSet<'tcx>>,
     // locs:  FxIndexMap<Location, Vec<BorrowIndex>>
-    pub cfg: BTreeMap<BasicBlock, CfgInfo>,
+    pub cfg: IndexVec<BasicBlock, CfgInfo>,
     /// The set defines the loop bbs, and the basic block determines the end of the loop
-    pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
+    pub terms: FxHashMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     /// The final block that contains the return.
     pub return_block: BasicBlock,
     // FIXME: This should be a IndexVec
-    pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
-    pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
-    pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub locals: IndexVec<Local, LocalInfo<'tcx>>,
+    pub preds: IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
+    pub preds_unlooped: IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
     pub visit_order: Vec<VisitKind>,
     pub stats: RefCell<BodyStats>,
 }
@@ -109,7 +108,7 @@ impl<'tcx> AnalysisInfo<'tcx> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CfgInfo {
     /// The basic block is linear or almost linear. This is also the
     /// value used for function calls which could result in unwinds.
@@ -162,8 +161,6 @@ pub enum LocalKind {
     UserVar(Symbol, VarInfo),
     /// Generated variable, i.e. unnamed
     AnonVar,
-    /// This value was previously part of rustc's MIR but is no longer used.
-    Unused,
 }
 
 impl LocalKind {

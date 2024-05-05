@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::borrow_pats::info::VarInfo;
 use crate::borrow_pats::{
     construct_visit_order, unloop_preds, BodyStats, DropKind, PlaceMagic, PrintPrevent, SimpleTyKind, VisitKind,
@@ -10,10 +8,10 @@ use super::LocalKind;
 
 use clippy_utils::ty::{has_drop, is_copy};
 use mid::mir::visit::Visitor;
-use mid::mir::{Body, Terminator, TerminatorKind};
+use mid::mir::{Body, Terminator};
 use mid::ty::TyCtxt;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_index::bit_set::BitSet;
+use rustc_index::IndexVec;
 use rustc_lint::LateContext;
 use rustc_middle as mid;
 use rustc_middle::mir;
@@ -29,14 +27,12 @@ pub struct MetaAnalysis<'a, 'tcx> {
     body: &'a Body<'tcx>,
     tcx: PrintPrevent<TyCtxt<'tcx>>,
     cx: PrintPrevent<&'tcx LateContext<'tcx>>,
-    pub cfg: BTreeMap<BasicBlock, CfgInfo>,
-    /// The set defines the loop bbs, and the basic block determines the end of the loop
-    pub loops: Vec<(BitSet<BasicBlock>, BasicBlock)>,
-    pub terms: BTreeMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
+    pub cfg: IndexVec<BasicBlock, CfgInfo>,
+    pub terms: FxHashMap<BasicBlock, FxHashMap<Local, Vec<Local>>>,
     pub return_block: BasicBlock,
-    pub locals: BTreeMap<Local, LocalInfo<'tcx>>,
-    pub preds: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
-    pub preds_unlooped: BTreeMap<BasicBlock, BitSet<BasicBlock>>,
+    pub locals: IndexVec<Local, LocalInfo<'tcx>>,
+    pub preds: IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
+    pub preds_unlooped: IndexVec<BasicBlock, SmallVec<[BasicBlock; 1]>>,
     pub visit_order: Vec<VisitKind>,
     pub stats: BodyStats,
 }
@@ -45,7 +41,6 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
     pub fn from_body(cx: &'tcx LateContext<'tcx>, body: &'a Body<'tcx>) -> Self {
         let mut anly = Self::new(cx, body);
         anly.visit_body(body);
-        anly.mark_unused_locals();
         anly.unloop_preds();
         anly.visit_order = construct_visit_order(body, &anly.cfg, &anly.preds_unlooped);
 
@@ -56,72 +51,35 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
         let locals = Self::setup_local_infos(body);
         let bb_len = body.basic_blocks.len();
 
-        let mut preds = BTreeMap::new();
-        preds.extend((0..bb_len).map(|bb| (BasicBlock::from_usize(bb), BitSet::new_empty(bb_len))));
+        let mut preds = IndexVec::with_capacity(bb_len);
+        preds.resize(bb_len, SmallVec::new());
 
-        let mut anly = Self {
+        let mut cfg = IndexVec::with_capacity(bb_len);
+        cfg.resize(bb_len, CfgInfo::None);
+
+        Self {
             body,
             tcx: PrintPrevent(cx.tcx),
             cx: PrintPrevent(cx),
-            cfg: Default::default(),
-            loops: Default::default(),
+            cfg,
             terms: Default::default(),
             return_block: BasicBlock::from_u32(0),
             locals,
             preds,
-            preds_unlooped: Default::default(),
+            preds_unlooped: IndexVec::with_capacity(bb_len),
             visit_order: Default::default(),
             stats: Default::default(),
-        };
-
-        anly.collect_loops();
-        anly
+        }
     }
 
-    fn setup_local_infos(body: &mir::Body<'tcx>) -> BTreeMap<Local, LocalInfo<'tcx>> {
-        let local_info_iter = body
-            .local_decls
-            .indices()
-            .map(|id| (id, LocalInfo::new(LocalKind::AnonVar)));
-        let mut local_infos = BTreeMap::new();
+    fn setup_local_infos(body: &mir::Body<'tcx>) -> IndexVec<Local, LocalInfo<'tcx>> {
+        let local_info_iter = body.local_decls.indices().map(|_| LocalInfo::new(LocalKind::AnonVar));
+        let mut local_infos = IndexVec::new();
         local_infos.extend(local_info_iter);
 
-        if let Some(info) = local_infos.get_mut(&super::super::RETURN) {
-            info.kind = LocalKind::Return;
-        }
+        local_infos[super::super::RETURN].kind = LocalKind::Return;
 
         local_infos
-    }
-
-    fn collect_loops(&mut self) {
-        let predecessors = self.body.basic_blocks.predecessors();
-        for (bb, bbd) in self.body.basic_blocks.iter_enumerated() {
-            if let TerminatorKind::Goto { target } = bbd.terminator().kind {
-                if target < bb {
-                    let mut loop_set = BitSet::new_empty(self.body.basic_blocks.len());
-                    loop_set.insert(target);
-
-                    let mut queue = vec![bb];
-                    while let Some(pred) = queue.pop() {
-                        if !loop_set.contains(pred) {
-                            loop_set.insert(pred);
-                            queue.extend_from_slice(&predecessors[pred]);
-                        }
-                    }
-
-                    self.loops.push((loop_set, bb));
-                }
-            }
-        }
-    }
-
-    fn mark_unused_locals(&mut self) {
-        self.locals
-            .iter_mut()
-            .filter(|(_, info)| info.data == DataInfo::Unresolved)
-            .for_each(|(_, info)| {
-                info.kind = LocalKind::Unused;
-            });
     }
 
     fn unloop_preds(&mut self) {
@@ -138,7 +96,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             | mir::TerminatorKind::Drop { target, .. }
             | mir::TerminatorKind::InlineAsm { destination: Some(target), .. }
             | mir::TerminatorKind::Goto { target } => {
-                self.preds.get_mut(target).map(|x| x.insert(bb));
+                self.preds[*target].push(bb);
                 CfgInfo::Linear(*target)
             },
             mir::TerminatorKind::SwitchInt { targets, .. } => {
@@ -146,7 +104,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                 branches.extend_from_slice(targets.all_targets());
 
                 for target in &branches {
-                    self.preds.get_mut(target).map(|x| x.insert(bb));
+                    self.preds[*target].push(bb);
                 }
 
                 CfgInfo::Condition { branches }
@@ -167,7 +125,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
             mir::TerminatorKind::Yield { .. } => unreachable!(),
         };
 
-        self.cfg.insert(bb, cfg_info);
+        self.cfg[bb] = cfg_info;
     }
 
     fn visit_terminator_for_terms(&mut self, term: &Terminator<'tcx>, bb: BasicBlock) {
@@ -196,7 +154,7 @@ impl<'a, 'tcx> MetaAnalysis<'a, 'tcx> {
                 assert!(destination.projection.is_empty());
                 let local = destination.local;
                 self.locals
-                    .get_mut(&local)
+                    .get_mut(local)
                     .unwrap()
                     .add_assign(*destination, DataInfo::Computed);
             },
@@ -210,7 +168,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
         if let mir::VarDebugInfoContents::Place(place) = info.value {
             assert!(place.just_local());
             let local = place.local;
-            if let Some(local_info) = self.locals.get_mut(&local) {
+            if let Some(local_info) = self.locals.get_mut(local) {
                 let decl = &self.body.local_decls[local];
                 let drop = if !decl.ty.needs_drop(self.tcx.0, self.cx.0.param_env) {
                     DropKind::NonDrop
@@ -305,6 +263,6 @@ impl<'a, 'tcx> Visitor<'tcx> for MetaAnalysis<'a, 'tcx> {
             | Rvalue::CopyForDeref(_) => DataInfo::Computed,
         };
 
-        self.locals.get_mut(&local).unwrap().add_assign(*place, assign_info);
+        self.locals.get_mut(local).unwrap().add_assign(*place, assign_info);
     }
 }

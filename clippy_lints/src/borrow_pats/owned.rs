@@ -23,7 +23,7 @@ pub struct OwnedAnalysis<'a, 'tcx> {
 
 impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
     pub fn new(info: &'a AnalysisInfo<'tcx>, local: Local) -> Self {
-        let local_kind = &info.locals[&local].kind;
+        let local_kind = &info.locals[local].kind;
         let LocalKind::UserVar(_name, local_info) = local_kind else {
             unreachable!();
         };
@@ -327,7 +327,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     }
                 }
             } else if is_move {
-                match &self.info.locals[&target.local].kind {
+                match &self.info.locals[target.local].kind {
                     LocalKind::AnonVar => {
                         assert!(target.just_local());
                         self.states[bb].add_anon(target.local, place);
@@ -348,7 +348,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                     },
                 }
             } else {
-                match &self.info.locals[&target.local].kind {
+                match &self.info.locals[target.local].kind {
                     LocalKind::AnonVar => {
                         // This is nothing really interesting
                     },
@@ -474,7 +474,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
             && let Operand::Move(place) = op
         {
             if let Some(anon_places) = self.states[bb].remove_anon(place) {
-                match self.info.locals[&target.local].kind {
+                match self.info.locals[target.local].kind {
                     LocalKind::Return => {
                         let (is_all, is_part) = anon_places.place_props();
 
@@ -496,7 +496,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         assert!(place.just_local());
                         self.states[bb].add_anon_places(target.local, anon_places);
                     },
-                    LocalKind::Unused => unreachable!(),
                 }
             }
 
