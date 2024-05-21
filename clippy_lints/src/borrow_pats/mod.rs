@@ -44,7 +44,10 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::ops::ControlFlow;
+use std::path::{Path, PathBuf};
 
 use self::body::BodyContext;
 use borrowck::borrow_set::BorrowSet;
@@ -193,7 +196,7 @@ impl BorrowPats {
             dbg!(&info);
         }
         let (body_info, mut body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
-        
+
         if lint_level != Level::Allow {
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
@@ -262,13 +265,25 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     }
 
     fn check_crate_post(&mut self, _: &LateContext<'tcx>) {
-        if self.enabled {
+        let out_file = std::env::current_exe().unwrap().with_file_name("output.json");
+
+        let output = if self.enabled {
             let stats = std::mem::take(&mut self.stats);
             let serde = stats.into_serde();
-            println!("{OUTPUT_MARKER} {}", serde_json::to_string(&serde).unwrap());
+            let mut out = serde_json::to_string(&serde).unwrap();
+            out.push(',');
+            out
         } else {
-            println!(r#"{OUTPUT_MARKER} {{"Disabled due to feature usage"}} "#);
-        }
+            r#"{"Disabled due to feature usage"}, \n"#.to_string()
+        };
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open(out_file)
+            .unwrap();
+        file.write(output.as_bytes());
     }
 
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {

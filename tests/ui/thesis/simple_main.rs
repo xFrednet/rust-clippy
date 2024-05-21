@@ -13,10 +13,8 @@ struct Foo {
 fn example(mut var_1: HashSet<usize>) {
     // Example 1
     var_1.insert(var_1.len());
-    
 }
 
 fn function(_: &mut Bar, _: &mut Bar) {}
-
 
 fn main() {}

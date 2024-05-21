@@ -75,6 +75,7 @@ pub enum OwnedPat {
     /// The value is only assigned once and never read afterwards.
     #[expect(unused, reason = "This can't be reliably detected with MIR")]
     Unused,
+    A1,
     /// The value is dynamically dropped, meaning if it's still valid at a given location.
     /// See RFC: #320
     DynamicDrop,

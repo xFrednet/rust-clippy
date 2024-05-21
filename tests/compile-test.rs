@@ -269,7 +269,6 @@ fn run_ui_cargo() {
 }
 
 fn main() {
-
     // Support being run by cargo nextest - https://nexte.st/book/custom-test-harnesses.html
     if env::args().any(|arg| arg == "--list") {
         if !env::args().any(|arg| arg == "--ignored") {

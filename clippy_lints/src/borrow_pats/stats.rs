@@ -22,6 +22,9 @@ pub struct CrateStats {
 
 #[derive(Debug, serde::Serialize)]
 pub struct CrateStatsSerde {
+    krate: String,
+    version: String,
+    kind: String,
     aggregated_body_stats: BodyStats,
     body_ctn: usize,
     total_bb_ctn: usize,
@@ -89,7 +92,17 @@ impl CrateStats {
             .map(|((info, pat), ctn)| (info, pat, ctn))
             .collect();
 
+        let kind = if std::env::var("CARGO_MANIFEST_DIR").is_ok() {
+            "build-script"
+        } else if std::env::var("CARGO_BIN_NAME").is_ok() {
+            "bin"
+        } else {
+            "lib"
+        };
         CrateStatsSerde {
+            krate:         std::env::var("CARGO_CRATE_NAME").unwrap(),
+            version:         std::env::var("CARGO_PKG_VERSION").unwrap(),
+            kind: kind.to_string(),
             aggregated_body_stats,
             body_ctn,
             total_bb_ctn,

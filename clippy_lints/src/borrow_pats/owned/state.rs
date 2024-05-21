@@ -279,7 +279,10 @@ impl<'tcx> StateInfo<'tcx> {
         if place.just_local() {
             if is_override {
                 pats.insert(OwnedPat::Overwrite);
+            } else {
+                pats.insert(OwnedPat::A1);
             }
+
             // Regardless of the original state, we clear everything else
             self.clear(State::Filled);
         } else if place.is_part() {
