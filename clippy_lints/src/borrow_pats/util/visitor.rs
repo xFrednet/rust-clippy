@@ -133,9 +133,9 @@ pub fn construct_visit_order(
         if visited.contains(bb) {
             continue;
         }
-
+        
         let preds = &preds[bb];
-        if preds.iter().all(|x| visited.contains(*x)) {
+        if !preds.iter().all(|x| visited.contains(*x)) {
             // Not all prerequisites are fulfilled. This bb will be added again by the other branch
             continue;
         }

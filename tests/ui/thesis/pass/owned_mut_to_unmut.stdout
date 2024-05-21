@@ -1,29 +1,30 @@
 # "mut_move_to_immut"
-- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, Borrow, ArgBorrowMut, ModMutShadowUnmut}
-- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
+- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "init_with_mut_block"
-- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToVar, Borrow, ArgBorrowMut, ModMutShadowUnmut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
+- x2             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- x              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "mut_copy_to_immut_shadow"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {CopiedToVar, Overwrite, ModMutShadowUnmut}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - counter        : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "mut_copy_to_immut"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {CopiedToVar, Overwrite}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "mut_copy_to_immut_and_use_after"
-- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {CopiedToVar, Overwrite}
+- counter        : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - snapshot       : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "main"
-- s              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrowMut}
+- s              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":0,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":6,"total_bb_ctn":33,"total_local_ctn":46,"max_bb_ctn":10,"max_local_ctn":12,"owned_pats":[[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],2],[{"argument":false,"mutable":false,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],3],[{"argument":false,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],3],[{"argument":false,"mutable":true,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],3]],"body_pats":[[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],6]],"total_wrap":false}

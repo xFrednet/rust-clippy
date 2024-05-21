@@ -268,10 +268,7 @@ fn run_ui_cargo() {
     .unwrap();
 }
 
-#[expect(unreachable_code)]
 fn main() {
-    // Disable UI tests for CI
-    return;
 
     // Support being run by cargo nextest - https://nexte.st/book/custom-test-harnesses.html
     if env::args().any(|arg| arg == "--list") {

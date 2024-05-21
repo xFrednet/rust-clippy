@@ -6,6 +6,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -24,11 +25,12 @@
 # Relations for "direct_dep"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 1,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -47,11 +49,12 @@
 # Relations for "lifetime_dep"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 1,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -70,11 +73,12 @@
 # Relations for "lifetime_dep_more"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -93,11 +97,12 @@
 # Relations for "lifetime_dep_or"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 2,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -116,11 +121,12 @@
 # Relations for "lifetime_dep_const"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -139,11 +145,12 @@
 # Relations for "lifetime_dep_prim"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -162,11 +169,12 @@
 # Relations for "lifetime_outlives_middle_1"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -185,11 +193,12 @@
 # Relations for "lifetime_outlives_middle_2"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 2,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -208,11 +217,12 @@
 # Relations for "lifetime_outlives"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 2,
-    return_relations_found: 1,
+    return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -236,6 +246,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -259,6 +270,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -282,6 +294,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -302,9 +315,10 @@
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 1,
+    arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -328,6 +342,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -351,6 +366,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -371,9 +387,10 @@
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 1,
+    arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -394,9 +411,10 @@
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 1,
+    arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -411,8 +429,8 @@
 }
 - Called function relations: {
     bb0: {},
-    bb1: {},
     bb2: {},
+    bb1: {},
     bb3: {
         _13: [
             _14,
@@ -421,7 +439,6 @@
 }
 - Incompltete Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
-Connection from _1 to _2 was not confirmed
 # Relations for "test_mut_args_2"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 0,
@@ -430,6 +447,7 @@ Connection from _1 to _2 was not confirmed
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -452,9 +470,10 @@ Connection from _1 to _2 was not confirmed
     return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 1,
-    arg_relations_found: 1,
+    arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -484,6 +503,7 @@ Connection from _1 to _2 was not confirmed
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -507,6 +527,7 @@ Connection from _1 to _2 was not confirmed
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -520,66 +541,43 @@ Connection from _1 to _2 was not confirmed
     },
 }
 - Called function relations: {}
-- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
 # Relations for "test_return_regions_non_static_or_default"
 - Incompltete Stats: BodyStats {
     return_relations_signature: 1,
-    return_relations_found: 1,
-    arg_relations_signature: 0,
-    arg_relations_found: 0,
-    arg_relation_possibly_missed_due_generics: 0,
-    arg_relation_possibly_missed_due_to_late_bounds: 0,
-    owned: OwnedStats {
-        arg_borrow_count: 0,
-        arg_borrow_mut_count: 0,
-        arg_borrow_extended_count: 0,
-        arg_borrow_mut_extended_count: 0,
-        named_borrow_count: 0,
-        named_borrow_mut_count: 0,
-        borrowed_for_closure_count: 0,
-        borrowed_mut_for_closure_count: 0,
-        two_phased_borrows: 0,
-    },
-}
-- Called function relations: {
-    bb0: {},
-}
-- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
-
-# Relations for "test_return_static_tuple_for_non_static"
-- Incompltete Stats: BodyStats {
-    return_relations_signature: 1,
-    return_relations_found: 1,
-    arg_relations_signature: 0,
-    arg_relations_found: 0,
-    arg_relation_possibly_missed_due_generics: 0,
-    arg_relation_possibly_missed_due_to_late_bounds: 0,
-    owned: OwnedStats {
-        arg_borrow_count: 0,
-        arg_borrow_mut_count: 0,
-        arg_borrow_extended_count: 0,
-        arg_borrow_mut_extended_count: 0,
-        named_borrow_count: 0,
-        named_borrow_mut_count: 0,
-        borrowed_for_closure_count: 0,
-        borrowed_mut_for_closure_count: 0,
-        two_phased_borrows: 0,
-    },
-}
-- Called function relations: {
-    bb0: {},
-}
-- Incompltete Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
-
-# Relations for "test_return_static_tuple"
-- Incompltete Stats: BodyStats {
-    return_relations_signature: 0,
     return_relations_found: 0,
     arg_relations_signature: 0,
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
+    owned: OwnedStats {
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
+        two_phased_borrows: 0,
+    },
+}
+- Called function relations: {
+    bb0: {},
+}
+- Incompltete Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
+
+# Relations for "test_return_static_tuple_for_non_static"
+- Incompltete Stats: BodyStats {
+    return_relations_signature: 1,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -597,3 +595,30 @@ Connection from _1 to _2 was not confirmed
 }
 - Incompltete Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {}
 
+# Relations for "test_return_static_tuple"
+- Incompltete Stats: BodyStats {
+    return_relations_signature: 0,
+    return_relations_found: 0,
+    arg_relations_signature: 0,
+    arg_relations_found: 0,
+    arg_relation_possibly_missed_due_generics: 0,
+    arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
+    owned: OwnedStats {
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
+        arg_borrow_extended_count: 0,
+        arg_borrow_mut_extended_count: 0,
+        named_borrow_count: 0,
+        named_borrow_mut_count: 0,
+        borrowed_for_closure_count: 0,
+        borrowed_mut_for_closure_count: 0,
+        two_phased_borrows: 0,
+    },
+}
+- Called function relations: {
+    bb0: {},
+}
+- Incompltete Body: Output(Tuple)    , NotConst , Safe  , Sync , Free       {}
+
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":0,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":2,"total_bb_ctn":19,"total_local_ctn":55,"max_bb_ctn":18,"max_local_ctn":54,"owned_pats":[[{"argument":true,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],3],[{"argument":true,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"Tuple"},[],1],[{"argument":false,"mutable":false,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],1]],"body_pats":[[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],1],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],1]],"total_wrap":false}

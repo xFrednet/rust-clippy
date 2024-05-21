@@ -1,6 +1,6 @@
 # "temp_borrow_arg_1"
-- owned          : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow}
+- owned          : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -8,8 +8,9 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
-        arg_borrow_count: 2,
+        arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
@@ -22,8 +23,8 @@
 }
 
 # "temp_borrow_mut_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -31,9 +32,10 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
-        arg_borrow_mut_count: 3,
+        arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
@@ -45,8 +47,8 @@
 }
 
 # "temp_borrow_mixed_arg_1"
-- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
+- owned          : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -54,9 +56,10 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
-        arg_borrow_count: 2,
-        arg_borrow_mut_count: 1,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
@@ -68,8 +71,8 @@
 }
 
 # "temp_borrow_local_1"
-- owned          : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
+- owned          : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -77,8 +80,9 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
-        arg_borrow_count: 2,
+        arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
@@ -91,8 +95,8 @@
 }
 
 # "temp_borrow_mut_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -100,9 +104,10 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
-        arg_borrow_mut_count: 3,
+        arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
@@ -114,8 +119,8 @@
 }
 
 # "temp_borrow_mixed_local_1"
-- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow, HasTempBorrowMut}
+- owned          : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -123,9 +128,10 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
-        arg_borrow_count: 2,
-        arg_borrow_mut_count: 1,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
@@ -137,11 +143,11 @@
 }
 
 # "temp_borrow_mixed_mutltiple_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- b              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut}
-- c              : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow}
-- d              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowMut}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {HasTempBorrow, HasTempBorrowMut}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- b              : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- c              : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- d              : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 - Stats: BodyStats {
     return_relations_signature: 0,
     return_relations_found: 0,
@@ -149,9 +155,10 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
-        arg_borrow_count: 8,
-        arg_borrow_mut_count: 2,
+        arg_borrow_count: 0,
+        arg_borrow_mut_count: 0,
         arg_borrow_extended_count: 0,
         arg_borrow_mut_extended_count: 0,
         named_borrow_count: 0,
@@ -171,6 +178,7 @@
     arg_relations_found: 0,
     arg_relation_possibly_missed_due_generics: 0,
     arg_relation_possibly_missed_due_to_late_bounds: 0,
+    ref_stmt_ctn: 0,
     owned: OwnedStats {
         arg_borrow_count: 0,
         arg_borrow_mut_count: 0,
@@ -184,3 +192,4 @@
     },
 }
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":0,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":8,"total_bb_ctn":66,"total_local_ctn":70,"max_bb_ctn":22,"max_local_ctn":25,"owned_pats":[[{"argument":true,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],2],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],2],[{"argument":true,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],3],[{"argument":false,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],3]],"body_pats":[[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],4],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],4]],"total_wrap":false}

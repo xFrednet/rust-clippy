@@ -1,8 +1,9 @@
 # "call_extend_simple"
-- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, ArgBorrow, ArgBorrowExtended}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
+- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "call_extend_named"
-- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Borrow, NamedBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasNamedBorrow}
+- data           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":1,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":6,"total_bb_ctn":32,"total_local_ctn":36,"max_bb_ctn":15,"max_local_ctn":17,"owned_pats":[[{"argument":false,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],1],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],3]],"body_pats":[[{"return_ty":"Reference","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],1],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],4],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],1]],"total_wrap":false}

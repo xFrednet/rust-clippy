@@ -8,43 +8,43 @@
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "pat_return_owned_arg"
-- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {Moved, MovedToReturn}
+- animal         : (Immutable, Owned    , Argument, NonCopy, NonDrop , UserDef  ) {}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, Borrow, ArgBorrow}
-- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_1_test"
 - a              : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Primitive), NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_2"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, Borrow, ArgBorrow, ArgBorrowExtended, ConditionalMove}
-- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, ConditionalInit}
-- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pat_maybe_return_owned_arg_3"
-- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToVar, Borrow, ArgBorrow, ConditionalMove}
-- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToReturn, ConditionalInit}
-- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {HasTempBorrow}
+- a              : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
+- ret            : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {}
 
 # "pub_dynamic_drop_1"
-- animal         : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {DynamicDrop, Moved, MovedToFn, ManualDrop, ConditionalMove}
+- animal         : (Immutable, Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "conditional_overwrite"
-- animal         : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
+- animal         : (Mutable  , Owned    , Argument, NonCopy, PartDrop, UserDef  ) {}
 - cond           : (Immutable, Owned    , Argument, Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {}
 
 # "test_ctors"
-- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - _slice         : (Immutable, Owned    , Local   , NonCopy, PartDrop, Tuple    ) {}
-- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - _array         : (Immutable, Owned    , Local   , NonCopy, PartDrop, Sequence ) {}
-- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Moved, MovedToCtor}
+- s1             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - _thing         : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
@@ -52,3 +52,4 @@
 - dropper        : (Immutable, Owned    , Local   , NonCopy, SelfDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":0,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":15,"total_bb_ctn":93,"total_local_ctn":106,"max_bb_ctn":17,"max_local_ctn":36,"owned_pats":[[{"argument":true,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],4],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"SelfDrop","ty":"UserDef"},[],1],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"NonDrop","ty":"UserDef"},[],2],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"Tuple"},[],1],[{"argument":true,"mutable":false,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],3],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"Sequence"},[],1],[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],6],[{"argument":true,"mutable":false,"owned":true,"copy":false,"drop":"NonDrop","ty":"UserDef"},[],4],[{"argument":true,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],1]],"body_pats":[[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"TraitImpl"},[],1],[{"return_ty":"UserDef","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],4],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],5],[{"return_ty":"Primitive","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],1],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],3],[{"return_ty":"UserDef","is_const":false,"is_safe":true,"is_sync":true,"context":"TraitImpl"},["NoArguments"],1]],"total_wrap":false}

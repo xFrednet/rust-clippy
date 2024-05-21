@@ -1,44 +1,45 @@
 # "replace_self"
-- drop           : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Overwrite, DropForReplacement}
-- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {Overwrite}
+- drop           : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "conditional_replace_self"
-- drop           : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {Overwrite, ConditionalOverwride, ConditionalDrop, DropForReplacement}
-- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {Overwrite, ConditionalOverwride}
+- drop           : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- copy           : (Mutable  , Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "assign_copy_field"
-- ex             : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {OverwritePart}
+- ex             : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "assign_drop_field"
-- ex             : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {OverwritePart}
+- ex             : (Mutable  , Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "move_drop_field_to_var"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToVar}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - _hey           : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "copy_field"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {CopiedToVar}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - _hey           : (Immutable, Owned    , Local   , Copy   , NonDrop , Primitive) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "move_drop_field_as_arg"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToFn}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "return_drop_field"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartMoved, PartMovedToReturn}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
 - Body: Output(UserDef)  , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "borrow_field_as_arg"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartBorrow, PartArgBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasTempBorrow}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "borrow_field_into_var"
-- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {PartBorrow, PartNamedBorrow}
-- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments, HasNamedBorrow}
+- ex             : (Immutable, Owned    , Local   , NonCopy, PartDrop, UserDef  ) {}
+- Body: Output(Unit)     , NotConst , Safe  , Sync , Free       {NoArguments}
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":0,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":14,"total_bb_ctn":77,"total_local_ctn":46,"max_bb_ctn":14,"max_local_ctn":7,"owned_pats":[[{"argument":false,"mutable":false,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],7],[{"argument":false,"mutable":false,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],1],[{"argument":false,"mutable":true,"owned":true,"copy":false,"drop":"PartDrop","ty":"UserDef"},[],4],[{"argument":false,"mutable":true,"owned":true,"copy":true,"drop":"NonDrop","ty":"Primitive"},[],2]],"body_pats":[[{"return_ty":"UserDef","is_const":false,"is_safe":true,"is_sync":true,"context":"TraitImpl"},["NoArguments"],1],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],10],[{"return_ty":"UserDef","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],1],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],2]],"total_wrap":false}

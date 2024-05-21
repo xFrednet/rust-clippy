@@ -493,7 +493,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                         }
                     },
                     LocalKind::AnonVar => {
-                        assert!(place.just_local());
                         self.states[bb].add_anon_places(target.local, anon_places);
                     },
                 }

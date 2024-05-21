@@ -17,5 +17,6 @@
 - Body: Output(Reference), NotConst , Safe  , Sync , Free       {NoArguments}
 
 # "arg_or_default"
-- Body: Output(Reference), NotConst , Safe  , Sync , Free       {ReturnedStaticLoanForNonStatic}
+- Body: Output(Reference), NotConst , Safe  , Sync , Free       {}
 
+[THESIS-ANALYSIS-OUTPUT] {"aggregated_body_stats":{"return_relations_signature":1,"return_relations_found":0,"arg_relations_signature":0,"arg_relations_found":0,"arg_relation_possibly_missed_due_generics":0,"arg_relation_possibly_missed_due_to_late_bounds":0,"ref_stmt_ctn":0,"owned":{"arg_borrow_count":0,"arg_borrow_mut_count":0,"arg_borrow_extended_count":0,"arg_borrow_mut_extended_count":0,"named_borrow_count":0,"named_borrow_mut_count":0,"borrowed_for_closure_count":0,"borrowed_mut_for_closure_count":0,"two_phased_borrows":0}},"body_ctn":7,"total_bb_ctn":16,"total_local_ctn":18,"max_bb_ctn":6,"max_local_ctn":7,"owned_pats":[],"body_pats":[[{"return_ty":"Primitive","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],3],[{"return_ty":"Unit","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],1],[{"return_ty":"Reference","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},[],1],[{"return_ty":"Reference","is_const":false,"is_safe":true,"is_sync":true,"context":"Free"},["NoArguments"],2]],"total_wrap":false}

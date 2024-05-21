@@ -1,58 +1,22 @@
 //@rustc-env: CLIPPY_PRINT_MIR=1
+// #[forbid(clippy::borrow_pats)]
+use std::collections::HashSet;
 
-#![allow(unused)]
+struct Bar(u32);
 
-fn magic_1<T>(b: &T) {}
-fn magic_2<T>(b: &T, c: &T) {}
-
-fn print_mir() {
-    let a = if true {
-        let mut x = Vec::new();
-        x.push(1);
-        x
-    } else {
-        let mut y = Vec::new();
-        y.push(89);
-        y
-    };
+struct Foo {
+    field_1: Bar,
+    field_2: Bar,
 }
 
-struct A {
-    field: String,
+#[forbid(clippy::borrow_pats)]
+fn example(mut var_1: HashSet<usize>) {
+    // Example 1
+    var_1.insert(var_1.len());
+    
 }
 
-impl A {
-    fn borrow_field_direct(&self) -> &String {
-        &self.field
-    }
+fn function(_: &mut Bar, _: &mut Bar) {}
 
-    fn borrow_field_deref(&self) -> &str {
-        &self.field
-    }
-}
-
-// fn simple_ownership(cond: bool) {
-//     let a = String::new();
-//     let b = String::new();
-//
-//     let x;
-//     if cond {
-//         x = &a;
-//     } else {
-//         x = &b;
-//     }
-//
-//     magic_1(x);
-// }
-
-// fn if_fun(a: String, b: String, cond: bool) {
-//     if cond {
-//         magic_1(&a);
-//     } else {
-//         magic_1(&b);
-//     }
-//
-//     magic_1(if cond {&a} else {&b});
-// }
 
 fn main() {}

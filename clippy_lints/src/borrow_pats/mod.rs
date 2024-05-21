@@ -193,7 +193,7 @@ impl BorrowPats {
             dbg!(&info);
         }
         let (body_info, mut body_pats) = body::BodyAnalysis::run(&info, def_id, hir_sig, context);
-
+        
         if lint_level != Level::Allow {
             if self.print_call_relations {
                 println!("# Relations for {body_name:?}");
@@ -201,6 +201,7 @@ impl BorrowPats {
                 println!("- Called function relations: {:#?}", info.terms);
                 println!("- Incompltete Body: {body_info} {body_pats:?}");
                 println!();
+                panic!();
                 return;
             }
 
