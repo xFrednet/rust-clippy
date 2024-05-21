@@ -258,20 +258,16 @@ impl SimpleTyKind {
             ty::RawPtr(_, _) => SimpleTyKind::RawPtr,
 
             ty::FnDef(_, _) | ty::FnPtr(_) => SimpleTyKind::Fn,
-            ty::Closure(_, _) => SimpleTyKind::Closure,
+            ty::CoroutineClosure(_, _) | ty::Coroutine(_, _) | ty::CoroutineWitness(_, _) | ty::Closure(_, _) => {
+                SimpleTyKind::Closure
+            },
 
             ty::Alias(ty::AliasKind::Opaque, _) | ty::Dynamic(_, _, _) => SimpleTyKind::TraitObj,
 
             ty::Param(_) => SimpleTyKind::Generic,
             ty::Bound(_, _) | ty::Alias(_, _) => SimpleTyKind::Idk,
 
-            ty::CoroutineClosure(_, _)
-            | ty::Coroutine(_, _)
-            | ty::CoroutineWitness(_, _)
-            | ty::Placeholder(_)
-            | ty::Infer(_)
-            | ty::Error(_)
-            | ty::Pat(_, _) => unreachable!("{ty:#?}"),
+            ty::Placeholder(_) | ty::Infer(_) | ty::Error(_) | ty::Pat(_, _) => unreachable!("{ty:#?}"),
         }
     }
 }

@@ -1,8 +1,0 @@
-[crates]
-syn = { name = 'syn', versions = ['2.0.65'] }
-bitflags = { name = 'bitflags', versions = ['2.5.0'] }
-hashbrown = { name = 'hashbrown', versions = ['0.14.5'] }
-regex-syntax = { name = 'regex-syntax', versions = ['0.8.3'] }
-base64 = { name = 'base64', versions = ['0.22.1'] }
-proc-macro2 = { name = 'proc-macro2', versions = ['1.0.83'] }
-indexmap = { name = 'indexmap', versions = ['2.2.6'] }

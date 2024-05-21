@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! In `--recursive` mode we set the `lintcheck` binary as the `RUSTC_WRAPPER` of `cargo check`,
 //! this allows [`crate::driver`] to be run for every dependency. The driver connects to
 //! [`LintcheckServer`] to ask if it should be skipped, and if not sends the stderr of running

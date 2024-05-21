@@ -265,7 +265,16 @@ impl<'tcx> LateLintPass<'tcx> for BorrowPats {
     }
 
     fn check_crate_post(&mut self, _: &LateContext<'tcx>) {
-        let out_file = std::env::current_exe().unwrap().with_file_name("output.json");
+        let out_file = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("analysis")
+            .join("out.json");
 
         let output = if self.enabled {
             let stats = std::mem::take(&mut self.stats);

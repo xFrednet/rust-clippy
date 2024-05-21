@@ -407,6 +407,9 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 if place.local != self.local {
                     continue;
                 }
+                if place.is_indirect() {
+                    continue;
+                }
 
                 if place.just_local() {
                     self.pats.insert(OwnedPat::Moved);
@@ -429,7 +432,9 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             unreachable!("{target:#?} = {place:#?}");
                         }
                     },
-                    mir::AggregateKind::Closure(_, _) => {
+                    mir::AggregateKind::Coroutine(_, _)
+                    | mir::AggregateKind::CoroutineClosure(_, _)
+                    | mir::AggregateKind::Closure(_, _) => {
                         if place.just_local() {
                             self.pats.insert(OwnedPat::MovedToClosure);
                         } else if place.is_part() {
@@ -438,7 +443,6 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                             unreachable!("{target:#?} = {place:#?}");
                         }
                     },
-                    mir::AggregateKind::Coroutine(_, _) | mir::AggregateKind::CoroutineClosure(_, _) => unreachable!(),
                     mir::AggregateKind::RawPtr(_, _) => {},
                 }
             }
@@ -465,7 +469,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
         }
     }
     fn visit_assign_to_self(&mut self, target: &Place<'tcx>, _rval: &Rvalue<'tcx>, bb: BasicBlock) {
-        assert!(target.just_local());
+        // assert!(target.just_local());
 
         self.states[bb].add_assign(*target, &mut self.pats);
     }
@@ -848,7 +852,7 @@ impl<'a, 'tcx> OwnedAnalysis<'a, 'tcx> {
                 {
                     // FIXME: I believe this can never be true, since int is
                     // copy and therefore never tracked in anons
-                    unreachable!();
+                    // unreachable!();
                 }
             },
             TerminatorKind::Drop { place, .. } => {

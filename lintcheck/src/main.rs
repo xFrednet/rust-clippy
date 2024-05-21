@@ -21,6 +21,7 @@ mod recursive;
 use crate::config::LintcheckConfig;
 use crate::recursive::LintcheckServer;
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::env::consts::EXE_SUFFIX;
 use std::fmt::{self, Write as _};
@@ -28,14 +29,17 @@ use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{env, fs, thread};
 
 use cargo_metadata::diagnostic::Diagnostic;
 use cargo_metadata::Message;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use walkdir::{DirEntry, WalkDir};
+
+thread_local! {
+    static LAST_FETCH: Cell<Instant> = Cell::from(Instant::now());
+}
 
 const LINTCHECK_DOWNLOADS: &str = "target/lintcheck/downloads";
 const LINTCHECK_SOURCES: &str = "target/lintcheck/sources";
@@ -197,7 +201,13 @@ fn get(path: &str) -> Result<ureq::Response, ureq::Error> {
             Err(e) => return Err(e),
         }
         eprintln!("retrying in {retries} seconds...");
-        thread::sleep(Duration::from_secs(u64::from(retries)));
+
+        let since = LAST_FETCH.with(|last| last.get()).elapsed();
+        if since.as_secs() < 1 {
+            thread::sleep(Duration::from_secs(1));
+        }
+        LAST_FETCH.set(Instant::now());
+
         retries += 1;
     }
 }
@@ -232,6 +242,7 @@ impl CrateSource {
                     let mut archive = tar::Archive::new(ungz_tar);
                     archive.unpack(&extract_dir).expect("Failed to extract!");
                 }
+                thread::sleep(Duration::from_secs(1));
                 // crate is extracted, return a new Krate object which contains the path to the extracted
                 // sources that clippy can check
                 Crate {
@@ -632,7 +643,14 @@ fn main() {
         })
         .collect();
 
-    let crates: Vec<Crate> = crates
+    let server = config.recursive.then(|| {
+        let _: io::Result<()> = fs::remove_dir_all("target/lintcheck/shared_target_dir/recursive");
+
+        LintcheckServer::spawn(recursive_options)
+    });
+
+    let crates_len = crates.len();
+    let clippy_entries: Vec<_> = crates
         .into_iter()
         .filter(|krate| {
             if let Some(only_one_crate) = &config.only {
@@ -648,16 +666,18 @@ fn main() {
             }
         })
         .map(|krate| krate.download_and_extract())
+        .flat_map(|krate| {
+            krate.run_clippy_lints(
+                &cargo_clippy_path,
+                &clippy_driver_path,
+                &counter,
+                crates_len,
+                &config,
+                &lint_filter,
+                &server,
+            )
+        })
         .collect();
-
-    if crates.is_empty() {
-        eprintln!(
-            "ERROR: could not find crate '{}' in lintcheck/lintcheck_crates.toml",
-            config.only.unwrap(),
-        );
-        std::process::exit(1);
-    }
-
     // run parallel with rayon
 
     // This helps when we check many small crates with dep-trees that don't have a lot of branches in
@@ -667,33 +687,6 @@ fn main() {
         .num_threads(config.max_jobs)
         .build_global()
         .unwrap();
-
-    let server = config.recursive.then(|| {
-        let _: io::Result<()> = fs::remove_dir_all("target/lintcheck/shared_target_dir/recursive");
-
-        LintcheckServer::spawn(recursive_options)
-    });
-
-    let mut clippy_entries: Vec<ClippyCheckOutput> = crates
-        .par_iter()
-        .flat_map(|krate| {
-            krate.run_clippy_lints(
-                &cargo_clippy_path,
-                &clippy_driver_path,
-                &counter,
-                crates.len(),
-                &config,
-                &lint_filter,
-                &server,
-            )
-        })
-        .collect();
-
-    if let Some(server) = server {
-        let server_clippy_entries = server.warnings().map(ClippyCheckOutput::ClippyWarning);
-
-        clippy_entries.extend(server_clippy_entries);
-    }
 
     // if we are in --fix mode, don't change the log files, terminate here
     if config.fix {

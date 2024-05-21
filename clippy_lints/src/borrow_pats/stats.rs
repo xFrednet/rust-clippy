@@ -100,8 +100,8 @@ impl CrateStats {
             "lib"
         };
         CrateStatsSerde {
-            krate:         std::env::var("CARGO_CRATE_NAME").unwrap(),
-            version:         std::env::var("CARGO_PKG_VERSION").unwrap(),
+            krate: std::env::var("CARGO_CRATE_NAME").unwrap(),
+            version: std::env::var("CARGO_PKG_VERSION").unwrap(),
             kind: kind.to_string(),
             aggregated_body_stats,
             body_ctn,

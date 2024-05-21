@@ -285,12 +285,14 @@ impl<'tcx> StateInfo<'tcx> {
 
             // Regardless of the original state, we clear everything else
             self.clear(State::Filled);
+        } else if place.is_indirect() {
+            return;
         } else if place.is_part() {
             if is_override {
                 pats.insert(OwnedPat::OverwritePart);
             }
         } else {
-            unreachable!();
+            unreachable!("{place:#?}, {:#?} {:?}", place.projection, place.projection.len());
         }
     }
 
