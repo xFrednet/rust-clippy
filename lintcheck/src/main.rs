@@ -53,6 +53,8 @@ struct Crate {
     // path to the extracted sources that clippy can check
     path: PathBuf,
     options: Option<Vec<String>>,
+    #[expect(dead_code)]
+    file_link: String,
 }
 
 impl Crate {
