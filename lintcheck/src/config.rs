@@ -30,8 +30,13 @@ pub(crate) struct LintcheckConfig {
     /// Only process a single crate on the list
     #[clap(long, value_name = "CRATE")]
     pub only: Option<String>,
-    /// Runs cargo clippy --fix and checks if all suggestions apply
-    #[clap(long, conflicts_with("max_jobs"))]
+    /// Runs cargo clippy --fix and checks if all suggestions apply.
+    #[clap(
+        long,
+        conflicts_with("max_jobs"),
+        conflicts_with("warn_all"),
+        conflicts_with("recursive")
+    )]
     pub fix: bool,
     /// Apply a filter to only collect specified lints, this also overrides `allow` attributes
     #[clap(long = "filter", value_name = "clippy_lint_name", use_value_delimiter = true)]

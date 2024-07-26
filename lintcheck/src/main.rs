@@ -116,11 +116,36 @@ impl Crate {
         clippy_args.extend(lint_levels_args.iter().map(String::as_str));
 
         let mut cmd = Command::new("cargo");
-        cmd.arg(if config.fix { "fix" } else { "check" })
-            .arg("--quiet")
+
+        if config.fix {
+            cmd.arg("fix");
+            cmd.arg("--allow-no-vcs");
+            // Fix should never be run in combination with `--recursive`. This
+            // should never happen as the CLI flags conflict, but you know life.
+            assert!(
+                server.is_none(),
+                "--fix was combined with `--recursive`. Server: {server:#?}"
+            );
+        } else {
+            cmd.arg("check");
+            cmd.arg("--message-format=json");
+        }
+
+        // It turns out that `cargo fix` by default runs all tests, benchmarks,
+        // and examples. This is different from `cargo check` which only runs the
+        // main packages. The `--tests` works for both `cargo fix` and `cargo check`
+        // to indicate that only the main packages and tests should be processed.
+        // This unifies the behavior between the different lintcheck modes.
+        //
+        // It also makes sense to include tests either way, since some Clippy lints
+        // have custom behavior in test code.
+        cmd.arg("--tests");
+
+        cmd.arg("--quiet")
             .current_dir(&self.path)
             .env("CLIPPY_ARGS", clippy_args.join("__CLIPPY_HACKERY__"));
 
+        // This is only used for `--recursive`
         if let Some(server) = server {
             // `cargo clippy` is a wrapper around `cargo check` that mainly sets `RUSTC_WORKSPACE_WRAPPER` to
             // `clippy-driver`. We do the same thing here with a couple changes:
@@ -144,10 +169,6 @@ impl Crate {
 
             return Vec::new();
         };
-
-        if !config.fix {
-            cmd.arg("--message-format=json");
-        }
 
         let shared_target_dir = shared_target_dir(&format!("_{thread_index:?}"));
         let all_output = cmd
