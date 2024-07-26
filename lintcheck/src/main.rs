@@ -55,6 +55,16 @@ struct Crate {
     path: PathBuf,
     options: Option<Vec<String>>,
     base_url: String,
+    mode: Option<CheckMode>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, Ord, PartialOrd, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum CheckMode {
+    Bin,
+    Lib,
+    Tests,
+    All,
 }
 
 impl Crate {
@@ -131,15 +141,25 @@ impl Crate {
             cmd.arg("--message-format=json");
         }
 
-        // It turns out that `cargo fix` by default runs all tests, benchmarks,
-        // and examples. This is different from `cargo check` which only runs the
-        // main packages. The `--tests` works for both `cargo fix` and `cargo check`
-        // to indicate that only the main packages and tests should be processed.
-        // This unifies the behavior between the different lintcheck modes.
+        // It turns out that `cargo fix` by default uses `--all-targets`. This is
+        // on contrast to `cargo check`. (See rust-lang/cargo#13527). Sadly, there
+        // is currently no simple way to opt out of this.
         //
-        // It also makes sense to include tests either way, since some Clippy lints
-        // have custom behavior in test code.
-        cmd.arg("--tests");
+        // We can also not just default to `--tests` or something uniform, as those
+        // don't always compile and almost doubles the run times.
+        //
+        // The "simple" solution is to require a mode when running rustfix. This is
+        // turned into a flag like `--bins`, `--lib` etc.
+        if let Some(mode) = self.mode {
+            cmd.arg(mode.as_arg());
+        } else if config.fix {
+            eprintln!(
+                "\n\
+                WARNING: `--fix` requires the mode to be specified.\n\
+                |        Try adding a mode to the specified crate\n"
+            );
+            return Vec::new();
+        }
 
         cmd.arg("--quiet")
             .current_dir(&self.path)
@@ -224,6 +244,17 @@ impl Crate {
         }
 
         entries
+    }
+}
+
+impl CheckMode {
+    fn as_arg(self) -> &'static str {
+        match self {
+            Self::Bin => "--bins",
+            Self::Lib => "--lib",
+            Self::Tests => "--tests",
+            Self::All => "--all-targets",
+        }
     }
 }
 

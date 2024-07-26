@@ -8,7 +8,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use walkdir::{DirEntry, WalkDir};
 
-use crate::{Crate, LINTCHECK_DOWNLOADS, LINTCHECK_SOURCES};
+use crate::{CheckMode, Crate, LINTCHECK_DOWNLOADS, LINTCHECK_SOURCES};
 
 const DEFAULT_DOCS_LINK: &str = "https://docs.rs/{krate}/{version}/src/{krate_}/{file}.html#{line}";
 const DEFAULT_GITHUB_LINK: &str = "{url}/blob/{hash}/src/{file}#L{line}";
@@ -37,6 +37,7 @@ struct TomlCrate {
     git_hash: Option<String>,
     path: Option<String>,
     options: Option<Vec<String>>,
+    mode: Option<CheckMode>,
     /// Magic values:
     /// * `{krate}` will be replaced by `self.name`
     /// * `{krate_}` will be replaced by `self.name` with all `-` replaced by `_`
@@ -79,9 +80,10 @@ impl TomlCrate {
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct CrateWithSource {
     pub name: String,
-    pub source: CrateSource,
-    pub file_link: String,
-    pub options: Option<Vec<String>>,
+    source: CrateSource,
+    file_link: String,
+    options: Option<Vec<String>>,
+    mode: Option<CheckMode>,
 }
 
 #[derive(Debug, Deserialize, Eq, Hash, PartialEq, Ord, PartialOrd)]
@@ -112,6 +114,7 @@ pub fn read_crates(toml_path: &Path) -> (Vec<CrateWithSource>, RecursiveOptions)
                 },
                 file_link: tk.file_link(DEFAULT_PATH_LINK),
                 options: tk.options.clone(),
+                mode: tk.mode,
             });
         } else if let Some(ref version) = tk.version {
             crate_sources.push(CrateWithSource {
@@ -121,6 +124,7 @@ pub fn read_crates(toml_path: &Path) -> (Vec<CrateWithSource>, RecursiveOptions)
                 },
                 file_link: tk.file_link(DEFAULT_DOCS_LINK),
                 options: tk.options.clone(),
+                mode: tk.mode,
             });
         } else if tk.git_url.is_some() && tk.git_hash.is_some() {
             // otherwise, we should have a git source
@@ -132,6 +136,7 @@ pub fn read_crates(toml_path: &Path) -> (Vec<CrateWithSource>, RecursiveOptions)
                 },
                 file_link: tk.file_link(DEFAULT_GITHUB_LINK),
                 options: tk.options.clone(),
+                mode: tk.mode,
             });
         } else {
             panic!("Invalid crate source: {tk:?}");
@@ -199,6 +204,7 @@ impl CrateWithSource {
         let name = &self.name;
         let options = &self.options;
         let file_link = &self.file_link;
+        let mode = self.mode;
         match &self.source {
             CrateSource::CratesIo { version } => {
                 let extract_dir = PathBuf::from(LINTCHECK_SOURCES);
@@ -232,6 +238,7 @@ impl CrateWithSource {
                     path: extract_dir.join(format!("{name}-{version}/")),
                     options: options.clone(),
                     base_url: file_link.clone(),
+                    mode,
                 }
             },
             CrateSource::Git { url, commit } => {
@@ -274,6 +281,7 @@ impl CrateWithSource {
                     path: repo_path,
                     options: options.clone(),
                     base_url: file_link.clone(),
+                    mode,
                 }
             },
             CrateSource::Path { path } => {
@@ -314,6 +322,7 @@ impl CrateWithSource {
                     path: dest_crate_root,
                     options: options.clone(),
                     base_url: file_link.clone(),
+                    mode,
                 }
             },
         }
