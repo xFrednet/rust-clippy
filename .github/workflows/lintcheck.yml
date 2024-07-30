@@ -132,3 +132,46 @@ jobs:
         path: |
           full_diff.md
           truncated_diff.md
+
+  # Run lintcheck in fix mode to check that all suggestions are good. This only
+  # runs on `clippy::all` + `clippy::pedantic` as lints and suggestions from these
+  # categories generally not conflict and overlap.
+  fix:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    # HEAD is the generated merge commit `refs/pull/N/merge` between the PR and `master`, `HEAD^`
+    # being the commit from `master` that is the base of the merge
+    - name: Checkout base
+      run: git checkout HEAD^
+
+    # Use the lintcheck from the PR to generate the JSON in case the PR modifies lintcheck in some
+    # way
+    - name: Checkout current lintcheck
+      run: |
+        rm -rf lintcheck
+        git checkout ${{ github.sha }} -- lintcheck
+
+    - name: Cache lintcheck bin
+      id: cache-lintcheck-bin
+      uses: actions/cache@v4
+      with:
+        path: target/debug/lintcheck
+        key: lintcheck-bin-${{ hashfiles('lintcheck/**') }}
+
+    - name: Build lintcheck
+      if: steps.cache-lintcheck-bin.outputs.cache-hit != 'true'
+      run: cargo build --manifest-path=lintcheck/Cargo.toml
+
+    - name: Create cache key
+      id: key
+      run: echo "key=lintcheck-base-${{ hashfiles('lintcheck/**') }}-$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Run lintcheck
+      if: steps.cache-json.outputs.cache-hit != 'true'
+      run: ./target/debug/lintcheck --crates-toml ./lintcheck/ci_crates.toml --fix
