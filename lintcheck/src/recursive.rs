@@ -79,6 +79,7 @@ fn process_stream(
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct LintcheckServer {
     pub local_addr: SocketAddr,
     receiver: Receiver<ClippyWarning>,
