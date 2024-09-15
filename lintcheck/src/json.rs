@@ -93,6 +93,8 @@ pub(crate) fn diff(old_path: &Path, new_path: &Path, truncate: bool) {
         }
     }
 
+    println!();
+    println!();
     print_summary_table(&lint_warnings);
     println!();
 

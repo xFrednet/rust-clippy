@@ -55,6 +55,16 @@ struct Crate {
     path: PathBuf,
     options: Option<Vec<String>>,
     base_url: String,
+    mode: Option<CheckMode>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, Ord, PartialOrd, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum CheckMode {
+    Bin,
+    Lib,
+    Tests,
+    All,
 }
 
 impl Crate {
@@ -116,12 +126,47 @@ impl Crate {
         clippy_args.extend(lint_levels_args.iter().map(String::as_str));
 
         let mut cmd = Command::new("cargo");
-        cmd.arg(if config.fix { "fix" } else { "check" })
-            .arg("--quiet")
+
+        if config.fix {
+            cmd.arg("fix");
+            cmd.arg("--allow-no-vcs");
+            // Fix should never be run in combination with `--recursive`. This
+            // should never happen as the CLI flags conflict, but you know life.
+            assert!(
+                server.is_none(),
+                "--fix was combined with `--recursive`. Server: {server:#?}"
+            );
+        } else {
+            cmd.arg("check");
+            cmd.arg("--message-format=json");
+        }
+
+        // It turns out that `cargo fix` by default uses `--all-targets`. This is
+        // on contrast to `cargo check`. (See rust-lang/cargo#13527). Sadly, there
+        // is currently no simple way to opt out of this.
+        //
+        // We can also not just default to `--tests` or something uniform, as those
+        // don't always compile and almost doubles the run times.
+        //
+        // The "simple" solution is to require a mode when running rustfix. This is
+        // turned into a flag like `--bins`, `--lib` etc.
+        if let Some(mode) = self.mode {
+            cmd.arg(mode.as_arg());
+        } else if config.fix {
+            eprintln!(
+                "\n\
+                WARNING: `--fix` requires the mode to be specified.\n\
+                |        Try adding a mode to the specified crate\n"
+            );
+            return Vec::new();
+        }
+
+        cmd.arg("--quiet")
             .current_dir(&self.path)
             .env("CLIPPY_ARGS", clippy_args.join("__CLIPPY_HACKERY__"))
             .env("CLIPPY_DISABLE_DOCS_LINKS", "1");
 
+        // This is only used for `--recursive`
         if let Some(server) = server {
             // `cargo clippy` is a wrapper around `cargo check` that mainly sets `RUSTC_WORKSPACE_WRAPPER` to
             // `clippy-driver`. We do the same thing here with a couple changes:
@@ -145,10 +190,6 @@ impl Crate {
 
             return Vec::new();
         };
-
-        if !config.fix {
-            cmd.arg("--message-format=json");
-        }
 
         let shared_target_dir = shared_target_dir(&format!("_{thread_index:?}"));
         let all_output = cmd
@@ -204,6 +245,17 @@ impl Crate {
         }
 
         entries
+    }
+}
+
+impl CheckMode {
+    fn as_arg(self) -> &'static str {
+        match self {
+            Self::Bin => "--bins",
+            Self::Lib => "--lib",
+            Self::Tests => "--tests",
+            Self::All => "--all-targets",
+        }
     }
 }
 
